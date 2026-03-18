@@ -62,12 +62,13 @@
     "jsdom": "^29.0.0",
     "rollup-plugin-visualizer": "^7.0.1",
     "tailwindcss": "4.1.12",
+    "vercel": "^50.33.1",
     "vite": "6.3.5",
     "vitest": "^4.1.0"
   },
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "node -e \"console.log('[build] VITE_SUPABASE_URL present:', !!process.env.VITE_SUPABASE_URL)\" && vite build",
     "preview": "vite build && vite preview",
     "analyze": "vite build --mode analyze",
     "test": "vitest",

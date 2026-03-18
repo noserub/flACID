@@ -5,7 +5,13 @@
   import { visualizer } from 'rollup-plugin-visualizer';
   import path from 'path';
 
-  export default defineConfig(({ mode }) => ({
+  export default defineConfig(({ mode }) => {
+    // Explicitly inject Supabase env from process.env so Vercel (and other platforms)
+    // reliably provide them at build time.
+    const supabaseUrl = process.env.VITE_SUPABASE_URL ?? '';
+    const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY ?? '';
+
+    return {
     plugins: [
       react(),
       tailwindcss(),
@@ -16,6 +22,10 @@
           open: true,
         }),
     ].filter(Boolean),
+    define: {
+      'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(supabaseUrl),
+      'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(supabaseAnonKey),
+    },
     resolve: {
       extensions: ['.js', '.jsx', '.ts', '.tsx', '.json'],
       alias: {
@@ -91,4 +101,5 @@
       environment: 'jsdom',
       setupFiles: ['./src/testSetup.ts'],
     },
-  }));
+  };
+  });
