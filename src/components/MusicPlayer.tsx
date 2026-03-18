@@ -66,98 +66,54 @@ export function MusicPlayer() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
-  const sourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null);
 
-  // Setup audio context and analyser once
+  // AudioContext/analyser for visualizer only. We do NOT connect the audio element to the
+  // context so that cross-origin URLs (e.g. Supabase Storage) can play sound; connecting
+  // would require CORS and causes "MediaElementAudioSource outputs zeroes".
   useEffect(() => {
-    if (!audioRef.current) return;
-
-    // Check if already initialized
-    if (audioContextRef.current && analyserRef.current) {
-      console.log('Audio context already initialized, skipping...');
-      return;
-    }
-
+    if (audioContextRef.current && analyserRef.current) return;
     const AudioContextConstructor = window.AudioContext ?? (window as Window & { webkitAudioContext?: typeof window.AudioContext }).webkitAudioContext;
-    if (!AudioContextConstructor) throw new Error('AudioContext not supported');
-    const audioContext = new AudioContextConstructor();
-    const analyser = audioContext.createAnalyser();
+    if (!AudioContextConstructor) return;
+    const ctx = new AudioContextConstructor();
+    const analyser = ctx.createAnalyser();
     analyser.fftSize = 2048;
-
-    try {
-      const source = audioContext.createMediaElementSource(audioRef.current);
-      source.connect(analyser);
-      analyser.connect(audioContext.destination);
-
-      audioContextRef.current = audioContext;
-      analyserRef.current = analyser;
-      sourceNodeRef.current = source;
-      
-      console.log('Audio context and analyser created successfully');
-    } catch (error) {
-      console.error('Failed to create audio source:', error);
-      // If already connected, just set up the analyser without creating a new source
-      if (error instanceof DOMException && error.name === 'InvalidStateError') {
-        console.log('Audio element already connected, using existing connection');
-        audioContextRef.current = audioContext;
-        analyserRef.current = analyser;
-      }
-    }
-
-    // Cleanup on unmount
+    audioContextRef.current = ctx;
+    analyserRef.current = analyser;
+    console.log('Audio context and analyser created successfully');
     return () => {
-      if (sourceNodeRef.current) {
-        try {
-          sourceNodeRef.current.disconnect();
-        } catch (e) {
-          // Ignore if already disconnected
-        }
-      }
-      if (analyserRef.current) {
-        try {
-          analyserRef.current.disconnect();
-        } catch (e) {
-          // Ignore if already disconnected
-        }
-      }
-      if (audioContextRef.current) {
-        // Only close if not already closed
-        if (audioContextRef.current.state !== 'closed') {
-          audioContextRef.current.close();
-        }
-      }
+      try {
+        if (analyserRef.current) analyserRef.current.disconnect();
+      } catch (_) {}
+      if (audioContextRef.current?.state !== 'closed') audioContextRef.current?.close();
     };
-  }, []); // Only run once on mount
+  }, []);
 
-  // Update audio source when track changes or tracks array updates
+  // Track URL for stable effect deps (avoids reload loop when tracks array reference changes)
+  const currentTrackUrl = tracks[currentTrack]?.url?.trim() ?? '';
+  const currentTrackData = tracks[currentTrack];
+
+  // Update audio source when track index or track URL changes
   useEffect(() => {
     setIsAudioReady(false);
     setIsPlaying(false);
-    
-    if (audioRef.current && tracks[currentTrack]) {
-      const track = tracks[currentTrack];
-      // Only load audio if URL exists and is valid
-      if (track.url && track.url.trim()) {
-        // Clear previous source first
-        audioRef.current.pause();
-        audioRef.current.currentTime = 0;
-        audioRef.current.src = track.url;
-        audioRef.current.load();
-        console.log(`Loading track: ${track.title}`, track.url.substring(0, 50) + '...');
-      } else {
-        // Clear audio source to prevent loading errors
-        audioRef.current.pause();
-        audioRef.current.removeAttribute('src');
-        audioRef.current.load(); // Reset the element
-        
-        // Fallback to duration from metadata if no audio file
-        const parsedDuration = parseDuration(track.duration);
-        setDuration(parsedDuration);
-        setCurrentTime(0);
-        console.log(`No audio file for track: ${track.title}`);
-      }
+    if (!audioRef.current || !currentTrackData) return;
+
+    if (currentTrackUrl) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current.removeAttribute('crossOrigin');
+      audioRef.current.src = currentTrackData.url;
+      audioRef.current.load();
+      console.log(`Loading track: ${currentTrackData.title}`, currentTrackUrl.substring(0, 50) + '...');
+    } else {
+      audioRef.current.pause();
+      audioRef.current.removeAttribute('src');
+      audioRef.current.load();
+      setDuration(parseDuration(currentTrackData.duration));
+      setCurrentTime(0);
+      console.log(`No audio file for track: ${currentTrackData.title}`);
     }
-  }, [currentTrack, tracks]);
+  }, [currentTrack, currentTrackUrl]);
 
   // Handle play/pause
   useEffect(() => {
@@ -236,6 +192,12 @@ export function MusicPlayer() {
     }
   };
 
+  const resumeAudioContextIfNeeded = () => {
+    if (audioContextRef.current?.state === 'suspended') {
+      audioContextRef.current.resume();
+    }
+  };
+
   const togglePlay = () => {
     const track = tracks[currentTrack];
     if (!track.url) {
@@ -249,7 +211,8 @@ export function MusicPlayer() {
       audioRef.current.load();
       return;
     }
-    
+    // Resume AudioContext on user gesture so sound is output (browser autoplay policy)
+    resumeAudioContextIfNeeded();
     setIsPlaying(!isPlaying);
   };
 
@@ -259,9 +222,8 @@ export function MusicPlayer() {
       setIsPlaying(false);
       setCurrentTime(0);
       setCurrentTrack(currentTrack + 1);
-      
-      // Auto-play if next track has audio
       if (nextTrack.url) {
+        resumeAudioContextIfNeeded();
         setShouldAutoPlay(true);
       }
     }
@@ -273,9 +235,8 @@ export function MusicPlayer() {
       setIsPlaying(false);
       setCurrentTime(0);
       setCurrentTrack(currentTrack - 1);
-      
-      // Auto-play if previous track has audio
       if (prevTrack.url) {
+        resumeAudioContextIfNeeded();
         setShouldAutoPlay(true);
       }
     }
@@ -307,23 +268,17 @@ export function MusicPlayer() {
 
   const selectTrack = (index: number) => {
     const track = tracks[index];
-    
     if (!track.url) {
-      // If no audio URL, just switch track without playing
       setCurrentTrack(index);
       setCurrentTime(0);
       setIsPlaying(false);
       return;
     }
-    
-    // Stop current playback
     setIsPlaying(false);
     setCurrentTime(0);
-    
-    // Change track and request auto-play once ready
     setCurrentTrack(index);
+    resumeAudioContextIfNeeded();
     setShouldAutoPlay(true);
-    
     console.log(`Playlist selection: ${track.title} - Auto-play queued`);
   };
 
@@ -491,7 +446,7 @@ export function MusicPlayer() {
             >
               <PsychedelicVisualizer 
                 key="fullscreen-visualizer"
-                analyser={analyserRef.current} 
+                analyser={null}
                 isPlaying={isPlaying} 
                 currentTrack={currentTrack}
                 visualizationId={tracks[currentTrack]?.visualizationId}
@@ -616,7 +571,7 @@ export function MusicPlayer() {
         <div className="relative h-64 md:h-96 bg-gradient-to-br from-cyan-900/20 to-fuchsia-900/20">
           <PsychedelicVisualizer 
             key="normal-visualizer"
-            analyser={analyserRef.current} 
+            analyser={null} 
             isPlaying={isPlaying} 
             currentTrack={currentTrack}
             visualizationId={tracks[currentTrack]?.visualizationId}

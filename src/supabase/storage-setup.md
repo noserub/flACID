@@ -94,6 +94,10 @@ CREATE POLICY "Authenticated users can delete photos"
   USING (bucket_id = 'photos');
 ```
 
+## CORS (Music player / Web Audio API)
+
+The music player uses the Web Audio API (AnalyserNode) with audio from Supabase Storage. The app sets `crossOrigin = 'anonymous'` on the audio element so the browser can use the response with the analyser. Supabase Storage public URLs typically send CORS headers that allow cross-origin GET. If you see "MediaElementAudioSource outputs zeroes due to CORS access restrictions" in the console, ensure your app's origin (e.g. `https://your-site.vercel.app`) is allowed in Supabase: **Project Settings → API** (or Storage CORS if available) and that the `audio` bucket is **Public**.
+
 ## Cost Optimization Settings
 
 ### Enable CDN Caching
