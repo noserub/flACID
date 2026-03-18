@@ -118,11 +118,15 @@ export function EditDialog({ trigger, title, children, onSave }: EditDialogProps
 interface ImageUploadProps {
   label: string;
   currentImage: string;
-  onUpload: (dataUrl: string) => void;
+  onUpload: (url: string) => void;
   aspectRatio?: string;
+  /** Storage bucket: 'covers' for album/hero/about, 'photos' for gallery */
+  bucket?: 'covers' | 'photos';
+  /** Path prefix within bucket (e.g. 'hero', 'albums', 'gallery') - avoids bucket/path duplication */
+  pathPrefix?: string;
 }
 
-export function ImageUpload({ label, currentImage, onUpload, aspectRatio }: ImageUploadProps) {
+export function ImageUpload({ label, currentImage, onUpload, aspectRatio, bucket = 'covers', pathPrefix }: ImageUploadProps) {
   const { uploadImage } = useEditMode();
   const [uploading, setUploading] = useState(false);
 
@@ -130,15 +134,15 @@ export function ImageUpload({ label, currentImage, onUpload, aspectRatio }: Imag
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
-      alert('Please upload an image file');
+    if (!file.type.startsWith('image/') && !/\.(jpe?g|png|webp|gif)$/i.test(file.name)) {
+      alert('Please upload an image file (JPEG, PNG, WebP, or GIF)');
       return;
     }
 
     setUploading(true);
     try {
-      const dataUrl = await uploadImage(file);
-      onUpload(dataUrl);
+      const url = await uploadImage(file, { bucket, pathPrefix });
+      onUpload(url);
     } catch (error) {
       console.error('Upload failed:', error);
       alert('Failed to upload image');

@@ -3,6 +3,9 @@
  *
  * Subscribes to Supabase Postgres changes for a table.
  * Automatically unsubscribes on unmount.
+ *
+ * Egress note: Realtime consumes bandwidth. Only enable when needed (e.g. edit mode).
+ * Pass enabled: true to subscribe; default is false to preserve free tier egress.
  */
 
 import { useEffect, useRef } from 'react';
@@ -15,16 +18,25 @@ export type RealtimePayload<T = unknown> = {
   old: T | null;
 };
 
+export interface UseRealtimeOptions {
+  schema?: string;
+  /** Set true to subscribe. Default false to avoid egress on free tier. */
+  enabled?: boolean;
+}
+
 export function useRealtime<T = Record<string, unknown>>(
   table: string,
   callback: (payload: RealtimePayload<T>) => void,
-  options?: { schema?: string }
+  options?: UseRealtimeOptions
 ) {
   const callbackRef = useRef(callback);
   callbackRef.current = callback;
   const schema = options?.schema ?? 'public';
+  const enabled = options?.enabled ?? false;
 
   useEffect(() => {
+    if (!enabled) return;
+
     const channelName = `${table}_changes`;
     let channel: RealtimeChannel;
 
@@ -50,5 +62,5 @@ export function useRealtime<T = Record<string, unknown>>(
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [table, schema]);
+  }, [table, schema, enabled]);
 }

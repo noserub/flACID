@@ -2,11 +2,24 @@
  * Photos Data Hook
  *
  * Manages photo gallery with Supabase.
+ * Uses TanStack Query for caching and deduplication to minimize egress.
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabaseClient';
 import type { Photo, PhotoInsert, PhotoUpdate } from '../types/database';
+
+const QUERY_KEY = ['photos'] as const;
+
+async function fetchPhotos(): Promise<Photo[]> {
+  const { data, error } = await supabase
+    .from('photos')
+    .select('id,url,thumbnail_url,alt_text,photographer,order_index,created_at')
+    .order('order_index', { ascending: true });
+
+  if (error) throw error;
+  return data ?? [];
+}
 
 export interface UsePhotosReturn {
   photos: Photo[];
@@ -19,95 +32,55 @@ export interface UsePhotosReturn {
 }
 
 export function usePhotos(): UsePhotosReturn {
-  const [photos, setPhotos] = useState<Photo[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  const queryClient = useQueryClient();
 
-  const fetchPhotos = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const { data, error: fetchError } = await supabase
+  const { data: photos = [], isLoading, error, refetch } = useQuery({
+    queryKey: QUERY_KEY,
+    queryFn: fetchPhotos,
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (photo: PhotoInsert) => {
+      const { data, error: insertError } = await supabase
         .from('photos')
-        .select('*')
-        .order('order_index', { ascending: true });
+        .insert(photo)
+        .select()
+        .single();
+      if (insertError) throw insertError;
+      return data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEY }),
+  });
 
-      if (fetchError) throw fetchError;
-      setPhotos(data ?? []);
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error(String(err)));
-      setPhotos([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const createPhoto = useCallback(async (photo: PhotoInsert): Promise<Photo> => {
-    setError(null);
-    const { data, error: insertError } = await supabase
-      .from('photos')
-      .insert(photo)
-      .select()
-      .single();
-
-    if (insertError) {
-      const err = new Error(insertError.message);
-      setError(err);
-      throw err;
-    }
-    await fetchPhotos();
-    return data;
-  }, [fetchPhotos]);
-
-  const updatePhoto = useCallback(
-    async (id: string, updates: PhotoUpdate): Promise<Photo> => {
-      setError(null);
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: PhotoUpdate }) => {
       const { data, error: updateError } = await supabase
         .from('photos')
         .update(updates)
         .eq('id', id)
         .select()
         .single();
-
-      if (updateError) {
-        const err = new Error(updateError.message);
-        setError(err);
-        throw err;
-      }
-      await fetchPhotos();
+      if (updateError) throw updateError;
       return data;
     },
-    [fetchPhotos]
-  );
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEY }),
+  });
 
-  const deletePhoto = useCallback(
-    async (id: string): Promise<void> => {
-      setError(null);
-      const { error: deleteError } = await supabase.from('photos').delete().eq('id', id);
-      if (deleteError) {
-        const err = new Error(deleteError.message);
-        setError(err);
-        throw err;
-      }
-      await fetchPhotos();
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('photos').delete().eq('id', id);
+      if (error) throw error;
     },
-    [fetchPhotos]
-  );
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEY }),
+  });
 
-  useEffect(() => {
-    fetchPhotos();
-  }, [fetchPhotos]);
-
-  return useMemo(
-    () => ({
-      photos,
-      loading,
-      error,
-      fetchPhotos,
-      createPhoto,
-      updatePhoto,
-      deletePhoto,
-    }),
-    [photos, loading, error, fetchPhotos, createPhoto, updatePhoto, deletePhoto]
-  );
+  return {
+    photos,
+    loading: isLoading,
+    error: error ? (error instanceof Error ? error : new Error(String(error))) : null,
+    fetchPhotos: refetch,
+    createPhoto: (photo) => createMutation.mutateAsync(photo),
+    updatePhoto: (id, updates) => updateMutation.mutateAsync({ id, updates }),
+    deletePhoto: (id) => deleteMutation.mutateAsync(id),
+  };
 }

@@ -2,11 +2,24 @@
  * Albums Data Hook
  *
  * Manages discography/albums with Supabase.
+ * Uses TanStack Query for caching and deduplication to minimize egress.
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabaseClient';
 import type { Album, AlbumInsert, AlbumUpdate } from '../types/database';
+
+const QUERY_KEY = ['albums'] as const;
+
+async function fetchAlbums(): Promise<Album[]> {
+  const { data, error } = await supabase
+    .from('albums')
+    .select('id,title,artist,year,cover_image_url,description,spotify_url,apple_music_url,bandcamp_url,order_index,created_at,updated_at')
+    .order('year', { ascending: false });
+
+  if (error) throw error;
+  return data ?? [];
+}
 
 export interface UseAlbumsReturn {
   albums: Album[];
@@ -19,99 +32,65 @@ export interface UseAlbumsReturn {
 }
 
 export function useAlbums(): UseAlbumsReturn {
-  const [albums, setAlbums] = useState<Album[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  const queryClient = useQueryClient();
 
-  const fetchAlbums = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const { data, error: fetchError } = await supabase
+  const { data: albums = [], isLoading, error, refetch } = useQuery({
+    queryKey: QUERY_KEY,
+    queryFn: fetchAlbums,
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (album: AlbumInsert) => {
+      const { data, error: insertError } = await supabase
         .from('albums')
-        .select('*')
-        .order('year', { ascending: false });
+        .insert(album)
+        .select()
+        .single();
+      if (insertError) throw insertError;
+      return data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEY }),
+  });
 
-      if (fetchError) throw fetchError;
-      setAlbums(data ?? []);
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error(String(err)));
-      setAlbums([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const createAlbum = useCallback(async (album: AlbumInsert): Promise<Album> => {
-    setError(null);
-    const { data, error: insertError } = await supabase
-      .from('albums')
-      .insert(album)
-      .select()
-      .single();
-
-    if (insertError) {
-      const err = new Error(insertError.message);
-      setError(err);
-      throw err;
-    }
-    await fetchAlbums();
-    return data;
-  }, [fetchAlbums]);
-
-  const updateAlbum = useCallback(
-    async (id: string, updates: AlbumUpdate): Promise<Album> => {
-      setError(null);
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: AlbumUpdate }) => {
       const { data, error: updateError } = await supabase
         .from('albums')
         .update(updates)
         .eq('id', id)
         .select()
         .single();
-
-      if (updateError) {
-        const err = new Error(updateError.message);
-        setError(err);
-        throw err;
-      }
-      await fetchAlbums();
+      if (updateError) throw updateError;
       return data;
     },
-    [fetchAlbums]
-  );
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEY }),
+  });
 
-  const deleteAlbum = useCallback(
-    async (id: string): Promise<void> => {
-      setError(null);
-      const { error: deleteError } = await supabase.from('albums').delete().eq('id', id);
-      if (deleteError) {
-        const err = new Error(deleteError.message);
-        setError(err);
-        throw err;
-      }
-      await fetchAlbums();
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('albums').delete().eq('id', id);
+      if (error) throw error;
     },
-    [fetchAlbums]
-  );
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEY }),
+  });
 
-  useEffect(() => {
-    fetchAlbums();
-  }, [fetchAlbums]);
+  const sortedAlbums = [...albums].sort((a, b) => (b.year ?? 0) - (a.year ?? 0));
 
-  const sortedAlbums = useMemo(() => {
-    return [...albums].sort((a, b) => (b.year ?? 0) - (a.year ?? 0));
-  }, [albums]);
-
-  return useMemo(
-    () => ({
-      albums: sortedAlbums,
-      loading,
-      error,
-      fetchAlbums,
-      createAlbum,
-      updateAlbum,
-      deleteAlbum,
-    }),
-    [sortedAlbums, loading, error, fetchAlbums, createAlbum, updateAlbum, deleteAlbum]
-  );
+  return {
+    albums: sortedAlbums,
+    loading: isLoading,
+    error: error ? (error instanceof Error ? error : new Error(String(error))) : null,
+    fetchAlbums: refetch,
+    createAlbum: async (album) => {
+      const result = await createMutation.mutateAsync(album);
+      return result;
+    },
+    updateAlbum: async (id, updates) => {
+      const result = await updateMutation.mutateAsync({ id, updates });
+      return result;
+    },
+    deleteAlbum: async (id) => {
+      await deleteMutation.mutateAsync(id);
+    },
+  };
 }

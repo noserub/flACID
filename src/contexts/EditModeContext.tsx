@@ -1,4 +1,7 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { loadContentFromSupabase, publishContentToSupabase } from '../services/contentSync.service';
+import { uploadImage as storageUploadImage, uploadAudio as storageUploadAudio } from '../services/storage.service';
+import { isSupabaseConfigured } from '../lib/supabase';
 
 // Content structure for the entire site
 export interface SiteContent {
@@ -84,15 +87,21 @@ export interface SiteContent {
   };
 }
 
+export interface UploadImageOptions {
+  bucket?: 'covers' | 'photos';
+  pathPrefix?: string;
+}
+
 interface EditModeContextType {
   isEditMode: boolean;
   isDraft: boolean;
   content: SiteContent;
+  loading: boolean;
   toggleEditMode: () => void;
   updateContent: <K extends keyof SiteContent>(section: K, data: SiteContent[K]) => void;
-  publishChanges: () => void;
+  publishChanges: () => Promise<void>;
   discardDraft: () => void;
-  uploadImage: (file: File) => Promise<string>;
+  uploadImage: (file: File, options?: UploadImageOptions) => Promise<string>;
   uploadAudio: (file: File) => Promise<string>;
 }
 
@@ -101,7 +110,7 @@ const EditModeContext = createContext<EditModeContextType | undefined>(undefined
 // Default content
 const defaultContent: SiteContent = {
   hero: {
-    logoImage: '/logo.png',
+    logoImage: '',
     subtitle: 'The Fragile Sphere',
     tagline: '',
     backgroundImage: '',
@@ -229,14 +238,19 @@ Step outside the standard verse-chorus structure and into a landscape of shiftin
   },
 };
 
+function generatePath(prefix: string, ext = 'webp'): string {
+  return `${prefix}/${crypto.randomUUID()}.${ext}`;
+}
+
 export function EditModeProvider({ children }: { children: ReactNode }) {
   const [isEditMode, setIsEditMode] = useState(false);
   const [isDraft, setIsDraft] = useState(false);
   const [publishedContent, setPublishedContent] = useState<SiteContent>(defaultContent);
   const [draftContent, setDraftContent] = useState<SiteContent>(defaultContent);
   const [isInitialized, setIsInitialized] = useState(false);
-  
-  // Separate in-memory store for audio files (not persisted)
+  const [loading, setLoading] = useState(true);
+  const [publishLoading, setPublishLoading] = useState(false);
+
   const [audioCache, setAudioCache] = useState<Record<number, string>>({});
 
   // Migration helper to ensure all required fields exist
@@ -306,80 +320,37 @@ export function EditModeProvider({ children }: { children: ReactNode }) {
     return migrated;
   };
 
-  // Load from localStorage on mount
+  // Load from Supabase on mount (or use defaultContent)
   useEffect(() => {
-    const savedPublished = localStorage.getItem('siteContent');
-    const savedDraft = localStorage.getItem('siteContentDraft');
-    
-    if (savedPublished) {
+    let cancelled = false;
+
+    async function load() {
+      setLoading(true);
       try {
-        const parsed = JSON.parse(savedPublished);
-        setPublishedContent(migrateContent(parsed));
+        const content = await loadContentFromSupabase(defaultContent);
+        if (!cancelled) {
+          setPublishedContent(migrateContent(content));
+          setDraftContent(migrateContent(content));
+        }
       } catch (e) {
-        console.error('Failed to load published content', e);
+        console.error('[EditMode] Failed to load from Supabase:', e);
+        if (!cancelled) {
+          setPublishedContent(defaultContent);
+          setDraftContent(defaultContent);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+          setIsInitialized(true);
+        }
       }
     }
-    
-    if (savedDraft) {
-      try {
-        const parsed = JSON.parse(savedDraft);
-        setDraftContent(migrateContent(parsed));
-        setIsDraft(true);
-      } catch (e) {
-        console.error('Failed to load draft content', e);
-      }
-    }
-    
-    // Mark as initialized after loading
-    setIsInitialized(true);
+
+    load();
+    return () => { cancelled = true; };
   }, []);
 
-  // Save to localStorage whenever content changes (excluding large audio files)
-  useEffect(() => {
-    // Don't save during initial load
-    if (!isInitialized) return;
-    
-    try {
-      // Create a copy without audio file data URLs (too large for localStorage)
-      const contentToSave = {
-        ...publishedContent,
-        musicPlayer: {
-          ...publishedContent.musicPlayer,
-          tracks: publishedContent.musicPlayer.tracks.map(track => ({
-            ...track,
-            url: track.url && track.url.startsWith('data:') ? '' : track.url
-          }))
-        }
-      };
-      localStorage.setItem('siteContent', JSON.stringify(contentToSave));
-    } catch (e) {
-      console.warn('Failed to save to localStorage:', e);
-    }
-  }, [publishedContent, isInitialized]);
-
-  useEffect(() => {
-    // Don't save during initial load
-    if (!isInitialized) return;
-    
-    if (isDraft) {
-      try {
-        // Create a copy without audio file data URLs (too large for localStorage)
-        const contentToSave = {
-          ...draftContent,
-          musicPlayer: {
-            ...draftContent.musicPlayer,
-            tracks: draftContent.musicPlayer.tracks.map(track => ({
-              ...track,
-              url: track.url && track.url.startsWith('data:') ? '' : track.url
-            }))
-          }
-        };
-        localStorage.setItem('siteContentDraft', JSON.stringify(contentToSave));
-      } catch (e) {
-        console.warn('Failed to save draft to localStorage:', e);
-      }
-    }
-  }, [draftContent, isDraft, isInitialized]);
+  // No localStorage persistence - all data lives in Supabase
 
   const toggleEditMode = () => {
     const newEditMode = !isEditMode;
@@ -413,49 +384,46 @@ export function EditModeProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const publishChanges = () => {
-    setPublishedContent(draftContent);
-    setIsDraft(false);
-    localStorage.removeItem('siteContentDraft');
-  };
+  const publishChanges = useCallback(async () => {
+    if (!isSupabaseConfigured) {
+      setPublishedContent(draftContent);
+      setIsDraft(false);
+      return;
+    }
+    setPublishLoading(true);
+    try {
+      await publishContentToSupabase(draftContent);
+      setPublishedContent(draftContent);
+      setIsDraft(false);
+    } catch (e) {
+      console.error('[EditMode] Publish failed:', e);
+      throw e;
+    } finally {
+      setPublishLoading(false);
+    }
+  }, [draftContent]);
 
-  const discardDraft = () => {
+  const discardDraft = useCallback(() => {
     setDraftContent(publishedContent);
     setIsDraft(false);
-    localStorage.removeItem('siteContentDraft');
-  };
+  }, [publishedContent]);
 
-  const uploadImage = async (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const result = e.target?.result as string;
-        resolve(result);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  };
+  const uploadImage = useCallback(async (file: File, options?: UploadImageOptions): Promise<string> => {
+    const bucket = options?.bucket ?? 'covers';
+    const pathPrefix = options?.pathPrefix ?? 'images'; // Avoid bucket/path duplication
+    const path = generatePath(pathPrefix);
+    const { publicUrl } = await storageUploadImage(file, bucket, path);
+    return publicUrl;
+  }, []);
 
-  const uploadAudio = async (file: File): Promise<string> => {
-    // Audio files are kept in edit mode memory for testing visualizations
-    // Cleared when exiting edit mode for performance
-    return new Promise((resolve, reject) => {
-      if (file.size > 50 * 1024 * 1024) { // 50MB limit
-        reject(new Error('Audio file too large. Maximum size is 50MB.'));
-        return;
-      }
-      
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const result = e.target?.result as string;
-        console.log(`Audio file loaded: ${(file.size / 1024 / 1024).toFixed(2)}MB - Available in edit mode for visualization testing`);
-        resolve(result);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  };
+  const uploadAudio = useCallback(async (file: File): Promise<string> => {
+    if (file.size > 50 * 1024 * 1024) {
+      throw new Error('Audio file too large. Maximum size is 50MB.');
+    }
+    const path = `tracks/${crypto.randomUUID()}.${file.name.split('.').pop() || 'mp3'}`;
+    const { publicUrl } = await storageUploadAudio(path, file);
+    return publicUrl;
+  }, []);
 
   // Merge audio cache with content when in edit mode
   const getContentWithAudio = () => {
@@ -486,6 +454,7 @@ export function EditModeProvider({ children }: { children: ReactNode }) {
         isEditMode,
         isDraft,
         content,
+        loading,
         toggleEditMode,
         updateContent,
         publishChanges,

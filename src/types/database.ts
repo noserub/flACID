@@ -75,6 +75,7 @@ export interface Database {
           spotify_url: string | null;
           apple_music_url: string | null;
           bandcamp_url: string | null;
+          track_names: string[] | null;
           order_index: number;
           created_at: string;
           updated_at: string;
@@ -89,6 +90,7 @@ export interface Database {
           spotify_url?: string | null;
           apple_music_url?: string | null;
           bandcamp_url?: string | null;
+          track_names?: string[] | null;
           order_index?: number;
           created_at?: string;
           updated_at?: string;
@@ -124,18 +126,22 @@ export interface Database {
         Row: {
           id: string;
           url: string;
-          thumbnail_url: string;
+          thumbnail_url: string | null;
           alt_text: string | null;
           photographer: string | null;
+          tab_id: string | null;
+          caption: string | null;
           order_index: number;
           created_at: string;
         };
         Insert: {
           id?: string;
           url: string;
-          thumbnail_url: string;
+          thumbnail_url?: string | null;
           alt_text?: string | null;
           photographer?: string | null;
+          tab_id?: string | null;
+          caption?: string | null;
           order_index?: number;
           created_at?: string;
         };

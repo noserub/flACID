@@ -118,6 +118,8 @@ export function DiscographyEditDialog() {
                     currentImage={album.coverImage}
                     onUpload={(url) => handleUpdateAlbum(album.id, 'coverImage', url)}
                     aspectRatio="1:1 (square)"
+                    bucket="covers"
+                    pathPrefix="albums"
                   />
 
                   <div className="space-y-2">

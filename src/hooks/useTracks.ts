@@ -1,13 +1,25 @@
 /**
  * Tracks Data Hook
  *
- * Manages music tracks with Supabase. Handles fetch, create, update, delete
- * with proper error handling and loading states.
+ * Manages music tracks with Supabase.
+ * Uses TanStack Query for caching and deduplication to minimize egress.
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabaseClient';
 import type { Track, TrackInsert, TrackUpdate } from '../types/database';
+
+const QUERY_KEY = ['tracks'] as const;
+
+async function fetchTracks(): Promise<Track[]> {
+  const { data, error } = await supabase
+    .from('tracks')
+    .select('id,title,artist,album,duration,audio_url,cover_image_url,visualization_type,order_index,created_at,updated_at')
+    .order('order_index', { ascending: true });
+
+  if (error) throw error;
+  return data ?? [];
+}
 
 export interface UseTracksReturn {
   tracks: Track[];
@@ -20,95 +32,55 @@ export interface UseTracksReturn {
 }
 
 export function useTracks(): UseTracksReturn {
-  const [tracks, setTracks] = useState<Track[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  const queryClient = useQueryClient();
 
-  const fetchTracks = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const { data, error: fetchError } = await supabase
+  const { data: tracks = [], isLoading, error, refetch } = useQuery({
+    queryKey: QUERY_KEY,
+    queryFn: fetchTracks,
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (track: TrackInsert) => {
+      const { data, error: insertError } = await supabase
         .from('tracks')
-        .select('*')
-        .order('order_index', { ascending: true });
+        .insert(track)
+        .select()
+        .single();
+      if (insertError) throw insertError;
+      return data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEY }),
+  });
 
-      if (fetchError) throw fetchError;
-      setTracks(data ?? []);
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error(String(err)));
-      setTracks([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const createTrack = useCallback(async (track: TrackInsert): Promise<Track> => {
-    setError(null);
-    const { data, error: insertError } = await supabase
-      .from('tracks')
-      .insert(track)
-      .select()
-      .single();
-
-    if (insertError) {
-      const err = new Error(insertError.message);
-      setError(err);
-      throw err;
-    }
-    await fetchTracks();
-    return data;
-  }, [fetchTracks]);
-
-  const updateTrack = useCallback(
-    async (id: string, updates: TrackUpdate): Promise<Track> => {
-      setError(null);
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: TrackUpdate }) => {
       const { data, error: updateError } = await supabase
         .from('tracks')
         .update(updates)
         .eq('id', id)
         .select()
         .single();
-
-      if (updateError) {
-        const err = new Error(updateError.message);
-        setError(err);
-        throw err;
-      }
-      await fetchTracks();
+      if (updateError) throw updateError;
       return data;
     },
-    [fetchTracks]
-  );
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEY }),
+  });
 
-  const deleteTrack = useCallback(
-    async (id: string): Promise<void> => {
-      setError(null);
-      const { error: deleteError } = await supabase.from('tracks').delete().eq('id', id);
-      if (deleteError) {
-        const err = new Error(deleteError.message);
-        setError(err);
-        throw err;
-      }
-      await fetchTracks();
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('tracks').delete().eq('id', id);
+      if (error) throw error;
     },
-    [fetchTracks]
-  );
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEY }),
+  });
 
-  useEffect(() => {
-    fetchTracks();
-  }, [fetchTracks]);
-
-  return useMemo(
-    () => ({
-      tracks,
-      loading,
-      error,
-      fetchTracks,
-      createTrack,
-      updateTrack,
-      deleteTrack,
-    }),
-    [tracks, loading, error, fetchTracks, createTrack, updateTrack, deleteTrack]
-  );
+  return {
+    tracks,
+    loading: isLoading,
+    error: error ? (error instanceof Error ? error : new Error(String(error))) : null,
+    fetchTracks: refetch,
+    createTrack: (track) => createMutation.mutateAsync(track),
+    updateTrack: (id, updates) => updateMutation.mutateAsync({ id, updates }),
+    deleteTrack: (id) => deleteMutation.mutateAsync(id),
+  };
 }

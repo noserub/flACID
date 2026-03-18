@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MoreHorizontal, Edit3, Eye, Save, Upload, Download, CheckCircle, XCircle, Package } from 'lucide-react';
+import { MoreHorizontal, Edit3, Eye, Save, Upload, Download, CheckCircle, XCircle, Package, LogIn, LogOut } from 'lucide-react';
 import { Button } from './ui/button';
 import { ComponentLibrary } from './ComponentLibrary';
 import {
@@ -13,10 +13,12 @@ import {
 import { useEditMode } from '../contexts/EditModeContext';
 import { useAuth } from '../hooks';
 import { DescentModeToggle } from './DescentModeToggle';
+import { SignInDialog } from './SignInDialog';
 
 export function SiteHeader() {
   const { isEditMode, isDraft, toggleEditMode, publishChanges, discardDraft, content } = useEditMode();
-  const { isAuthenticated, setBypassAuth } = useAuth();
+  const { isAuthenticated, signOut } = useAuth();
+  const [signInOpen, setSignInOpen] = useState(false);
   const [exportSuccess, setExportSuccess] = useState(false);
   const [showComponentLibrary, setShowComponentLibrary] = useState(false);
 
@@ -88,19 +90,20 @@ export function SiteHeader() {
       try {
         const text = await file.text();
         const importedData = JSON.parse(text);
-        
-        // Validate data structure (basic check)
+
         if (!importedData.hero || !importedData.about) {
           throw new Error('Invalid data structure');
         }
 
-        // Clear both published and draft content from localStorage
-        localStorage.removeItem('siteContent');
-        localStorage.removeItem('siteContentDraft');
-        
-        // Store imported data as the new published content
-        localStorage.setItem('siteContent', JSON.stringify(importedData));
-        
+        const { publishContentToSupabase } = await import('../services/contentSync.service');
+        const { isSupabaseConfigured } = await import('../lib/supabase');
+
+        if (isSupabaseConfigured) {
+          await publishContentToSupabase(importedData as Parameters<typeof publishContentToSupabase>[0]);
+        } else {
+          alert('Supabase not configured. Import will sync when configured.');
+        }
+
         alert('Data imported successfully! Refreshing page...');
         window.location.reload();
       } catch (error) {
@@ -148,30 +151,31 @@ export function SiteHeader() {
             <DropdownMenuLabel>Site Manager</DropdownMenuLabel>
             <DropdownMenuSeparator />
             
-            {/* Edit Mode Toggle - requires auth or dev bypass */}
+            {/* Edit Mode Toggle - requires auth */}
             {isAuthenticated ? (
-              <DropdownMenuItem onClick={handleToggleEditMode}>
-                {isEditMode ? (
-                  <>
-                    <Eye className="mr-2 h-4 w-4" />
-                    <span>Preview Mode</span>
-                  </>
-                ) : (
-                  <>
-                    <Edit3 className="mr-2 h-4 w-4" />
-                    <span>Edit Mode</span>
-                  </>
-                )}
-              </DropdownMenuItem>
+              <>
+                <DropdownMenuItem onClick={handleToggleEditMode}>
+                  {isEditMode ? (
+                    <>
+                      <Eye className="mr-2 h-4 w-4" />
+                      <span>Preview Mode</span>
+                    </>
+                  ) : (
+                    <>
+                      <Edit3 className="mr-2 h-4 w-4" />
+                      <span>Edit Mode</span>
+                    </>
+                  )}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={signOut}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Sign Out</span>
+                </DropdownMenuItem>
+              </>
             ) : (
-              <DropdownMenuItem
-                onClick={() => {
-                  setBypassAuth(true);
-                  if (!isEditMode) handleToggleEditMode();
-                }}
-              >
-                <Edit3 className="mr-2 h-4 w-4" />
-                <span>Enable Edit Mode (Dev)</span>
+              <DropdownMenuItem onClick={() => setSignInOpen(true)}>
+                <LogIn className="mr-2 h-4 w-4" />
+                <span>Admin Sign In</span>
               </DropdownMenuItem>
             )}
 
@@ -179,7 +183,16 @@ export function SiteHeader() {
             {isDraft && isEditMode && (
               <>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={publishChanges} className="text-green-400">
+                <DropdownMenuItem
+                  onClick={async () => {
+                    try {
+                      await publishChanges();
+                    } catch (e) {
+                      alert('Publish failed. Check console for details.');
+                    }
+                  }}
+                  className="text-green-400"
+                >
                   <CheckCircle className="mr-2 h-4 w-4" />
                   <span>Publish Changes</span>
                 </DropdownMenuItem>
@@ -190,22 +203,22 @@ export function SiteHeader() {
               </>
             )}
 
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel className="text-xs text-muted-foreground">
-              Data Management
-            </DropdownMenuLabel>
-            
-            {/* Export JSON */}
-            <DropdownMenuItem onClick={handleExportJSON}>
-              <Download className="mr-2 h-4 w-4" />
-              <span>Export to JSON</span>
-            </DropdownMenuItem>
-
-            {/* Import JSON */}
-            <DropdownMenuItem onClick={handleImportJSON}>
-              <Upload className="mr-2 h-4 w-4" />
-              <span>Import from JSON</span>
-            </DropdownMenuItem>
+            {isAuthenticated && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="text-xs text-muted-foreground">
+                  Data Management
+                </DropdownMenuLabel>
+                <DropdownMenuItem onClick={handleExportJSON}>
+                  <Download className="mr-2 h-4 w-4" />
+                  <span>Export to JSON</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleImportJSON}>
+                  <Upload className="mr-2 h-4 w-4" />
+                  <span>Import from JSON</span>
+                </DropdownMenuItem>
+              </>
+            )}
 
             {/* Component Library (Edit Mode Only) */}
             {isEditMode && (
@@ -228,6 +241,9 @@ export function SiteHeader() {
       {showComponentLibrary && (
         <ComponentLibrary onClose={() => setShowComponentLibrary(false)} />
       )}
+
+      {/* Sign In Dialog */}
+      <SignInDialog open={signInOpen} onOpenChange={setSignInOpen} />
     </header>
   );
 }

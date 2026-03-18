@@ -4,8 +4,13 @@ import { ChevronDown } from 'lucide-react';
 import { useEditMode } from '../contexts/EditModeContext';
 import { EditableSection } from './EditableSection';
 import { HeroEditDialog } from './HeroEditDialog';
+import { ImageWithFallback } from './figma/ImageWithFallback';
 import flacidLogo from 'figma:asset/5f0d31c1cb6fc26a3ff35f6c8e86953aaa84d0b7.png';
 import heroBackground from 'figma:asset/410f7e9ef9caea1564a1bf87577512030154fe84.png';
+
+/** Default hero dimensions for LCP optimization and CLS prevention */
+const HERO_BG_WIDTH = 1920;
+const HERO_BG_HEIGHT = 1080;
 
 // Generate random stutter sequence - Multiple rapid flickers per second
 const generateStutterSequence = () => {
@@ -40,33 +45,35 @@ const generateStutterSequence = () => {
   return sequences[Math.floor(Math.random() * sequences.length)];
 };
 
-// Stuttering Logo Component - Always uses stutter effect
-function StutteringLogo({ isInitialLoad }: { isInitialLoad: boolean }) {
+// Stuttering Logo Component - Uses content.hero.logoImage when set, fallback to bundled asset
+interface StutteringLogoProps {
+  logoSrc: string;
+  isInitialLoad: boolean;
+}
+
+function StutteringLogo({ logoSrc, isInitialLoad }: StutteringLogoProps) {
   const [sequence] = useState(generateStutterSequence());
-  
-  // Both initial and subsequent loads use stutter effect
-  // On initial load, start from opacity 0 before stuttering
+
   return (
     <motion.div
       key={isInitialLoad ? 'initial-stutter' : 'stutter'}
       initial={isInitialLoad ? { opacity: 0 } : undefined}
-      animate={{ 
-        opacity: sequence.opacity,
-      }}
-      transition={{ 
+      animate={{ opacity: sequence.opacity }}
+      transition={{
         duration: sequence.duration,
         ease: 'linear',
-        // Add slight delay on initial load for dramatic effect
         delay: isInitialLoad ? 0.2 : 0,
       }}
       className="flex justify-center mb-8 w-full max-w-2xl px-4"
     >
-      <img 
-        src={flacidLogo}
+      <ImageWithFallback
+        src={logoSrc}
         alt="FLACID Logo"
-        className="w-full h-auto"
+        className="w-full h-auto max-h-32 object-contain"
         fetchpriority="high"
         decoding="sync"
+        width={800}
+        height={200}
       />
     </motion.div>
   );
@@ -97,6 +104,7 @@ export function HeroSection() {
   };
 
   const displayBackground = content.hero.backgroundImage || heroBackground;
+  const displayLogo = content.hero.logoImage || flacidLogo;
 
   return (
     <EditableSection
@@ -109,16 +117,18 @@ export function HeroSection() {
       <div className="relative min-h-screen flex items-center justify-center overflow-hidden">
         {isEditMode && <HeroEditDialog />}
         
-        {/* Background Image */}
+        {/* Background Image - LCP optimized with dimensions to prevent CLS */}
         <div className="absolute inset-0 bg-black">
-          {/* Main Background Image */}
-          <img
+          <ImageWithFallback
             src={displayBackground}
-            alt="Dark psychedelic basement space"
+            alt=""
+            aria-hidden
             className="w-full h-full object-cover object-center"
             fetchpriority="high"
             loading="eager"
-            decoding="sync"
+            decoding="async"
+            width={HERO_BG_WIDTH}
+            height={HERO_BG_HEIGHT}
           />
         
         {/* Panning Gradient Overlay - Creates transparency variation */}
@@ -192,7 +202,11 @@ export function HeroSection() {
 
       {/* Content */}
       <div className="relative z-10 text-center px-4 max-w-5xl mx-auto">
-        <StutteringLogo key={stutterKey} isInitialLoad={isInitialLoad} />
+        <StutteringLogo
+          key={stutterKey}
+          logoSrc={displayLogo}
+          isInitialLoad={isInitialLoad}
+        />
         
         <motion.div
           initial={{ opacity: 0, y: 20 }}

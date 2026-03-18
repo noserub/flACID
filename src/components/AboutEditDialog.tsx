@@ -52,6 +52,8 @@ export function AboutEditDialog() {
         currentImage={image}
         onUpload={setImage}
         aspectRatio="1:1 or 4:3"
+        bucket="covers"
+        pathPrefix="about"
       />
 
       <div className="space-y-2">

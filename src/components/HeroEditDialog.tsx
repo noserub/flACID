@@ -43,6 +43,8 @@ export function HeroEditDialog() {
         currentImage={logoImage}
         onUpload={setLogoImage}
         aspectRatio="16:9 or larger"
+        bucket="covers"
+        pathPrefix="hero"
       />
 
       <ImageUpload
@@ -50,6 +52,8 @@ export function HeroEditDialog() {
         currentImage={backgroundImage}
         onUpload={setBackgroundImage}
         aspectRatio="1920x1080 or larger"
+        bucket="covers"
+        pathPrefix="hero"
       />
 
       <div className="space-y-2">

@@ -3,7 +3,7 @@ import { HeroSection } from './components/HeroSection';
 import { AboutSection } from './components/AboutSection';
 import { useSEO } from './hooks/useSEO';
 import { Analytics } from './components/Analytics';
-import { EditModeProvider } from './contexts/EditModeContext';
+import { EditModeProvider, useEditMode } from './contexts/EditModeContext';
 import { DescentModeProvider } from './contexts/DescentModeContext';
 import { DescentIntensityProvider } from './contexts/DescentIntensityContext';
 import { DescentModeWrapper } from './components/DescentModeEffects';
@@ -45,14 +45,22 @@ const DEFAULT_SEO = {
   keywords: 'flACID, band, music',
 };
 
-export default function App() {
-  useSEO(DEFAULT_SEO);
+function AppContent() {
+  const { loading } = useEditMode();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-pulse flex flex-col items-center gap-4">
+          <div className="w-12 h-12 rounded-full bg-primary/20" />
+          <div className="h-4 w-32 bg-muted rounded" />
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <EditModeProvider>
-      <DescentModeProvider>
-        <DescentIntensityProvider>
-          <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-background text-foreground">
             <Analytics pageName="home" />
             {/* Descent Mode Effects Overlay */}
             <DescentModeWrapper />
@@ -88,6 +96,17 @@ export default function App() {
               <Footer />
             </Suspense>
           </div>
+  );
+}
+
+export default function App() {
+  useSEO(DEFAULT_SEO);
+
+  return (
+    <EditModeProvider>
+      <DescentModeProvider>
+        <DescentIntensityProvider>
+          <AppContent />
         </DescentIntensityProvider>
       </DescentModeProvider>
     </EditModeProvider>

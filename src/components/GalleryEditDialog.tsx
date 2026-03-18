@@ -200,6 +200,8 @@ export function GalleryEditDialog() {
                             onUpload={(url) =>
                               handleUpdateImage(tab.id, image.id, 'url', url)
                             }
+                            bucket="photos"
+                            pathPrefix="gallery"
                           />
 
                           <div className="space-y-2">

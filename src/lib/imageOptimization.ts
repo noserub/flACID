@@ -108,9 +108,12 @@ export async function generateResponsiveSizes(
  */
 export function validateImageFile(file: File): { valid: boolean; error?: string } {
   const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-  const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+  const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+  const ALLOWED_EXTENSIONS = /\.(jpe?g|png|webp|gif)$/i;
 
-  if (!ALLOWED_TYPES.includes(file.type)) {
+  const typeValid = ALLOWED_TYPES.includes(file.type);
+  const extValid = ALLOWED_EXTENSIONS.test(file.name);
+  if (!typeValid && !extValid) {
     return { valid: false, error: 'Invalid file type. Please upload JPEG, PNG, WebP, or GIF.' };
   }
 

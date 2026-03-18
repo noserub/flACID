@@ -1,15 +1,12 @@
 /**
  * Authentication Hook
  *
- * Manages Supabase auth state with optional bypass for development.
- * Use localStorage key 'auth_bypass' for development without Supabase Auth.
+ * Manages Supabase auth state. Edit mode is only available when authenticated.
  */
 
 import { useState, useEffect, useCallback } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabaseClient';
-
-const AUTH_BYPASS_KEY = 'auth_bypass';
 
 export function useAuth() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -18,14 +15,6 @@ export function useAuth() {
 
   const checkAuthState = useCallback(async () => {
     try {
-      const bypassAuth = localStorage.getItem(AUTH_BYPASS_KEY) === 'true';
-      if (bypassAuth) {
-        setIsAuthenticated(true);
-        setUser(null);
-        setLoading(false);
-        return;
-      }
-
       const {
         data: { user: currentUser },
       } = await supabase.auth.getUser();
@@ -46,12 +35,6 @@ export function useAuth() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      const bypassAuth = localStorage.getItem(AUTH_BYPASS_KEY) === 'true';
-      if (bypassAuth) {
-        setIsAuthenticated(true);
-        setUser(null);
-        return;
-      }
       setIsAuthenticated(!!session?.user);
       setUser(session?.user ?? null);
     });
@@ -69,17 +52,10 @@ export function useAuth() {
   );
 
   const signOut = useCallback(async () => {
-    localStorage.removeItem(AUTH_BYPASS_KEY);
     await supabase.auth.signOut();
     setIsAuthenticated(false);
     setUser(null);
   }, []);
-
-  const setBypassAuth = useCallback((bypass: boolean) => {
-    localStorage.setItem(AUTH_BYPASS_KEY, String(bypass));
-    setIsAuthenticated(bypass);
-    setUser(bypass ? null : user);
-  }, [user]);
 
   return {
     isAuthenticated,
@@ -87,7 +63,6 @@ export function useAuth() {
     loading,
     signIn,
     signOut,
-    setBypassAuth,
     refreshAuth: checkAuthState,
   };
 }
