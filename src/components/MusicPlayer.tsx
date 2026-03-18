@@ -7,6 +7,7 @@ import { useEditMode } from '../contexts/EditModeContext';
 import { useDescentIntensity } from '../contexts/DescentIntensityContext';
 import { useTracks } from '../hooks';
 import { isSupabaseConfigured } from '../lib/supabase';
+import { parseVisualizationId } from '../lib/contentMappers';
 import { formatDuration } from '../utils';
 import { MusicPlayerEditDialog } from './MusicPlayerEditDialog';
 import { motion, AnimatePresence } from 'motion/react';
@@ -42,7 +43,7 @@ export function MusicPlayer() {
         album: t.album ?? '',
         duration: formatDuration(t.duration),
         url: t.audio_url,
-        visualizationId: parseInt(t.visualization_type, 10) || 0,
+        visualizationId: parseVisualizationId(t.visualization_type),
       }));
     }
     return content.musicPlayer.tracks.map((t) => ({
@@ -162,12 +163,11 @@ export function MusicPlayer() {
   };
 
   const handleError = (_e: React.SyntheticEvent<HTMLAudioElement, Event>) => {
-    // Only log error if there's actually a source to load
     if (audioRef.current && audioRef.current.src) {
       console.error('Failed to load audio:', {
         track: tracks[currentTrack]?.title,
         url: audioRef.current.src.substring(0, 100),
-        error: e.type,
+        error: _e.type,
         message: audioRef.current.error?.message || 'Unknown error'
       });
     }

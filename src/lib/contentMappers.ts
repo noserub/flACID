@@ -38,6 +38,12 @@ function formatDurationFromSeconds(seconds: number): string {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
+/** Parse visualization_type from DB (handles 'flowField' and non-numeric; returns 0-9). */
+export function parseVisualizationId(value: string | undefined): number {
+  const n = parseInt(String(value ?? ''), 10);
+  return Number.isInteger(n) && n >= 0 && n <= 9 ? n : 0;
+}
+
 /** Map database rows to SiteContent */
 export function dbToSiteContent(db: DbSnapshot, defaultContent: SiteContent): SiteContent {
   const sectionVisibility = db.siteSettings.section_visibility || {};
@@ -88,7 +94,7 @@ export function dbToSiteContent(db: DbSnapshot, defaultContent: SiteContent): Si
     album: t.album || '',
     duration: formatDurationFromSeconds(t.duration),
     url: t.audio_url,
-    visualizationId: parseInt(t.visualization_type, 10) || 0,
+    visualizationId: parseVisualizationId(t.visualization_type),
   }));
 
   return {
