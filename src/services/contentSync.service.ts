@@ -9,6 +9,78 @@ import { isSupabaseConfigured } from '../lib/supabase';
 import type { SiteContent } from '../contexts/EditModeContext';
 import { dbToSiteContent, siteContentToDb, type DbSnapshot } from '../lib/contentMappers';
 
+/** Postgres UUID (avoids treating legacy numeric string ids like "1" as UUIDs). */
+function isDatabaseUuid(id: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+}
+
+/** Ensure DATE column always gets YYYY-MM-DD (invalid/empty was breaking publish after delete-all). */
+function normalizeTourDateForDb(raw: string): string {
+  const t = (raw || '').trim().slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return t;
+  const parsed = new Date(raw.includes('T') ? raw : `${raw}T12:00:00`);
+  if (!Number.isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10);
+  return new Date().toISOString().slice(0, 10);
+}
+
+function tourRowFromSiteDate(d: SiteContent['tour']['dates'][number]) {
+  const status =
+    d.status === 'sold_out' ||
+    d.status === 'cancelled' ||
+    d.status === 'selling_fast' ||
+    d.status === 'upcoming'
+      ? d.status
+      : 'upcoming';
+
+  return {
+    date: normalizeTourDateForDb(d.date),
+    venue: (d.venue ?? '').trim() || 'TBA',
+    city: (d.city ?? '').trim() || 'TBA',
+    country: '',
+    ticket_url:
+      d.ticketUrl && d.ticketUrl.trim() && d.ticketUrl !== '#' ? d.ticketUrl.trim() : null,
+    status,
+  };
+}
+
+/**
+ * Sync tour_dates without delete-all-first (which wiped rows when insert failed).
+ * Upsert rows with real UUIDs; insert new rows for legacy string ids; remove orphans.
+ */
+async function replaceTourDatesFromSiteContent(content: SiteContent): Promise<void> {
+  const dates = content.tour.dates;
+  const keptIds: string[] = [];
+
+  const withId = dates.filter((d) => isDatabaseUuid(d.id));
+  const withoutId = dates.filter((d) => !isDatabaseUuid(d.id));
+
+  if (withId.length > 0) {
+    const rows = withId.map((d) => ({ id: d.id, ...tourRowFromSiteDate(d) }));
+    const { data, error } = await supabase.from('tour_dates').upsert(rows, { onConflict: 'id' }).select('id');
+    if (error) throw error;
+    keptIds.push(...(data ?? []).map((r) => r.id));
+  }
+
+  for (const d of withoutId) {
+    const { data, error } = await supabase
+      .from('tour_dates')
+      .insert(tourRowFromSiteDate(d))
+      .select('id')
+      .single();
+    if (error) throw error;
+    if (data?.id) keptIds.push(data.id);
+  }
+
+  const { data: allRows, error: listError } = await supabase.from('tour_dates').select('id');
+  if (listError) throw listError;
+
+  const orphanIds = (allRows ?? []).map((r) => r.id).filter((id) => !keptIds.includes(id));
+  if (orphanIds.length > 0) {
+    const { error: deleteError } = await supabase.from('tour_dates').delete().in('id', orphanIds);
+    if (deleteError) throw deleteError;
+  }
+}
+
 export async function loadContentFromSupabase(
   defaultContent: SiteContent
 ): Promise<SiteContent> {
@@ -63,7 +135,7 @@ export async function publishContentToSupabase(content: SiteContent): Promise<vo
     throw new Error('Supabase is not configured');
   }
 
-  const { siteSettings, tracks, albums, tourDates, photos } = siteContentToDb(content);
+  const { siteSettings, tracks, albums, photos } = siteContentToDb(content);
 
   // 1. Upsert site_settings
   const { error: settingsError } = await supabase
@@ -127,28 +199,8 @@ export async function publishContentToSupabase(content: SiteContent): Promise<vo
     if (insertAlbumsError) throw insertAlbumsError;
   }
 
-  // 4. Replace tour_dates
-  const { data: existingTour } = await supabase.from('tour_dates').select('id');
-  if (existingTour?.length) {
-    const { error: deleteTourError } = await supabase
-      .from('tour_dates')
-      .delete()
-      .neq('id', '00000000-0000-0000-0000-000000000000');
-    if (deleteTourError) throw deleteTourError;
-  }
-
-  if (tourDates.length > 0) {
-    const tourToInsert = tourDates.map((d) => ({
-      date: d.date,
-      venue: d.venue,
-      city: d.city,
-      country: d.country || '',
-      ticket_url: d.ticket_url,
-      status: d.status || 'upcoming',
-    }));
-    const { error: insertTourError } = await supabase.from('tour_dates').insert(tourToInsert);
-    if (insertTourError) throw insertTourError;
-  }
+  // 4. Sync tour_dates (upsert + insert + orphan delete — avoids empty table on failed insert)
+  await replaceTourDatesFromSiteContent(content);
 
   // 5. Replace photos
   const { data: existingPhotos } = await supabase.from('photos').select('id');

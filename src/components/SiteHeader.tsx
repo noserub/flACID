@@ -191,7 +191,9 @@ export function SiteHeader() {
                     try {
                       await publishChanges();
                     } catch (e) {
-                      alert('Publish failed. Check console for details.');
+                      const msg = e instanceof Error ? e.message : String(e);
+                      console.error(e);
+                      alert(`Publish failed: ${msg}`);
                     }
                   }}
                   className="text-green-400"

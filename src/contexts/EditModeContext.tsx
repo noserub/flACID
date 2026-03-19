@@ -267,7 +267,7 @@ export function EditModeProvider({ children }: { children: ReactNode }) {
   const [draftRevision, setDraftRevision] = useState(0);
 
   // Migration helper to ensure all required fields exist
-  const migrateContent = (content: unknown): SiteContent => {
+  const migrateContent = useCallback((content: unknown): SiteContent => {
     const c = content as Partial<SiteContent> & Record<string, unknown>;
     const migrated = {
       ...defaultContent,
@@ -348,7 +348,7 @@ export function EditModeProvider({ children }: { children: ReactNode }) {
     });
     
     return migrated;
-  };
+  }, []);
 
   // Load from Supabase on mount (or use defaultContent)
   useEffect(() => {
@@ -378,7 +378,7 @@ export function EditModeProvider({ children }: { children: ReactNode }) {
 
     load();
     return () => { cancelled = true; };
-  }, []);
+  }, [migrateContent]);
 
   // No localStorage persistence - all data lives in Supabase
 
@@ -430,7 +430,11 @@ export function EditModeProvider({ children }: { children: ReactNode }) {
     setPublishLoading(true);
     try {
       await publishContentToSupabase(draftContent);
-      setPublishedContent(draftContent);
+      // Reload from DB so client ids (e.g. tour UUIDs) match server and all tables are consistent
+      const refreshed = await loadContentFromSupabase(defaultContent);
+      const migrated = migrateContent(refreshed);
+      setPublishedContent(migrated);
+      setDraftContent(migrated);
       setIsDraft(false);
     } catch (e) {
       console.error('[EditMode] Publish failed:', e);
@@ -438,7 +442,7 @@ export function EditModeProvider({ children }: { children: ReactNode }) {
     } finally {
       setPublishLoading(false);
     }
-  }, [draftContent]);
+  }, [draftContent, migrateContent]);
 
   const discardDraft = useCallback(() => {
     setDraftContent(publishedContent);
