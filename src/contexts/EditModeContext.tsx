@@ -37,17 +37,21 @@ export interface SiteContent {
   };
   tour: {
     title: string;
+    subtitle: string;
+    footerNote: string;
     dates: Array<{
       id: string;
       date: string;
       venue: string;
       city: string;
       ticketUrl: string;
+      status: 'upcoming' | 'selling_fast' | 'sold_out' | 'cancelled';
     }>;
     visible: boolean;
   };
   gallery: {
     title: string;
+    subtitle: string;
     tabs: Array<{
       id: string;
       name: string;
@@ -166,6 +170,8 @@ Step outside the standard verse-chorus structure and into a landscape of shiftin
   },
   tour: {
     title: 'Tour Dates',
+    subtitle: 'Join us on our journey through the void',
+    footerNote: 'More dates to be announced soon',
     dates: [
       {
         id: '1',
@@ -173,6 +179,7 @@ Step outside the standard verse-chorus structure and into a landscape of shiftin
         venue: 'The Underground',
         city: 'Portland, OR',
         ticketUrl: '#',
+        status: 'upcoming',
       },
       {
         id: '2',
@@ -180,6 +187,7 @@ Step outside the standard verse-chorus structure and into a landscape of shiftin
         venue: 'Doom Chamber',
         city: 'Seattle, WA',
         ticketUrl: '#',
+        status: 'upcoming',
       },
       {
         id: '3',
@@ -187,12 +195,14 @@ Step outside the standard verse-chorus structure and into a landscape of shiftin
         venue: 'Heavy Sound House',
         city: 'San Francisco, CA',
         ticketUrl: '#',
+        status: 'upcoming',
       },
     ],
     visible: true,
   },
   gallery: {
     title: 'Gallery',
+    subtitle: 'Captured moments from our journey',
     tabs: [
       {
         id: 'live',
@@ -268,8 +278,25 @@ export function EditModeProvider({ children }: { children: ReactNode }) {
       hero: { ...defaultContent.hero, ...c.hero },
       about: { ...defaultContent.about, ...c.about },
       discography: { ...defaultContent.discography, ...c.discography },
-      tour: { ...defaultContent.tour, ...c.tour },
-      gallery: { ...defaultContent.gallery, ...c.gallery },
+      tour: {
+        ...defaultContent.tour,
+        ...c.tour,
+        subtitle: c.tour?.subtitle ?? defaultContent.tour.subtitle,
+        footerNote: c.tour?.footerNote ?? defaultContent.tour.footerNote,
+        dates: (c.tour?.dates ?? defaultContent.tour.dates).map((d) => ({
+          id: d.id,
+          date: d.date,
+          venue: d.venue,
+          city: d.city,
+          ticketUrl: d.ticketUrl ?? '',
+          status: d.status ?? 'upcoming',
+        })),
+      },
+      gallery: {
+        ...defaultContent.gallery,
+        ...c.gallery,
+        subtitle: c.gallery?.subtitle ?? defaultContent.gallery.subtitle,
+      },
       musicPlayer: { ...defaultContent.musicPlayer, ...c.musicPlayer },
       footer: { ...defaultContent.footer, ...c.footer },
     };

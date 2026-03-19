@@ -35,7 +35,10 @@ export async function loadContentFromSupabase(
       footer: {},
       discography_title: 'Journey',
       tour_title: 'Tour Dates',
+      tour_subtitle: '',
+      tour_footer_note: 'More dates to be announced soon',
       gallery_title: 'Gallery',
+      gallery_subtitle: '',
       section_visibility: {},
       gallery_tabs: [],
     };

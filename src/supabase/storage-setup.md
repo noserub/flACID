@@ -127,6 +127,15 @@ In Supabase Dashboard > Storage > Settings:
 - Implement pagination for photo galleries
 - Consider external CDN (Cloudflare) for high-traffic sites
 
+## Database migrations (SQL Editor)
+
+Run these in order from `src/supabase/migrations/`:
+
+1. `001_initial_schema.sql`
+2. `002_profiles_and_rls.sql` (if present)
+3. `003_site_settings_and_schema_updates.sql`
+4. `004_tour_gallery_subtitles_newsletter.sql` — tour/gallery subtitles, `selling_fast` tour status, `newsletter_subscribers` table + RLS
+
 ## Setup Steps in Cursor
 
 1. Create Supabase project at https://supabase.com

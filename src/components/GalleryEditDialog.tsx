@@ -15,6 +15,8 @@ import { Switch } from './ui/switch';
 
 export function GalleryEditDialog() {
   const { content, updateContent } = useEditMode();
+  const [title, setTitle] = useState(content.gallery.title);
+  const [subtitle, setSubtitle] = useState(content.gallery.subtitle);
   const [tabs, setTabs] = useState(content.gallery.tabs);
 
   const handleAddTab = () => {
@@ -93,8 +95,16 @@ export function GalleryEditDialog() {
   const handleSave = () => {
     updateContent('gallery', {
       ...content.gallery,
+      title,
+      subtitle,
       tabs,
     });
+  };
+
+  const syncFromContent = () => {
+    setTitle(content.gallery.title);
+    setSubtitle(content.gallery.subtitle);
+    setTabs(content.gallery.tabs);
   };
 
   return (
@@ -110,8 +120,26 @@ export function GalleryEditDialog() {
         </Button>
       }
       title="Edit Gallery"
+      onOpenChange={(open) => {
+        if (open) syncFromContent();
+      }}
       onSave={handleSave}
     >
+      <div className="space-y-4 pb-2">
+        <div className="space-y-2">
+          <Label>Section title</Label>
+          <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Gallery" />
+        </div>
+        <div className="space-y-2">
+          <Label>Subtitle</Label>
+          <Input
+            value={subtitle}
+            onChange={(e) => setSubtitle(e.target.value)}
+            placeholder="Short line under the title"
+          />
+        </div>
+      </div>
+
       <Button onClick={handleAddTab} className="w-full" variant="outline">
         <Plus className="h-4 w-4 mr-2" />
         Add Gallery Tab

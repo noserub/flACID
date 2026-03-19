@@ -15,7 +15,10 @@ export interface DbSnapshot {
     footer: Record<string, unknown>;
     discography_title: string;
     tour_title: string;
+    tour_subtitle?: string;
+    tour_footer_note?: string;
     gallery_title: string;
+    gallery_subtitle?: string;
     section_visibility: Record<string, boolean>;
     gallery_tabs: Array<{ id: string; name: string; visible: boolean }>;
   };
@@ -63,12 +66,18 @@ export function dbToSiteContent(db: DbSnapshot, defaultContent: SiteContent): Si
     tracks: Array.isArray(a.track_names) ? a.track_names : [],
   }));
 
+  const tourStatus = (s: string | undefined): SiteContent['tour']['dates'][number]['status'] => {
+    if (s === 'sold_out' || s === 'cancelled' || s === 'selling_fast' || s === 'upcoming') return s;
+    return 'upcoming';
+  };
+
   const tourDates: SiteContent['tour']['dates'] = db.tourDates.map((d) => ({
     id: d.id,
     date: d.date,
     venue: d.venue,
     city: d.city,
-    ticketUrl: d.ticket_url || '#',
+    ticketUrl: d.ticket_url || '',
+    status: tourStatus(d.status),
   }));
 
   const tabs: SiteContent['gallery']['tabs'] = galleryTabs.length > 0
@@ -108,11 +117,14 @@ export function dbToSiteContent(db: DbSnapshot, defaultContent: SiteContent): Si
     },
     tour: {
       title: db.siteSettings.tour_title || defaultContent.tour.title,
+      subtitle: db.siteSettings.tour_subtitle ?? defaultContent.tour.subtitle,
+      footerNote: db.siteSettings.tour_footer_note ?? defaultContent.tour.footerNote,
       dates: tourDates,
       visible: sectionVisibility.tour ?? true,
     },
     gallery: {
       title: db.siteSettings.gallery_title || defaultContent.gallery.title,
+      subtitle: db.siteSettings.gallery_subtitle ?? defaultContent.gallery.subtitle,
       tabs,
       visible: sectionVisibility.gallery ?? true,
     },
@@ -170,8 +182,9 @@ export function siteContentToDb(content: SiteContent): {
     venue: d.venue,
     city: d.city,
     country: '',
-    ticket_url: d.ticketUrl || null,
-    status: 'upcoming' as const,
+    ticket_url:
+      d.ticketUrl && d.ticketUrl.trim() && d.ticketUrl !== '#' ? d.ticketUrl.trim() : null,
+    status: d.status || 'upcoming',
   }));
 
   const photos: Array<Record<string, unknown>> = [];
@@ -198,7 +211,10 @@ export function siteContentToDb(content: SiteContent): {
       footer: content.footer,
       discography_title: content.discography.title,
       tour_title: content.tour.title,
+      tour_subtitle: content.tour.subtitle,
+      tour_footer_note: content.tour.footerNote,
       gallery_title: content.gallery.title,
+      gallery_subtitle: content.gallery.subtitle,
       section_visibility: sectionVisibility,
       gallery_tabs: galleryTabs,
     },

@@ -105,7 +105,7 @@ export interface Database {
           city: string;
           country: string;
           ticket_url: string | null;
-          status: 'upcoming' | 'sold_out' | 'cancelled';
+          status: 'upcoming' | 'sold_out' | 'cancelled' | 'selling_fast';
           created_at: string;
           updated_at: string;
         };
@@ -116,11 +116,24 @@ export interface Database {
           city: string;
           country: string;
           ticket_url?: string | null;
-          status?: 'upcoming' | 'sold_out' | 'cancelled';
+          status?: 'upcoming' | 'sold_out' | 'cancelled' | 'selling_fast';
           created_at?: string;
           updated_at?: string;
         };
         Update: Partial<Database['public']['Tables']['tour_dates']['Insert']>;
+      };
+      newsletter_subscribers: {
+        Row: {
+          id: string;
+          email: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          email: string;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['newsletter_subscribers']['Insert']>;
       };
       photos: {
         Row: {
@@ -171,3 +184,6 @@ export type PhotoUpdate = Database['public']['Tables']['photos']['Update'];
 export type Profile = Database['public']['Tables']['profiles']['Row'];
 export type ProfileInsert = Database['public']['Tables']['profiles']['Insert'];
 export type ProfileUpdate = Database['public']['Tables']['profiles']['Update'];
+
+export type NewsletterSubscriber = Database['public']['Tables']['newsletter_subscribers']['Row'];
+export type NewsletterSubscriberInsert = Database['public']['Tables']['newsletter_subscribers']['Insert'];
