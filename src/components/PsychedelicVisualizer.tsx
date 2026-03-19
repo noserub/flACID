@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { EQBands } from './visualizer/types';
 import { Particle } from './visualizer/Particle';
+import { VisualAudioSmoother } from '../lib/audioVisualControl';
 import { generateEQData } from '../lib/eqSimulator';
 import { getVisualization } from './visualizer/visualizations';
 
@@ -62,6 +63,7 @@ export function PsychedelicVisualizer({
 
     const bufferLength = analyser ? analyser.frequencyBinCount : 1024;
     const dataArray = new Uint8Array(bufferLength);
+    const audioSmoother = new VisualAudioSmoother();
     let time = 0;
 
     const draw = () => {
@@ -104,6 +106,7 @@ export function PsychedelicVisualizer({
       } else {
         dataArray.fill(0);
         musicTimeRef.current = 0;
+        audioSmoother.reset();
         eq = {
           subBass: 0,
           bass: 0,
@@ -116,6 +119,15 @@ export function PsychedelicVisualizer({
         };
       }
 
+      let spectrumForViz = dataArray;
+      let calm = 0.35;
+      if (isPlaying) {
+        const shaped = audioSmoother.process(eq, dataArray, performance.now());
+        eq = shaped.eq;
+        spectrumForViz = shaped.smoothedSpectrum;
+        calm = shaped.calm;
+      }
+
       const intensity = isPlaying ? eq.energy / 255 : 0.1;
       const vizId = visualizationId !== undefined ? visualizationId : currentTrack;
       const base = BACKGROUND_BASE[vizId % BACKGROUND_BASE.length] ?? BACKGROUND_BASE[0];
@@ -123,9 +135,12 @@ export function PsychedelicVisualizer({
       const l1 = base.l1 + eq.subBass / 40 + intensity * 5;
       const l2 = base.l2 + intensity * 3;
       const l3 = base.l3;
+      const driftScale = 0.0005 * (0.55 + calm * 0.45);
       const gradient = ctx.createRadialGradient(
-        width / 2 + Math.sin(time * 0.0005) * (30 + eq.presence / 10),
-        height / 2 + Math.cos(time * 0.0005) * (30 + eq.presence / 10),
+        width / 2 +
+          Math.sin(time * driftScale) * (26 + eq.presence / 12) * (0.7 + calm * 0.3),
+        height / 2 +
+          Math.cos(time * driftScale) * (26 + eq.presence / 12) * (0.7 + calm * 0.3),
         0,
         width / 2,
         height / 2,
@@ -140,7 +155,7 @@ export function PsychedelicVisualizer({
 
       if (isPlaying) {
         const drawViz = getVisualization(vizId % 10);
-        drawViz(ctx, width, height, dataArray, eq, time, bufferLength, {
+        drawViz(ctx, width, height, spectrumForViz, eq, time, bufferLength, {
           particles: particlesRef.current,
           isPlaying,
         });

@@ -36,27 +36,70 @@ export function generateEQData(
     dynamicMultiplier = 0.8 + Math.sin(beat * Math.PI * 4) * 0.4;
   }
 
-  const subBass = (Math.sin(time * profile.tempo) * 60 + Math.sin(time * profile.tempo * 0.5) * 40 + Math.random() * 20 + 80) * profile.subBassWeight * dynamicMultiplier;
-  const bass = (Math.sin(time * profile.tempo * 1.5) * 50 + Math.cos(time * profile.tempo * 0.7) * 35 + Math.random() * 25 + 70) * profile.bassWeight * dynamicMultiplier;
-  const lowMid = (Math.sin(time * profile.tempo * 2) * 40 + Math.sin(time * profile.tempo * 1.2 + 1) * 30 + Math.random() * 20 + 60) * profile.midWeight * dynamicMultiplier;
-  const mid = (Math.sin(time * profile.tempo * 2.5 + 2) * 45 + Math.cos(time * profile.tempo * 1.8) * 25 + Math.random() * 20 + 55) * profile.midWeight * dynamicMultiplier;
-  const highMid = (Math.sin(time * profile.tempo * 3 + 3) * 35 + Math.sin(time * profile.tempo * 2.2) * 20 + Math.random() * 15 + 45) * profile.highWeight * dynamicMultiplier;
-  const high = (Math.sin(time * profile.tempo * 4 + 4) * 30 + Math.cos(time * profile.tempo * 3.5) * 20 + Math.random() * 15 + 40) * profile.highWeight * dynamicMultiplier;
-  const presence = (Math.sin(time * profile.tempo * 5 + 5) * 25 + Math.random() * 10 + 30) * profile.highWeight * dynamicMultiplier;
+  const wobble = (phase: number, amp: number) =>
+    (Math.sin(time * 0.11 + phase) * 0.5 + Math.cos(time * 0.07 + phase * 1.7) * 0.5) * amp;
+
+  const subBass =
+    (Math.sin(time * profile.tempo) * 60 +
+      Math.sin(time * profile.tempo * 0.5) * 40 +
+      wobble(0, 10) +
+      80) *
+    profile.subBassWeight *
+    dynamicMultiplier;
+  const bass =
+    (Math.sin(time * profile.tempo * 1.5) * 50 +
+      Math.cos(time * profile.tempo * 0.7) * 35 +
+      wobble(1.1, 12) +
+      70) *
+    profile.bassWeight *
+    dynamicMultiplier;
+  const lowMid =
+    (Math.sin(time * profile.tempo * 2) * 40 +
+      Math.sin(time * profile.tempo * 1.2 + 1) * 30 +
+      wobble(2.2, 9) +
+      60) *
+    profile.midWeight *
+    dynamicMultiplier;
+  const mid =
+    (Math.sin(time * profile.tempo * 2.5 + 2) * 45 +
+      Math.cos(time * profile.tempo * 1.8) * 25 +
+      wobble(3.3, 9) +
+      55) *
+    profile.midWeight *
+    dynamicMultiplier;
+  const highMid =
+    (Math.sin(time * profile.tempo * 3 + 3) * 35 +
+      Math.sin(time * profile.tempo * 2.2) * 20 +
+      wobble(4.4, 7) +
+      45) *
+    profile.highWeight *
+    dynamicMultiplier;
+  const high =
+    (Math.sin(time * profile.tempo * 4 + 4) * 30 +
+      Math.cos(time * profile.tempo * 3.5) * 20 +
+      wobble(5.5, 7) +
+      40) *
+    profile.highWeight *
+    dynamicMultiplier;
+  const presence =
+    (Math.sin(time * profile.tempo * 5 + 5) * 25 + wobble(6.6, 5) + 30) *
+    profile.highWeight *
+    dynamicMultiplier;
 
   const bassRange = Math.floor(bufferLength * 0.1);
   const midRange = Math.floor(bufferLength * 0.4);
   const highRange = bufferLength;
 
   for (let i = 0; i < bufferLength; i++) {
+    const binWobble = wobble(i * 0.02, 6);
     if (i < bassRange) {
-      dataArray[i] = subBass + (bass - subBass) * (i / bassRange) + Math.random() * 15;
+      dataArray[i] = subBass + (bass - subBass) * (i / bassRange) + binWobble;
     } else if (i < midRange) {
       const t = (i - bassRange) / (midRange - bassRange);
-      dataArray[i] = bass + (mid - bass) * t + Math.random() * 12;
+      dataArray[i] = bass + (mid - bass) * t + binWobble * 0.85;
     } else {
       const t = (i - midRange) / (highRange - midRange);
-      dataArray[i] = mid + (high - mid) * t + Math.random() * 10;
+      dataArray[i] = mid + (high - mid) * t + binWobble * 0.7;
     }
   }
 
