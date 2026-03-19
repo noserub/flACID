@@ -122,28 +122,20 @@ export function SiteHeader() {
         <div className="col-start-1 md:col-start-2">
           <MiniPlayer />
         </div>
-        <div className="col-start-2 md:col-start-3 flex items-center gap-3 flex-shrink-0 justify-self-end">
-        {/* Descent Mode Toggle */}
-        <DescentModeToggle />
-        
-        {/* Draft Status Indicator */}
-        {isDraft && isEditMode && (
-          <div className="flex items-center gap-2 bg-orange-600/90 backdrop-blur-sm border border-orange-400/50 rounded-lg px-3 py-2 shadow-lg">
-            <div className="w-2 h-2 bg-orange-300 rounded-full animate-pulse" />
-            <span className="text-sm text-orange-100 font-medium">Unsaved Changes</span>
-          </div>
-        )}
+        <div className="col-start-2 md:col-start-3 justify-self-end shrink-0">
+          {/* Core strip stays fixed; draft is out-of-flow on md+ (left) or below on small screens */}
+          <div className="relative inline-block text-right">
+            <div className="flex items-center justify-end gap-3">
+              <DescentModeToggle />
 
-        {/* Export Success Indicator */}
-        {exportSuccess && (
-          <div className="flex items-center gap-2 bg-green-600/90 backdrop-blur-sm border border-green-400/50 rounded-lg px-3 py-2 shadow-lg">
-            <CheckCircle className="h-4 w-4 text-green-300" />
-            <span className="text-sm text-green-100 font-medium">Exported!</span>
-          </div>
-        )}
+              {exportSuccess && (
+                <div className="flex items-center gap-2 bg-green-600/90 backdrop-blur-sm border border-green-400/50 rounded-lg px-3 py-2 shadow-lg">
+                  <CheckCircle className="h-4 w-4 text-green-300" />
+                  <span className="text-sm text-green-100 font-medium">Exported!</span>
+                </div>
+              )}
 
-        {/* Menu */}
-        <DropdownMenu>
+              <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               size="icon"
@@ -242,7 +234,18 @@ export function SiteHeader() {
               </>
             )}
           </DropdownMenuContent>
-        </DropdownMenu>
+              </DropdownMenu>
+            </div>
+
+            {isDraft && isEditMode && (
+              <div className="mt-2 flex justify-end md:mt-0 md:absolute md:right-full md:top-1/2 md:mr-3 md:-translate-y-1/2 md:justify-end z-10">
+                <div className="flex items-center gap-2 bg-orange-600/90 backdrop-blur-sm border border-orange-400/50 rounded-lg px-3 py-2 shadow-lg whitespace-nowrap">
+                  <div className="w-2 h-2 bg-orange-300 rounded-full animate-pulse shrink-0" />
+                  <span className="text-sm text-orange-100 font-medium">Unsaved Changes</span>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

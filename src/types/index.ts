@@ -298,6 +298,7 @@ export interface EditModeContextType {
 export interface DescentModeContextType {
   isDescentMode: boolean;
   toggleDescentMode: () => void;
+  setDescentMode: (value: boolean) => void;
 }
 
 export interface DescentIntensityContextType {

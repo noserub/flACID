@@ -3,6 +3,8 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 interface DescentModeContextType {
   isDescentMode: boolean;
   toggleDescentMode: () => void;
+  /** Set explicit on/off (e.g. onboarding “Try Descend”) */
+  setDescentMode: (value: boolean) => void;
 }
 
 const DescentModeContext = createContext<DescentModeContextType | undefined>(undefined);
@@ -27,8 +29,12 @@ export function DescentModeProvider({ children }: { children: ReactNode }) {
     setIsDescentMode(prev => !prev);
   };
 
+  const setDescentMode = (value: boolean) => {
+    setIsDescentMode(value);
+  };
+
   return (
-    <DescentModeContext.Provider value={{ isDescentMode, toggleDescentMode }}>
+    <DescentModeContext.Provider value={{ isDescentMode, toggleDescentMode, setDescentMode }}>
       {children}
     </DescentModeContext.Provider>
   );

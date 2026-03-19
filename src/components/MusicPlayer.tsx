@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Play, Pause, SkipForward, SkipBack, Volume2, VolumeX, List, Maximize, Minimize, X, Loader2, Eye, EyeOff } from 'lucide-react';
+import { Play, Pause, SkipForward, SkipBack, Volume2, VolumeX, List, Maximize, Minimize, X, Loader2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Slider } from './ui/slider';
 import { PsychedelicVisualizer } from './PsychedelicVisualizer';
@@ -8,6 +8,7 @@ import { useDescentMode } from '../contexts/DescentModeContext';
 import { useDescentIntensity } from '../contexts/DescentIntensityContext';
 import { usePlayback } from '../contexts/PlaybackContext';
 import { MusicPlayerEditDialog } from './MusicPlayerEditDialog';
+import { DescentToggleButton } from './DescentModeToggle';
 import { motion, AnimatePresence } from 'motion/react';
 
 export function MusicPlayer() {
@@ -252,34 +253,7 @@ export function MusicPlayer() {
                 transition={{ delay: 0.2, duration: 0.4 }}
                 className="absolute top-6 right-6 pointer-events-auto z-50 flex items-center gap-3"
               >
-                <button
-                  type="button"
-                  onClick={toggleDescentMode}
-                  className={`
-                    relative px-4 py-2 rounded-lg font-medium transition-all duration-300
-                    ${isDescentMode
-                      ? 'bg-fuchsia-600 text-white shadow-lg shadow-fuchsia-900/50 hover:bg-fuchsia-500'
-                      : 'bg-background/80 text-cyan-400 border border-cyan-400/30 hover:border-fuchsia-400/50 hover:text-fuchsia-400 hover:shadow-lg hover:shadow-fuchsia-500/20'
-                    }
-                  `}
-                  title={isDescentMode ? 'Exit Descent Mode' : 'Enter Descent Mode'}
-                  aria-label={isDescentMode ? 'Disable Descend mode' : 'Enable Descend mode'}
-                  aria-pressed={isDescentMode}
-                >
-                  <div className="flex items-center gap-2">
-                    {isDescentMode ? (
-                      <>
-                        <EyeOff className="w-4 h-4" />
-                        <span className="hidden sm:inline">Ascend</span>
-                      </>
-                    ) : (
-                      <>
-                        <Eye className="w-4 h-4" />
-                        <span className="hidden sm:inline">Descend</span>
-                      </>
-                    )}
-                  </div>
-                </button>
+                <DescentToggleButton isDescentMode={isDescentMode} onClick={toggleDescentMode} />
                 <Button
                   variant="outline"
                   size="icon"
