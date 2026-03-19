@@ -1,5 +1,18 @@
 import { useState } from 'react';
-import { MoreHorizontal, Edit3, Eye, Save, Upload, Download, CheckCircle, XCircle, Package, LogIn, LogOut } from 'lucide-react';
+import {
+  MoreHorizontal,
+  Edit3,
+  Eye,
+  Save,
+  Upload,
+  Download,
+  CheckCircle,
+  XCircle,
+  Package,
+  LogIn,
+  LogOut,
+  CircleHelp,
+} from 'lucide-react';
 import { Button } from './ui/button';
 import { ComponentLibrary } from './ComponentLibrary';
 import {
@@ -15,6 +28,7 @@ import { useAuth } from '../hooks';
 import { DescentModeToggle } from './DescentModeToggle';
 import { SignInDialog } from './SignInDialog';
 import { MiniPlayer } from './MiniPlayer';
+import { requestDescentHelp } from '../lib/descentHelp';
 
 export function SiteHeader() {
   const { isEditMode, isDraft, toggleEditMode, publishChanges, discardDraft, content } = useEditMode();
@@ -145,8 +159,19 @@ export function SiteHeader() {
               <span className="sr-only">Site menu</span>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56 bg-card/95 backdrop-blur-sm">
-            <DropdownMenuLabel>Site Manager</DropdownMenuLabel>
+          <DropdownMenuContent
+            align="end"
+            className="w-56 bg-card/95 backdrop-blur-sm"
+            onCloseAutoFocus={(e) => e.preventDefault()}
+          >
+            <DropdownMenuItem
+              onClick={() => requestDescentHelp()}
+              className="text-cyan-400/95 focus:text-cyan-300 focus:bg-cyan-500/10"
+            >
+              <CircleHelp className="mr-2 h-4 w-4 shrink-0" />
+              <span>What is Descend?</span>
+            </DropdownMenuItem>
+
             <DropdownMenuSeparator />
             
             {/* Edit Mode Toggle - requires auth */}

@@ -1,7 +1,8 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
-import { Sparkles, ArrowUpFromLine } from 'lucide-react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useDescentMode } from '../contexts/DescentModeContext';
+import { OPEN_DESCENT_HELP_EVENT } from '../lib/descentHelp';
 import { Popover, PopoverAnchor, PopoverContent } from './ui/popover';
 import { Button } from './ui/button';
 import { cn } from './ui/utils';
@@ -54,12 +55,12 @@ export function DescentToggleButton({
       <div className="flex items-center gap-1.5 sm:gap-2">
         {isDescentMode ? (
           <>
-            <ArrowUpFromLine className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" aria-hidden />
+            <ChevronUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 opacity-90" aria-hidden />
             <span className="whitespace-nowrap">Ascend</span>
           </>
         ) : (
           <>
-            <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" aria-hidden />
+            <ChevronDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 opacity-90" aria-hidden />
             <span className="whitespace-nowrap">Descend</span>
           </>
         )}
@@ -91,26 +92,52 @@ function readOnboardingShouldShow(): boolean {
   }
 }
 
+/** Ignore “close” events that fire immediately after open (e.g. menu overlay teardown). */
+const MIN_MS_BEFORE_OUTSIDE_DISMISS_COUNTS = 320;
+
 export function DescentModeToggle() {
   const { isDescentMode, toggleDescentMode, setDescentMode } = useDescentMode();
   const [onboardingOpen, setOnboardingOpen] = useState(readOnboardingShouldShow);
+  const openedAtRef = useRef(Date.now());
 
-  const markOnboardingSeen = useCallback(() => {
+  useEffect(() => {
+    if (onboardingOpen) {
+      openedAtRef.current = Date.now();
+    }
+  }, [onboardingOpen]);
+
+  useEffect(() => {
+    const open = () => setOnboardingOpen(true);
+    window.addEventListener(OPEN_DESCENT_HELP_EVENT, open);
+    return () => window.removeEventListener(OPEN_DESCENT_HELP_EVENT, open);
+  }, []);
+
+  const persistOnboardingSeen = useCallback(() => {
     try {
       localStorage.setItem(DESCENT_ONBOARDING_KEY, '1');
     } catch {
       /* ignore */
     }
-    setOnboardingOpen(false);
   }, []);
+
+  const markOnboardingSeen = useCallback(() => {
+    persistOnboardingSeen();
+    setOnboardingOpen(false);
+  }, [persistOnboardingSeen]);
 
   const handleOpenChange = useCallback(
     (open: boolean) => {
-      if (!open) {
-        markOnboardingSeen();
+      if (open) {
+        setOnboardingOpen(true);
+        return;
+      }
+      setOnboardingOpen(false);
+      // Only persist after a “real” dismiss — not bogus closes right after open
+      if (Date.now() - openedAtRef.current >= MIN_MS_BEFORE_OUTSIDE_DISMISS_COUNTS) {
+        persistOnboardingSeen();
       }
     },
-    [markOnboardingSeen]
+    [persistOnboardingSeen]
   );
 
   const handleTryDescend = useCallback(() => {
@@ -128,7 +155,7 @@ export function DescentModeToggle() {
   }, [toggleDescentMode, onboardingOpen, markOnboardingSeen]);
 
   return (
-    <Popover open={onboardingOpen} onOpenChange={handleOpenChange}>
+    <Popover modal open={onboardingOpen} onOpenChange={handleOpenChange}>
       <PopoverAnchor asChild>
         <div className="inline-flex">
           <DescentToggleButton isDescentMode={isDescentMode} onClick={handleToggleClick} />
@@ -153,9 +180,11 @@ export function DescentModeToggle() {
           <div>
             <p className="font-semibold text-cyan-100 tracking-tight">Turn the site into the show</p>
             <p className="mt-2 text-muted-foreground leading-relaxed text-[13px] sm:text-sm">
-              <span className="text-cyan-400/90">Descend</span> layers full-page visuals that pulse with the
-              music. Press <span className="text-fuchsia-400/90">play</span> first for the strongest
-              reaction—you can toggle anytime.
+              <span className="text-cyan-400/90">Descend</span> adds full-page layers and motion, plus a slow
+              ambient swell in the background.{' '}
+              <span className="text-fuchsia-400/90">When audio is playing</span>, intensity{' '}
+              <span className="text-cyan-300/80">follows the track</span>—bass and loud moments push harder.{' '}
+              <span className="text-muted-foreground/95">Best with the in-site player playing.</span>
             </p>
           </div>
           <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end pt-1">

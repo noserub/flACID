@@ -45,6 +45,9 @@ export function DescentIntensityProvider({ children }: { children: ReactNode }) 
   const analyserRef = useRef<AnalyserNode | null>(null);
   const isPlayingRef = useRef(false);
   const animationRef = useRef<number>();
+  /** Smoothed overall energy for transient / “hit” detection */
+  const smoothedEnergyRef = useRef(0);
+  const transientPeakRef = useRef(0);
 
   // Register the audio analyser from MusicPlayer
   const registerAnalyser = (analyser: AnalyserNode | null, isPlaying: boolean) => {
@@ -73,8 +76,13 @@ export function DescentIntensityProvider({ children }: { children: ReactNode }) 
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
       }
+      smoothedEnergyRef.current = 0;
+      transientPeakRef.current = 0;
       return;
     }
+
+    smoothedEnergyRef.current = 0;
+    transientPeakRef.current = 0;
 
     const dataArray = analyserRef.current 
       ? new Uint8Array(analyserRef.current.frequencyBinCount)
@@ -85,11 +93,10 @@ export function DescentIntensityProvider({ children }: { children: ReactNode }) 
     const updateIntensity = () => {
       const elapsed = (Date.now() - startTime) / 1000; // seconds
 
-      // BREATHING PATTERN: 15-second wave cycle
-      // Uses a smooth sine wave that oscillates between 0.2 and 0.8
+      // Ambient swell — slightly narrower range so music reads louder by comparison
       const breathingCycle = 15; // seconds per full breath
       const breathPhase = (elapsed % breathingCycle) / breathingCycle;
-      const baseIntensity = 0.5 + 0.3 * Math.sin(breathPhase * Math.PI * 2);
+      const baseIntensity = 0.4 + 0.22 * Math.sin(breathPhase * Math.PI * 2);
 
       let musicBoost = 0;
       let eqBands = {
@@ -130,22 +137,34 @@ export function DescentIntensityProvider({ children }: { children: ReactNode }) 
           brilliance: getRange(0.70, 1.0), // 6k-20k Hz
         };
 
-        // Calculate overall energy (weighted towards bass/mids for heavy music)
+        // Overall energy (weighted toward bass / low-mid for punch)
         energy = (
-          eqBands.subBass * 0.3 +
-          eqBands.bass * 0.25 +
-          eqBands.lowMid * 0.2 +
-          eqBands.mid * 0.15 +
+          eqBands.subBass * 0.32 +
+          eqBands.bass * 0.28 +
+          eqBands.lowMid * 0.18 +
+          eqBands.mid * 0.12 +
           eqBands.highMid * 0.05 +
           eqBands.presence * 0.03 +
           eqBands.brilliance * 0.02
         );
 
-        // Music boost increases intensity based on energy
-        musicBoost = energy * 0.4; // Scale to max 0.4 additional intensity
+        const sm = smoothedEnergyRef.current;
+        smoothedEnergyRef.current = sm * 0.8 + energy * 0.2;
+        const rise = Math.max(0, energy - smoothedEnergyRef.current);
+        transientPeakRef.current = Math.max(transientPeakRef.current * 0.86, rise * 1.35);
+        const transient = Math.min(0.48, transientPeakRef.current * 2.4);
+
+        // Stronger sustained + transient response; extra bass emphasis
+        musicBoost = Math.min(
+          0.78,
+          energy * 0.52 + transient + eqBands.bass * 0.22 + eqBands.subBass * 0.12
+        );
+      } else {
+        smoothedEnergyRef.current *= 0.91;
+        transientPeakRef.current *= 0.88;
       }
 
-      // Combine breathing pattern with music reactivity
+      // Combine ambient swell with music reactivity
       const totalIntensity = Math.min(baseIntensity + musicBoost, 1.0);
 
       setIntensity({
@@ -155,17 +174,6 @@ export function DescentIntensityProvider({ children }: { children: ReactNode }) 
         eqBands,
         energy,
       });
-
-      // Debug logging (remove after testing)
-      if (Date.now() % 2000 < 16) { // Log approximately every 2 seconds
-        console.log('Descent Intensity:', {
-          breathing: baseIntensity.toFixed(2),
-          music: musicBoost.toFixed(2),
-          total: totalIntensity.toFixed(2),
-          playing: isPlayingRef.current,
-          hasAnalyser: !!analyserRef.current
-        });
-      }
 
       animationRef.current = requestAnimationFrame(updateIntensity);
     };
