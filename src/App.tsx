@@ -4,11 +4,12 @@ import { AboutSection } from './components/AboutSection';
 import { useSEO } from './hooks/useSEO';
 import { Analytics } from './components/Analytics';
 import { EditModeProvider, useEditMode } from './contexts/EditModeContext';
-import { DescentModeProvider } from './contexts/DescentModeContext';
+import { DescentModeProvider, useDescentMode } from './contexts/DescentModeContext';
 import { DescentIntensityProvider } from './contexts/DescentIntensityContext';
 import { PlaybackProvider } from './contexts/PlaybackContext';
 import { DescentModeWrapper } from './components/DescentModeEffects';
 import { SiteHeader } from './components/SiteHeader';
+import { cn } from './components/ui/utils';
 import heroBackground from 'figma:asset/39f8e6db34bf477fef67b4d63027e0f5debf29fb.png';
 import logoImage from 'figma:asset/64ba7001cc82a53524d3d0f758edddb6dafba520.png';
 
@@ -48,6 +49,7 @@ const DEFAULT_SEO = {
 
 function AppContent() {
   const { loading } = useEditMode();
+  const { isDescentMode } = useDescentMode();
 
   if (loading) {
     return (
@@ -69,34 +71,37 @@ function AppContent() {
             
             {/* Site Header with Menu */}
             <SiteHeader />
-            
-            {/* Hero Section */}
-            <HeroSection />
 
-            {/* About Section */}
-            <AboutSection />
+            {/* Page copy, media, and controls sit above Descent layers (z-20–z-30) */}
+            <div
+              className={cn(
+                isDescentMode && 'relative z-[40] isolate'
+              )}
+            >
+              <HeroSection />
 
-            {/* Listen Now Section - Lazy Loaded */}
-            <Suspense fallback={<SectionLoader />}>
-              <ListenNowSection />
-            </Suspense>
+              <AboutSection />
 
-            {/* Discography Section - Lazy Loaded */}
-            <Suspense fallback={<SectionLoader />}>
-              <AlbumsSection />
-            </Suspense>
+              <Suspense fallback={<SectionLoader />}>
+                <ListenNowSection />
+              </Suspense>
 
-            <Suspense fallback={<SectionLoader />}>
-              <PhotoGallery />
-            </Suspense>
+              <Suspense fallback={<SectionLoader />}>
+                <AlbumsSection />
+              </Suspense>
 
-            <Suspense fallback={<SectionLoader />}>
-              <TourSection />
-            </Suspense>
+              <Suspense fallback={<SectionLoader />}>
+                <PhotoGallery />
+              </Suspense>
 
-            <Suspense fallback={<SectionLoader />}>
-              <Footer />
-            </Suspense>
+              <Suspense fallback={<SectionLoader />}>
+                <TourSection />
+              </Suspense>
+
+              <Suspense fallback={<SectionLoader />}>
+                <Footer />
+              </Suspense>
+            </div>
           </div>
     </PlaybackProvider>
   );
