@@ -30,6 +30,7 @@ import { DescentModeToggle } from './DescentModeToggle';
 import { SignInDialog } from './SignInDialog';
 import { MiniPlayer } from './MiniPlayer';
 import { requestDescentHelp } from '../lib/descentHelp';
+import { cn } from './ui/utils';
 
 export function SiteHeader() {
   const { isDescentMode } = useDescentMode();
