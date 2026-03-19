@@ -236,7 +236,7 @@ export function HeroSection() {
               onClick={scrollToMusicPlayer}
               className="relative px-8 py-4 bg-fuchsia-500 hover:bg-fuchsia-600 rounded-lg transition-all duration-300 shadow-lg shadow-fuchsia-900/50"
             >
-              <span className="tracking-wider">Listen</span>
+              <span className="tracking-wider">Experience</span>
             </button>
           </div>
         </motion.div>

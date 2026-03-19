@@ -79,8 +79,13 @@ export function MiniPlayer() {
     togglePlay,
     skipForward,
     skipBack,
+    isFullscreen,
   } = usePlayback();
   const [playerInView, setPlayerInView] = useState(true);
+
+  const scrollToFullPlayer = () => {
+    document.getElementById('music-player')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   // Section is lazy-loaded so #music-player may not exist on first mount; retry until it does
   useEffect(() => {
@@ -111,7 +116,8 @@ export function MiniPlayer() {
     };
   }, []);
 
-  const show = !playerInView && isPlaying && tracks.length > 0 && currentTrackData;
+  // Only hide when full player is in view or fullscreen is active
+  const show = tracks.length > 0 && currentTrackData && !playerInView && !isFullscreen;
   if (!show) return null;
 
   return (
@@ -156,7 +162,14 @@ export function MiniPlayer() {
           <p className="text-sm font-medium text-foreground truncate">{currentTrackData.title}</p>
           <p className="text-xs text-muted-foreground truncate">{currentTrackData.album || currentTrackData.artist}</p>
         </div>
-        <MiniEQ isPlaying={isPlaying} currentTrack={currentTrack} />
+        <button
+          type="button"
+          onClick={scrollToFullPlayer}
+          className="flex-shrink-0 rounded overflow-hidden cursor-pointer hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-cyan-400/50"
+          aria-label="Go to full player"
+        >
+          <MiniEQ isPlaying={isPlaying} currentTrack={currentTrack} />
+        </button>
       </motion.div>
     </AnimatePresence>
   );

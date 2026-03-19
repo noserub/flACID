@@ -49,6 +49,8 @@ interface PlaybackContextType {
   formatTime: (time: number) => string;
   selectTrack: (index: number) => void;
   setShouldAutoPlay: (value: boolean) => void;
+  isFullscreen: boolean;
+  setIsFullscreen: (value: boolean) => void;
 }
 
 const PlaybackContext = createContext<PlaybackContextType | undefined>(undefined);
@@ -89,6 +91,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   const [isMuted, setIsMuted] = useState(false);
   const [isAudioReady, setIsAudioReady] = useState(false);
   const [shouldAutoPlay, setShouldAutoPlay] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement>(null);
 
@@ -259,11 +262,14 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       formatTime,
       selectTrack,
       setShouldAutoPlay,
+      isFullscreen,
+      setIsFullscreen,
     }),
     [
       tracks,
       currentTrack,
       isPlaying,
+      isFullscreen,
       currentTime,
       duration,
       volume,
@@ -278,6 +284,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       toggleMute,
       formatTime,
       selectTrack,
+      isFullscreen,
     ]
   );
 

@@ -30,6 +30,8 @@ export function MusicPlayer() {
     toggleMute,
     formatTime,
     selectTrack,
+    isFullscreen,
+    setIsFullscreen,
   } = usePlayback();
 
   const handleTogglePlay = () => {
@@ -41,7 +43,6 @@ export function MusicPlayer() {
   };
 
   const [showPlaylist, setShowPlaylist] = useState(true);
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [isVisualizerLoading, setIsVisualizerLoading] = useState(false);
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
   const [touchCurrentY, setTouchCurrentY] = useState<number | null>(null);
@@ -70,12 +71,11 @@ export function MusicPlayer() {
     registerAnalyser(analyserRef.current, isPlaying);
   }, [isPlaying, registerAnalyser]);
 
-  // Fullscreen functionality with loading state
+  // Fullscreen functionality with loading state (isFullscreen lives in PlaybackContext for mini player visibility)
   const toggleFullscreen = () => {
     if (!isFullscreen) {
       setIsVisualizerLoading(true);
       setIsFullscreen(true);
-      // Hide loading indicator after animation completes
       setTimeout(() => setIsVisualizerLoading(false), 800);
     } else {
       setIsFullscreen(false);
