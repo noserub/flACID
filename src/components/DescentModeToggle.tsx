@@ -167,7 +167,7 @@ export function DescentModeToggle() {
         sideOffset={10}
         collisionPadding={16}
         className={cn(
-          'relative z-[110] w-[min(20rem,calc(100vw-2rem))] sm:w-80 rounded-lg border border-cyan-500/30',
+          'relative z-[60] w-[min(20rem,calc(100vw-2rem))] sm:w-80 rounded-lg border border-cyan-500/30',
           'bg-background/95 backdrop-blur-md shadow-xl shadow-fuchsia-950/20 p-4 text-sm text-foreground'
         )}
         onOpenAutoFocus={(e) => e.preventDefault()}

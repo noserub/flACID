@@ -20,9 +20,6 @@ dist/
 .DS_Store
 Thumbs.db
 
-# Supabase CLI temp
-src/supabase/.temp/
-
 # Logs
 *.log
 npm-debug.log*

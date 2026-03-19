@@ -530,12 +530,8 @@ function drawNeonGrid(
   const centerY = height / 2;
   const scale = Math.min(width, height) / 400;
   const camMoveSpeed = 0.0003;
-  const camOffsetX =
-    Math.sin(time * camMoveSpeed * 1.3) * width * 0.15 +
-    Math.cos(time * camMoveSpeed * 0.7) * width * 0.08;
-  const camOffsetY =
-    Math.cos(time * camMoveSpeed) * height * 0.08 +
-    Math.sin(time * camMoveSpeed * 1.7) * height * 0.05;
+  const camOffsetX = Math.sin(time * camMoveSpeed * 1.3) * width * 0.15 + Math.cos(time * camMoveSpeed * 0.7) * width * 0.08;
+  const camOffsetY = Math.cos(time * camMoveSpeed) * height * 0.08 + Math.sin(time * camMoveSpeed * 1.7) * height * 0.05;
   const bassJitter = eq.bass / 100;
   const vanishX = centerX + camOffsetX + Math.sin(time * 0.01) * bassJitter;
   const vanishY = height * 0.35 + camOffsetY + Math.cos(time * 0.012) * bassJitter;

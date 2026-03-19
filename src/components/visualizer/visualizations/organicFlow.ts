@@ -1,4 +1,4 @@
-import type { EQBands, VisualizerDrawOptions } from '../types';
+import type { EQBands } from '../types';
 import { Particle } from '../Particle';
 
 export function drawOrganicFlow(
@@ -9,25 +9,20 @@ export function drawOrganicFlow(
   eq: EQBands,
   time: number,
   bufferLength: number,
-  options?: VisualizerDrawOptions
+  options?: { particles?: Particle[]; isPlaying?: boolean }
 ): void {
   const particles = options?.particles ?? [];
   const isPlaying = options?.isPlaying ?? false;
-  const motion = options?.motion;
-  const beatRad = motion ? motion.beatPhase * Math.PI * 2 : 0;
-  const grooveW = motion?.grooveConfidence ?? 0;
-  const pulse = motion?.pulse ?? 0;
-  const inten = motion?.intensityNorm ?? Math.min(1, eq.energy / 255);
   const centerX = width / 2;
   const centerY = height / 2;
   const scale = Math.min(width, height) / 400;
 
-  const targetParticles = Math.floor(120 + eq.energy / 2 + pulse * 40 * inten);
-  const spawnRate = Math.ceil((eq.mid / 30) * (1 + pulse * 0.45));
+  const targetParticles = Math.floor(120 + eq.energy / 2);
+  const spawnRate = Math.ceil(eq.mid / 30);
 
   if (isPlaying && particles.length < targetParticles) {
     for (let i = 0; i < spawnRate && particles.length < targetParticles; i++) {
-      const angle = Math.random() * Math.PI * 2 + beatRad * 0.35 * grooveW;
+      const angle = Math.random() * Math.PI * 2;
       const radius = Math.random() * 150 * scale + 50 * scale;
       const x = centerX + Math.cos(angle) * radius;
       const y = centerY + Math.sin(angle) * radius;
@@ -38,10 +33,8 @@ export function drawOrganicFlow(
     }
   }
 
-  const slowI = motion?.slowIntensity ?? 0;
-  const fastI = motion?.fastIntensity ?? 0;
-  const flow = (eq.bass / 40) * (1 + slowI * 0.2);
-  const turbulence = (eq.high / 50) * (1 + fastI * 0.25);
+  const flow = eq.bass / 40;
+  const turbulence = eq.high / 50;
   const living: Particle[] = [];
   for (const p of particles) {
     p.update(width, height, flow, turbulence, time);
@@ -61,10 +54,8 @@ export function drawOrganicFlow(
       const y = j * gridSize;
       const dataIdx = Math.floor(((i + j) / (cols + rows)) * bufferLength);
       const value = dataArray[dataIdx] || 0;
-      const angle =
-        (x * 0.008 + y * 0.008 + time * 0.008 * (eq.presence / 100) + beatRad * 0.4 * grooveW) *
-        Math.PI;
-      const length = 20 + value / 10 + eq.bass / 12 + pulse * 12 * inten;
+      const angle = (x * 0.008 + y * 0.008 + time * 0.008 * (eq.presence / 100)) * Math.PI;
+      const length = 20 + value / 10 + eq.bass / 12;
       const x2 = x + Math.cos(angle) * length;
       const y2 = y + Math.sin(angle) * length;
       ctx.strokeStyle = `hsla(280, 70%, 55%, ${0.15 + value / 1200 + eq.mid / 1200})`;
@@ -80,8 +71,7 @@ export function drawOrganicFlow(
   const segments = 80;
   ctx.beginPath();
   for (let i = 0; i <= segments; i++) {
-    const angle =
-      (i / segments) * Math.PI * 2 + beatRad * (0.12 + 0.28 * grooveW);
+    const angle = (i / segments) * Math.PI * 2;
     const dataIdx = Math.floor((i / segments) * bufferLength);
     const value = dataArray[dataIdx] || 0;
     const r = attractorRadius + Math.sin(i * 0.5 + time * 0.02) * (20 + value / 20 + eq.lowMid / 10);
@@ -103,10 +93,7 @@ export function drawOrganicFlow(
     const ringSegments = 60;
     ctx.beginPath();
     for (let i = 0; i <= ringSegments; i++) {
-      const angle =
-        (i / ringSegments) * Math.PI * 2 +
-        time * 0.003 * (r % 2 === 0 ? 1 : -1) +
-        beatRad * (0.35 + r * 0.06) * grooveW;
+      const angle = (i / ringSegments) * Math.PI * 2 + time * 0.003 * (r % 2 === 0 ? 1 : -1);
       const dataIdx = Math.floor((i / ringSegments) * bufferLength);
       const value = dataArray[dataIdx] || 0;
       const rd = ringRadius + Math.sin(i * 0.8 + time * 0.015) * (15 + value / 30);
