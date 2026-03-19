@@ -10,6 +10,7 @@ import { usePlayback } from '../contexts/PlaybackContext';
 import { MusicPlayerEditDialog } from './MusicPlayerEditDialog';
 import { DescentToggleButton } from './DescentModeToggle';
 import { motion, AnimatePresence } from 'motion/react';
+import { cn } from './ui/utils';
 
 export function MusicPlayer() {
   const { isEditMode } = useEditMode();
@@ -165,7 +166,12 @@ export function MusicPlayer() {
   }
 
   return (
-    <div className="w-full max-w-6xl mx-auto relative">
+    <div
+      className={cn(
+        'w-full max-w-6xl mx-auto relative',
+        isDescentMode && 'z-40'
+      )}
+    >
       {isEditMode && <MusicPlayerEditDialog />}
       {/* Fullscreen container overlay with animation */}
       <AnimatePresence>
@@ -253,7 +259,10 @@ export function MusicPlayer() {
                 initial={{ y: -20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.2, duration: 0.4 }}
-                className="absolute top-6 right-6 pointer-events-auto z-50 flex items-center gap-3"
+                className={cn(
+                  'absolute top-6 right-6 pointer-events-auto flex items-center gap-3',
+                  isDescentMode ? 'z-[60]' : 'z-50'
+                )}
               >
                 <DescentToggleButton isDescentMode={isDescentMode} onClick={toggleDescentMode} />
                 <Button
@@ -273,7 +282,10 @@ export function MusicPlayer() {
               initial={{ y: 100, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.4, duration: 0.5, ease: "easeOut" }}
-              className="absolute bottom-0 left-0 right-0 pointer-events-auto z-50 bg-gradient-to-t from-black/80 via-black/50 to-transparent p-8 pt-24"
+              className={cn(
+                'absolute bottom-0 left-0 right-0 pointer-events-auto bg-gradient-to-t from-black/90 via-black/65 to-transparent p-8 pt-24',
+                isDescentMode ? 'z-[60]' : 'z-50'
+              )}
             >
               <div className="max-w-4xl mx-auto space-y-4">
                 {/* Progress Bar */}
@@ -350,7 +362,13 @@ export function MusicPlayer() {
       
       {/* Normal player view */}
       {!isFullscreen && (
-      <div className="bg-card/80 backdrop-blur-md border-2 border-border rounded-lg overflow-hidden shadow-2xl shadow-cyan-500/10">
+      <div
+        className={cn(
+          'bg-card/80 backdrop-blur-md border-2 border-border rounded-lg overflow-hidden shadow-2xl shadow-cyan-500/10',
+          isDescentMode &&
+            'bg-card/95 border-cyan-500/35 shadow-cyan-500/25 ring-1 ring-cyan-400/20'
+        )}
+      >
         {/* Visualizer */}
         <div className="relative h-64 md:h-96 bg-gradient-to-br from-cyan-900/20 to-fuchsia-900/20">
           <PsychedelicVisualizer 
@@ -392,7 +410,14 @@ export function MusicPlayer() {
           {/* Playback Controls */}
           <div className="flex items-center justify-between gap-6">
             {/* Volume Controls Group */}
-            <div className="flex items-center gap-2 bg-background/40 rounded-lg px-3 py-2 backdrop-blur-sm">
+            <div
+              className={cn(
+                'flex items-center gap-2 rounded-lg px-3 py-2 backdrop-blur-md',
+                isDescentMode
+                  ? 'bg-background/90 border border-cyan-500/25 shadow-md shadow-black/30'
+                  : 'bg-background/40 backdrop-blur-sm'
+              )}
+            >
               <Button
                 variant="ghost"
                 size="icon"
@@ -411,7 +436,14 @@ export function MusicPlayer() {
             </div>
 
             {/* Playback Controls Group */}
-            <div className="flex items-center gap-2 bg-background/40 rounded-lg px-4 py-2 backdrop-blur-sm">
+            <div
+              className={cn(
+                'flex items-center gap-2 rounded-lg px-4 py-2 backdrop-blur-md',
+                isDescentMode
+                  ? 'bg-background/90 border border-cyan-500/25 shadow-md shadow-black/30'
+                  : 'bg-background/40 backdrop-blur-sm'
+              )}
+            >
               <Button
                 variant="ghost"
                 size="icon"
@@ -441,7 +473,14 @@ export function MusicPlayer() {
             </div>
 
             {/* View Controls Group */}
-            <div className="flex items-center gap-2 bg-background/40 rounded-lg px-3 py-2 backdrop-blur-sm">
+            <div
+              className={cn(
+                'flex items-center gap-2 rounded-lg px-3 py-2 backdrop-blur-md',
+                isDescentMode
+                  ? 'bg-background/90 border border-cyan-500/25 shadow-md shadow-black/30'
+                  : 'bg-background/40 backdrop-blur-sm'
+              )}
+            >
               <Button
                 variant="ghost"
                 size="icon"

@@ -24,6 +24,7 @@ import {
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
 import { useEditMode } from '../contexts/EditModeContext';
+import { useDescentMode } from '../contexts/DescentModeContext';
 import { useAuth } from '../hooks';
 import { DescentModeToggle } from './DescentModeToggle';
 import { SignInDialog } from './SignInDialog';
@@ -31,6 +32,7 @@ import { MiniPlayer } from './MiniPlayer';
 import { requestDescentHelp } from '../lib/descentHelp';
 
 export function SiteHeader() {
+  const { isDescentMode } = useDescentMode();
   const { isEditMode, isDraft, toggleEditMode, publishChanges, discardDraft, content } = useEditMode();
   const { isAuthenticated, signOut } = useAuth();
   const [signInOpen, setSignInOpen] = useState(false);
@@ -130,7 +132,12 @@ export function SiteHeader() {
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 p-4 pointer-events-none [&>*]:pointer-events-auto">
+    <header
+      className={cn(
+        'fixed top-0 left-0 right-0 p-4 pointer-events-none [&>*]:pointer-events-auto',
+        isDescentMode ? 'z-[100]' : 'z-50'
+      )}
+    >
       <div className="relative w-full min-h-[52px] grid grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_1fr] items-center">
         <div className="hidden md:block" />
         <div className="col-start-1 md:col-start-2">
@@ -161,7 +168,10 @@ export function SiteHeader() {
           </DropdownMenuTrigger>
           <DropdownMenuContent
             align="end"
-            className="w-56 bg-card/95 backdrop-blur-sm"
+            className={cn(
+              'w-56 bg-card/95 backdrop-blur-sm',
+              isDescentMode && 'z-[110]'
+            )}
             onCloseAutoFocus={(e) => e.preventDefault()}
           >
             <DropdownMenuItem

@@ -6,11 +6,9 @@
 
 import type { DrawVisualization, EQBands, VisualizerDrawOptions } from '../types';
 import { drawOrganicFlow } from './organicFlow';
-import { drawNeonGrid } from './neonGrid';
 
 // Re-export for use in main component
 export { drawOrganicFlow } from './organicFlow';
-export { drawNeonGrid } from './neonGrid';
 
 type DrawFn = (
   ctx: CanvasRenderingContext2D,
@@ -516,6 +514,89 @@ function drawLiquidPlasma(
     ctx.strokeStyle = `hsla(${hue}, 85%, 60%, ${0.2 + eq.highMid / 1800})`;
     ctx.lineWidth = 2.5 + eq.energy / 120;
     ctx.stroke();
+  }
+}
+
+function drawNeonGrid(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  dataArray: Uint8Array,
+  eq: EQBands,
+  time: number,
+  bufferLength: number
+): void {
+  const centerX = width / 2;
+  const centerY = height / 2;
+  const scale = Math.min(width, height) / 400;
+  const camMoveSpeed = 0.0003;
+  const camOffsetX =
+    Math.sin(time * camMoveSpeed * 1.3) * width * 0.15 +
+    Math.cos(time * camMoveSpeed * 0.7) * width * 0.08;
+  const camOffsetY =
+    Math.cos(time * camMoveSpeed) * height * 0.08 +
+    Math.sin(time * camMoveSpeed * 1.7) * height * 0.05;
+  const bassJitter = eq.bass / 100;
+  const vanishX = centerX + camOffsetX + Math.sin(time * 0.01) * bassJitter;
+  const vanishY = height * 0.35 + camOffsetY + Math.cos(time * 0.012) * bassJitter;
+  const cellSize = 30 + eq.bass / 8;
+  const gridDepth = 20;
+  const horizonY = vanishY;
+  for (let i = 0; i < gridDepth; i++) {
+    const t = i / gridDepth;
+    const y = horizonY + (height - horizonY) * (t * t);
+    const perspective = 1 - t * 0.7;
+    const dataIdx = Math.floor(t * bufferLength);
+    const value = dataArray[dataIdx] || 0;
+    const lineWidth = 1 + perspective * 2 + eq.subBass / 100;
+    const alpha = 0.2 + perspective * 0.3 + value / 1024;
+    const hue = t < 0.5 ? 180 + eq.highMid / 10 : 300 + eq.presence / 10;
+    const saturation = 90 + eq.high / 10;
+    ctx.strokeStyle = `hsla(${hue}, ${saturation}%, 60%, ${alpha})`;
+    ctx.lineWidth = lineWidth;
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(width, y);
+    ctx.stroke();
+  }
+  const vLines = 20;
+  for (let i = 0; i < vLines; i++) {
+    const t = i / vLines;
+    const x = width * t;
+    const topX = vanishX + (x - vanishX) * 0.3;
+    const dataIdx = Math.floor(t * bufferLength);
+    const value = dataArray[dataIdx] || 0;
+    const alpha = 0.15 + value / 1536 + eq.mid / 2048;
+    const hue = 180 + (i % 2) * 120 + eq.bass / 10;
+    ctx.strokeStyle = `hsla(${hue}, 90%, 60%, ${alpha})`;
+    ctx.lineWidth = 1 + eq.bass / 150;
+    ctx.beginPath();
+    ctx.moveTo(topX, horizonY);
+    ctx.lineTo(x, height);
+    ctx.stroke();
+  }
+  const particleCount = Math.floor(80 + eq.energy / 4);
+  for (let i = 0; i < particleCount; i++) {
+    const angle = (i / particleCount) * Math.PI * 2 + time * 0.002;
+    const radius = 100 * scale + (i % 7) * 50 + Math.sin(time * 0.01 + i) * 30;
+    const x = vanishX + Math.cos(angle) * (radius + eq.lowMid / 4);
+    const y = horizonY - 40 - (i % 6) * 25 + Math.sin(time * 0.015 + i * 0.5) * (15 + eq.high / 15);
+    const dataIdx = Math.floor((i / particleCount) * bufferLength);
+    const value = dataArray[dataIdx] || 0;
+    const hue = (time * 0.5 + i * 15) % 360;
+    const size = 3 + value / 50 + eq.highMid / 60;
+    const gradient = ctx.createRadialGradient(x, y, 0, x, y, size * 4);
+    gradient.addColorStop(0, `hsla(${hue}, 100%, 70%, 0.9)`);
+    gradient.addColorStop(0.5, `hsla(${hue}, 100%, 60%, 0.5)`);
+    gradient.addColorStop(1, `hsla(${hue}, 100%, 50%, 0)`);
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(x, y, size * 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = `hsla(${hue}, 100%, 80%, 1)`;
+    ctx.beginPath();
+    ctx.arc(x, y, size, 0, Math.PI * 2);
+    ctx.fill();
   }
 }
 

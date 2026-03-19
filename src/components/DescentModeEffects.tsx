@@ -4,6 +4,9 @@ import { useDescentMode } from '../contexts/DescentModeContext';
 import { useDescentIntensity } from '../contexts/DescentIntensityContext';
 import heroBackground from 'figma:asset/410f7e9ef9caea1564a1bf87577512030154fe84.png';
 
+/* Descent layers z-20–z-30 stay below SiteHeader (z-50) and music player (z-40 in Descent)
+   so mix-blend / vignette don’t wash out interactive UI. */
+
 // Scroll Boundary Glow Effect
 export function ScrollBoundaryGlow() {
   const { isDescentMode } = useDescentMode();
@@ -112,7 +115,7 @@ export function ScrollBoundaryGlow() {
     <>
       {/* Top boundary glow */}
       <motion.div
-        className="fixed top-0 left-0 right-0 h-40 pointer-events-none z-[9998]"
+        className="fixed top-0 left-0 right-0 h-40 pointer-events-none z-[24]"
         style={{
           background: 'linear-gradient(to bottom, rgba(0, 255, 255, 0.6), transparent)',
           opacity: topGlow,
@@ -122,7 +125,7 @@ export function ScrollBoundaryGlow() {
 
       {/* Bottom boundary glow */}
       <motion.div
-        className="fixed bottom-0 left-0 right-0 h-40 pointer-events-none z-[9998]"
+        className="fixed bottom-0 left-0 right-0 h-40 pointer-events-none z-[24]"
         style={{
           background: 'linear-gradient(to top, rgba(0, 200, 200, 0.6), transparent)',
           opacity: bottomGlow,
@@ -143,7 +146,7 @@ export function GlitchOverlay() {
   const aberrationAmount = 2 + (intensity.totalIntensity * 4); // 2-6px based on intensity
 
   return (
-    <div className="pointer-events-none fixed inset-0 z-[9999] mix-blend-screen" 
+    <div className="pointer-events-none fixed inset-0 z-[30] mix-blend-screen" 
          style={{ opacity: 0.3 + (intensity.totalIntensity * 0.2) }}>
       {/* Chromatic aberration effect */}
       <motion.div
@@ -194,7 +197,7 @@ export function ScanlineEffect() {
 
   return (
     <div 
-      className="pointer-events-none fixed inset-0 z-[9998]"
+      className="pointer-events-none fixed inset-0 z-[23]"
       style={{ opacity: scanlineOpacity }}
     >
       <motion.div
@@ -570,7 +573,7 @@ export function DescentParticles() {
   return (
     <canvas
       ref={canvasRef}
-      className="pointer-events-none fixed inset-0 z-[9996] opacity-70"
+      className="pointer-events-none fixed inset-0 z-[21] opacity-70"
     />
   );
 }
@@ -711,7 +714,7 @@ export function DescentBackground() {
       animate={{ opacity: 0.25 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 1 }}
-      className="fixed inset-0 z-[9990] pointer-events-none overflow-hidden"
+      className="fixed inset-0 z-[20] pointer-events-none overflow-hidden"
     >
       <div
         ref={bgLayerRef}
@@ -770,7 +773,7 @@ export function DescentModeWrapper() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="pointer-events-none fixed inset-0 z-[9995]"
+            className="pointer-events-none fixed inset-0 z-[25]"
             style={{
               background: 'radial-gradient(ellipse at center, transparent 0%, rgba(0, 0, 0, 0.4) 100%)',
             }}
@@ -778,7 +781,7 @@ export function DescentModeWrapper() {
 
           {reduceMotion ? (
             <div
-              className="pointer-events-none fixed inset-0 z-[9994]"
+              className="pointer-events-none fixed inset-0 z-[26]"
               style={{
                 background:
                   'linear-gradient(45deg, rgba(0, 255, 255, 0.04) 0%, rgba(255, 0, 255, 0.04) 100%)',
@@ -792,7 +795,7 @@ export function DescentModeWrapper() {
               animate={{ opacity: [0.03, 0.08, 0.03] }}
               exit={{ opacity: 0 }}
               transition={{ duration: 3, repeat: Infinity }}
-              className="pointer-events-none fixed inset-0 z-[9994]"
+              className="pointer-events-none fixed inset-0 z-[26]"
               style={{
                 background: 'linear-gradient(45deg, rgba(0, 255, 255, 0.05) 0%, rgba(255, 0, 255, 0.05) 100%)',
                 mixBlendMode: 'overlay',
