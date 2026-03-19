@@ -117,9 +117,10 @@ export function SiteHeader() {
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 p-4 pointer-events-none [&>*]:pointer-events-auto">
-      <div className="relative w-full flex items-center justify-end min-h-[52px]">
+      <div className="relative w-full min-h-[52px] grid grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_1fr] items-center">
+        <div className="hidden md:block" />
         <MiniPlayer />
-        <div className="flex items-center gap-3 flex-shrink-0">
+        <div className="flex items-center gap-3 flex-shrink-0 justify-self-end">
         {/* Descent Mode Toggle */}
         <DescentModeToggle />
         
