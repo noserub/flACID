@@ -163,19 +163,15 @@ export function HeroSection() {
         />
       </div>
 
-      {/* Panning gradient overlays - single smooth fade center to edge, no stops = no band */}
+      {/* Panning glow overlays - gradient position animated so the glow moves, element stays fixed (no moving rectangles) */}
       <motion.div
         className="absolute inset-0 pointer-events-none"
         style={{
-          background: 'radial-gradient(circle at 50% 50%, rgba(0, 255, 255, 0.2) 0%, transparent 100%)',
-        }}
-        initial={{
-          x: '-40%',
-          y: '-20%',
+          background: 'radial-gradient(circle at 50% 50%, rgba(0, 255, 255, 0.2) 0%, transparent 70%)',
+          backgroundSize: '200% 200%',
         }}
         animate={{
-          x: ['-40%', '50%', '0%', '-50%', '-40%'],
-          y: ['-20%', '-30%', '-60%', '-30%', '-20%'],
+          backgroundPosition: ['0% 0%', '100% 20%', '80% 100%', '20% 80%', '0% 0%'],
         }}
         transition={{
           duration: 25,
@@ -183,19 +179,14 @@ export function HeroSection() {
           ease: 'easeInOut',
         }}
       />
-      
       <motion.div
         className="absolute inset-0 pointer-events-none"
         style={{
-          background: 'radial-gradient(circle at 50% 50%, rgba(255, 0, 255, 0.16) 0%, transparent 100%)',
-        }}
-        initial={{
-          x: '35%',
-          y: '60%',
+          background: 'radial-gradient(circle at 50% 50%, rgba(255, 0, 255, 0.16) 0%, transparent 70%)',
+          backgroundSize: '200% 200%',
         }}
         animate={{
-          x: ['35%', '-50%', '0%', '50%', '35%'],
-          y: ['60%', '40%', '80%', '40%', '60%'],
+          backgroundPosition: ['100% 100%', '0% 80%', '20% 0%', '80% 20%', '100% 100%'],
         }}
         transition={{
           duration: 30,
