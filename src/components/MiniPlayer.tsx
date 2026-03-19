@@ -11,6 +11,10 @@ function MiniEQ({ isPlaying, currentTrack }: { isPlaying: boolean; currentTrack:
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const timeRef = useRef(0);
   const musicTimeRef = useRef(0);
+  const isPlayingRef = useRef(isPlaying);
+  const currentTrackRef = useRef(currentTrack);
+  isPlayingRef.current = isPlaying;
+  currentTrackRef.current = currentTrack;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -25,13 +29,14 @@ function MiniEQ({ isPlaying, currentTrack }: { isPlaying: boolean; currentTrack:
     let raf: number;
 
     const draw = () => {
+      const playing = isPlayingRef.current;
       ctx.fillStyle = 'rgba(0,0,0,0.15)';
       ctx.fillRect(0, 0, w, h);
       let bands: number[];
-      if (isPlaying) {
+      if (playing) {
         timeRef.current += 1;
         musicTimeRef.current += 16;
-        const eq = generateEQData(dataArray, currentTrack % 5, musicTimeRef.current, timeRef.current);
+        const eq = generateEQData(dataArray, currentTrackRef.current % 5, musicTimeRef.current, timeRef.current);
         bands = [
           eq.subBass,
           eq.bass,
@@ -62,7 +67,7 @@ function MiniEQ({ isPlaying, currentTrack }: { isPlaying: boolean; currentTrack:
     };
     draw();
     return () => cancelAnimationFrame(raf);
-  }, [isPlaying, currentTrack]);
+  }, []);
 
   return (
     <canvas
