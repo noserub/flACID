@@ -667,27 +667,73 @@ function drawCrystalLattice(
   const centerX = width / 2;
   const centerY = height / 2;
   const scale = Math.min(width, height) / 400;
-  const hexSize = 30 * scale + eq.bass / 12;
-  const cols = Math.ceil(width / (hexSize * 1.5)) + 4;
-  const rows = Math.ceil(height / (hexSize * Math.sqrt(3))) + 4;
-  for (let row = -2; row < rows; row++) {
-    for (let col = -2; col < cols; col++) {
+  // Slightly larger spacing → fewer cells; bass only nudges size
+  const hexSize = (26 + eq.bass / 20) * scale;
+  const cols = Math.ceil(width / (hexSize * 1.5)) + 2;
+  const rows = Math.ceil(height / (hexSize * Math.sqrt(3))) + 2;
+
+  // Slow / fast phases for rhythmic patterns (no per-frame random → no flicker)
+  const tSlow = time * 0.014;
+  const tMed = time * 0.045;
+  const tRing = time * 0.022;
+  const energyNorm = Math.min(1, eq.energy / 255);
+
+  // Global “how much lattice” breathes — keeps screen from ever feeling full
+  const breath = 0.42 + 0.58 * (0.5 + 0.5 * Math.sin(tSlow * 0.85));
+  const accent = 0.55 + 0.45 * (0.5 + 0.5 * Math.sin(tMed + energyNorm * Math.PI));
+
+  const smooth01 = (x: number, lo: number, hi: number) => {
+    if (x <= lo) return 0;
+    if (x >= hi) return 1;
+    return (x - lo) / (hi - lo);
+  };
+
+  for (let row = -1; row < rows; row++) {
+    for (let col = -1; col < cols; col++) {
       const offsetX = (row % 2) * hexSize * 0.75;
       const x = col * hexSize * 1.5 + offsetX;
       const y = row * hexSize * Math.sqrt(3) * 0.5;
       const dx = x - centerX;
       const dy = y - centerY;
       const distFromCenter = Math.sqrt(dx * dx + dy * dy);
-      const maxDist = Math.max(width, height) * 0.7;
+      const maxDist = Math.max(width, height) * 0.62;
       const distT = Math.min(1, distFromCenter / maxDist);
-      const dataIdx = Math.floor((distT + time * 0.0001) * bufferLength) % bufferLength;
+
+      // Stable per-cell phase (deterministic “identity”)
+      const cr = row + 100;
+      const cc = col + 100;
+      const id01 = 0.5 + 0.5 * Math.sin(cr * 127.1 + cc * 311.7);
+
+      const dataIdx = Math.floor((distT * 0.97 + id01 * 0.03) * bufferLength) % bufferLength;
       const value = dataArray[dataIdx] || 0;
-      if (Math.random() > 0.5 + eq.energy / 600) continue;
+
+      // Interference lattice: traveling waves that form / dissolve patterns
+      const waveA = Math.sin(cr * 0.52 + cc * 0.52 + tSlow);
+      const waveB = Math.cos(cr * 0.48 - cc * 0.48 + tSlow * 1.1);
+      const waveC = Math.sin(distFromCenter * 0.028 - tRing + id01 * Math.PI * 2);
+      const interference = (waveA * waveB * 0.55 + waveC * 0.45 + 1) * 0.5;
+
+      // Sparse ridges: only stronger lines survive → not a solid wall of tiles
+      let visibility = smooth01(interference, 0.38, 0.92);
+      visibility = Math.pow(visibility, 1.65);
+
+      // Edge falloff: fewer tiles at perimeter
+      visibility *= 1 - distT * 0.55;
+
+      // Audio nudges pattern contrast slightly (smoothed input already)
+      visibility *= breath * accent * (0.72 + energyNorm * 0.35);
+      visibility *= 0.85 + (value / 255) * 0.22;
+
+      if (visibility < 0.035) continue;
+
       ctx.save();
       ctx.translate(x, y);
-      ctx.rotate(time * 0.001 * (1 - distT) + distFromCenter * 0.01);
-      const pulse = Math.sin(time * 0.02 - distFromCenter * 0.03) * (6 + eq.lowMid / 35);
-      const size = hexSize * (0.6 + distT * 0.4) + pulse + value / 50;
+      ctx.rotate(time * 0.00055 * (1 - distT) + distFromCenter * 0.004);
+      // Gentle pulse — much slower than before to avoid shimmer
+      const pulse =
+        Math.sin(tMed * 0.35 - distFromCenter * 0.018 + id01 * Math.PI) *
+        (3.5 + eq.lowMid / 55);
+      const size = hexSize * (0.58 + distT * 0.28) + pulse + value / 90;
       ctx.beginPath();
       for (let i = 0; i < 6; i++) {
         const angle = (i / 6) * Math.PI * 2;
@@ -697,33 +743,37 @@ function drawCrystalLattice(
         else ctx.lineTo(hx, hy);
       }
       ctx.closePath();
-      const hue = (time * 0.3 + distFromCenter * 2 + value / 4) % 360;
-      const saturation = 80 + eq.high / 8;
-      const lightness = 50 + eq.highMid / 10;
-      const alpha = 0.3 + (1 - distT) * 0.4 + value / 1200 + eq.mid / 1600;
-      ctx.fillStyle = `hsla(${hue}, ${saturation}%, ${lightness}%, ${alpha * 0.4})`;
+      const hue = (time * 0.22 + distFromCenter * 1.6 + value / 6 + id01 * 40) % 360;
+      const saturation = 78 + eq.high / 10;
+      const lightness = 48 + eq.highMid / 12;
+      const baseAlpha = visibility * (0.22 + (1 - distT) * 0.38);
+      ctx.fillStyle = `hsla(${hue}, ${saturation}%, ${lightness}%, ${baseAlpha * 0.45})`;
       ctx.fill();
-      ctx.strokeStyle = `hsla(${hue}, ${saturation + 10}%, ${lightness + 15}%, ${alpha})`;
-      ctx.lineWidth = 1.5 + eq.bass / 120 + (1 - distT) * 2.5;
+      ctx.strokeStyle = `hsla(${hue}, ${saturation + 8}%, ${lightness + 12}%, ${baseAlpha * 0.92})`;
+      ctx.lineWidth = 1.1 + eq.bass / 140 + (1 - distT) * 1.6;
       ctx.stroke();
       ctx.restore();
     }
   }
-  const rayCount = Math.floor(18 + eq.presence / 12);
+
+  // Fewer rays; strength follows slow rhythm so they don’t compete with the lattice
+  const rayPulse = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(tSlow * 1.1));
+  const rayCount = Math.floor((7 + eq.presence / 28) * rayPulse);
   for (let i = 0; i < rayCount; i++) {
-    const angle = (i / rayCount) * Math.PI * 2 + time * 0.002;
-    const dataIdx = Math.floor((i / rayCount) * bufferLength);
+    const angle = (i / Math.max(1, rayCount)) * Math.PI * 2 + time * 0.0016;
+    const dataIdx = Math.floor((i / Math.max(1, rayCount)) * bufferLength);
     const value = dataArray[dataIdx] || 0;
-    const maxReach = Math.max(width, height) * 0.5;
-    const rayLength = maxReach * 0.8 + value / 1.5 + eq.highMid * 0.9;
+    const maxReach = Math.max(width, height) * 0.45;
+    const rayLength = maxReach * (0.65 + rayPulse * 0.35) + value / 2.2 + eq.highMid * 0.55;
     const x2 = centerX + Math.cos(angle) * rayLength;
     const y2 = centerY + Math.sin(angle) * rayLength;
-    const hue = (time * 0.5 + i * (360 / rayCount)) % 360;
+    const hue = (time * 0.35 + i * (360 / Math.max(1, rayCount))) % 360;
+    const rayAlpha = 0.22 * rayPulse + value / 2200;
     const gradient = ctx.createLinearGradient(centerX, centerY, x2, y2);
-    gradient.addColorStop(0, `hsla(${hue}, 90%, 70%, 0.5)`);
-    gradient.addColorStop(1, `hsla(${hue}, 85%, 60%, 0)`);
+    gradient.addColorStop(0, `hsla(${hue}, 88%, 68%, ${rayAlpha})`);
+    gradient.addColorStop(1, `hsla(${hue}, 82%, 58%, 0)`);
     ctx.strokeStyle = gradient;
-    ctx.lineWidth = 3 + eq.subBass / 80;
+    ctx.lineWidth = 2 + eq.subBass / 110;
     ctx.beginPath();
     ctx.moveTo(centerX, centerY);
     ctx.lineTo(x2, y2);
