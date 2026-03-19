@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
-import { Play, Pause, SkipForward, SkipBack, Volume2, VolumeX, List, Maximize, Minimize, X, Loader2 } from 'lucide-react';
+import { Play, Pause, SkipForward, SkipBack, Volume2, VolumeX, List, Maximize, Minimize, X, Loader2, Eye, EyeOff } from 'lucide-react';
 import { Button } from './ui/button';
 import { Slider } from './ui/slider';
 import { PsychedelicVisualizer } from './PsychedelicVisualizer';
 import { useEditMode } from '../contexts/EditModeContext';
+import { useDescentMode } from '../contexts/DescentModeContext';
 import { useDescentIntensity } from '../contexts/DescentIntensityContext';
 import { usePlayback } from '../contexts/PlaybackContext';
 import { MusicPlayerEditDialog } from './MusicPlayerEditDialog';
@@ -11,6 +12,7 @@ import { motion, AnimatePresence } from 'motion/react';
 
 export function MusicPlayer() {
   const { isEditMode } = useEditMode();
+  const { isDescentMode, toggleDescentMode } = useDescentMode();
   const { registerAnalyser } = useDescentIntensity();
   const {
     tracks,
@@ -243,20 +245,49 @@ export function MusicPlayer() {
                 </motion.div>
               </div>
               
-              {/* Fullscreen exit button */}
+              {/* Fullscreen top-right controls: Descend toggle (left) + Exit (right) */}
               <motion.div
                 initial={{ y: -20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.2, duration: 0.4 }}
-                className="absolute top-6 right-6 pointer-events-auto z-50"
+                className="absolute top-6 right-6 pointer-events-auto z-50 flex items-center gap-3"
               >
+                <button
+                  type="button"
+                  onClick={toggleDescentMode}
+                  className={`
+                    relative px-4 py-2 rounded-lg font-medium transition-all duration-300
+                    ${isDescentMode
+                      ? 'bg-fuchsia-600 text-white shadow-lg shadow-fuchsia-900/50 hover:bg-fuchsia-500'
+                      : 'bg-background/80 text-cyan-400 border border-cyan-400/30 hover:border-fuchsia-400/50 hover:text-fuchsia-400 hover:shadow-lg hover:shadow-fuchsia-500/20'
+                    }
+                  `}
+                  title={isDescentMode ? 'Exit Descent Mode' : 'Enter Descent Mode'}
+                  aria-label={isDescentMode ? 'Disable Descend mode' : 'Enable Descend mode'}
+                  aria-pressed={isDescentMode}
+                >
+                  <div className="flex items-center gap-2">
+                    {isDescentMode ? (
+                      <>
+                        <EyeOff className="w-4 h-4" />
+                        <span className="hidden sm:inline">Ascend</span>
+                      </>
+                    ) : (
+                      <>
+                        <Eye className="w-4 h-4" />
+                        <span className="hidden sm:inline">Descend</span>
+                      </>
+                    )}
+                  </div>
+                </button>
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="icon"
                   onClick={toggleFullscreen}
-                  className="text-white hover:text-white hover:bg-white/20 h-12 w-12 rounded-full backdrop-blur-sm bg-black/30 transition-all hover:scale-110"
+                  className="h-10 w-10 bg-background/80 text-cyan-400 border border-cyan-400/30 hover:border-fuchsia-400/50 hover:text-fuchsia-400 hover:bg-transparent hover:shadow-lg hover:shadow-fuchsia-500/20 transition-all duration-300"
+                  aria-label="Exit fullscreen"
                 >
-                  <X className="h-6 w-6" />
+                  <X className="h-5 w-5" />
                 </Button>
               </motion.div>
             </motion.div>
