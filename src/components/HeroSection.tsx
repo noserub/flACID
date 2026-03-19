@@ -154,8 +154,13 @@ export function HeroSection() {
           }}
         />
         
-        {/* Light darkened overlay for text readability - much more transparent */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-background/40 to-background/60" />
+        {/* Light darkened overlay for text readability - smooth gradient, no hard line */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: 'linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.25) 25%, rgba(10,10,15,0.4) 50%, rgba(10,10,15,0.5) 75%, rgba(10,10,15,0.6) 100%)',
+          }}
+        />
       </div>
 
       {/* Panning Gradient Overlays - Creates moving transparency zones */}
