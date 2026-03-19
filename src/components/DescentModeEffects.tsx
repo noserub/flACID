@@ -226,20 +226,17 @@ export function OrganicTendrils() {
       setTendrils([]);
       return;
     }
-
-    // Generate random tendrils - count varies with bass
-    const baseCount = 12;
-    const bassBoost = Math.floor(intensity.eqBands.bass * 8); // Up to 8 extra tendrils from bass
-    const tendrilCount = baseCount + bassBoost;
-    
-    const newTendrils = Array.from({ length: tendrilCount }, (_, i) => ({
-      id: i,
-      x: Math.random() * 100,
-      y: Math.random() * 100,
-      delay: Math.random() * 5,
-    }));
-    setTendrils(newTendrils);
-  }, [isDescentMode, intensity.eqBands.bass]);
+    // Fixed set — avoid regenerating every intensity tick (was tied to bass and caused churn)
+    const tendrilCount = 16;
+    setTendrils(
+      Array.from({ length: tendrilCount }, (_, i) => ({
+        id: i,
+        x: Math.random() * 100,
+        y: Math.random() * 100,
+        delay: Math.random() * 5,
+      }))
+    );
+  }, [isDescentMode]);
 
   if (!isDescentMode) return null;
 
@@ -280,9 +277,13 @@ export function OrganicTendrils() {
 }
 
 // Particle system
+const PARTICLE_COUNT = 72;
+const NEIGHBOR_R2 = 80 * 80;
+const SEPARATION_R2 = 40 * 40;
+
 export function DescentParticles() {
   const { isDescentMode } = useDescentMode();
-  const { intensity } = useDescentIntensity();
+  const { intensityRef } = useDescentIntensity();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const particlesRef = useRef<Array<{
     x: number;
@@ -326,10 +327,9 @@ export function DescentParticles() {
 
     // Initialize particles as living organisms
     if (particlesRef.current.length === 0) {
-      const particleCount = 120;
       const behaviors: Array<'wanderer' | 'seeker' | 'avoider' | 'orbiter'> = ['wanderer', 'seeker', 'avoider', 'orbiter'];
       
-      for (let i = 0; i < particleCount; i++) {
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
         const behavior = behaviors[Math.floor(Math.random() * behaviors.length)];
         particlesRef.current.push({
           x: Math.random() * canvas.width,
@@ -354,6 +354,8 @@ export function DescentParticles() {
     let frameCount = 0;
 
     const animate = () => {
+      const intensity = intensityRef.current;
+
       // Gentle trail effect for organic motion trails
       ctx.fillStyle = 'rgba(0, 0, 0, 0.08)';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -441,22 +443,18 @@ export function DescentParticles() {
 
         for (let j = 0; j < particlesRef.current.length; j++) {
           if (j === index) continue;
-          
+
           const other = particlesRef.current[j];
           const dx = other.x - particle.x;
           const dy = other.y - particle.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
+          const distSq = dx * dx + dy * dy;
 
-          // Interact with nearby particles
-          if (dist < 80 && dist > 0) {
+          if (distSq < NEIGHBOR_R2 && distSq > 0) {
+            const dist = Math.sqrt(distSq);
             neighborCount++;
-            
-            // Alignment: match velocity of neighbors
             avgVx += other.vx;
             avgVy += other.vy;
-
-            // Separation: avoid crowding
-            if (dist < 40) {
+            if (distSq < SEPARATION_R2) {
               separationX -= dx / dist;
               separationY -= dy / dist;
             }
@@ -521,20 +519,22 @@ export function DescentParticles() {
         // Draw particle with glow
         const glowSize = particle.size + particle.energy * 2;
         
-        // Outer glow
-        const gradient = ctx.createRadialGradient(
-          particle.x, particle.y, 0,
-          particle.x, particle.y, glowSize * 2
-        );
-        gradient.addColorStop(0, particle.color);
-        gradient.addColorStop(0.5, particle.color + '80');
-        gradient.addColorStop(1, particle.color + '00');
-        
-        ctx.beginPath();
-        ctx.arc(particle.x, particle.y, glowSize * 2, 0, Math.PI * 2);
-        ctx.fillStyle = gradient;
-        ctx.globalAlpha = alpha * 0.5;
-        ctx.fill();
+        // Outer glow (skip on half the particles when many — cheaper, still reads full)
+        if (index % 2 === 0) {
+          const gradient = ctx.createRadialGradient(
+            particle.x, particle.y, 0,
+            particle.x, particle.y, glowSize * 2
+          );
+          gradient.addColorStop(0, particle.color);
+          gradient.addColorStop(0.5, particle.color + '80');
+          gradient.addColorStop(1, particle.color + '00');
+
+          ctx.beginPath();
+          ctx.arc(particle.x, particle.y, glowSize * 2, 0, Math.PI * 2);
+          ctx.fillStyle = gradient;
+          ctx.globalAlpha = alpha * 0.5;
+          ctx.fill();
+        }
 
         // Core particle
         ctx.beginPath();
@@ -561,8 +561,9 @@ export function DescentParticles() {
     return () => {
       cancelAnimationFrame(animationId);
       window.removeEventListener('resize', handleResize);
+      particlesRef.current = [];
     };
-  }, [isDescentMode, intensity]);
+  }, [isDescentMode]);
 
   if (!isDescentMode) return null;
 
@@ -627,71 +628,82 @@ export function GlitchText({ children, className = '' }: { children: React.React
   );
 }
 
-// Zooming Explorable Background
+// Zooming Explorable Background — RAF + direct DOM updates (no per-frame React setState)
 export function DescentBackground() {
   const { isDescentMode } = useDescentMode();
-  const { intensity } = useDescentIntensity();
-  const [mousePosition, setMousePosition] = useState({ x: 0.5, y: 0.5 }); // Normalized 0-1
-  const [breathingPhases, setBreathingPhases] = useState({ slow: 0, medium: 0, fast: 0 });
-  const baseZoom = 2.2;
+  const { intensityRef } = useDescentIntensity();
+  const mouseRef = useRef({ x: 0.5, y: 0.5 });
+  const bgLayerRef = useRef<HTMLDivElement>(null);
+  const vignetteRef = useRef<HTMLDivElement>(null);
+  const colorLayerRef = useRef<HTMLDivElement>(null);
+  const bassLayerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!isDescentMode) return;
 
     const handleMouseMove = (e: MouseEvent) => {
-      // Normalize mouse position to 0-1 range
-      const x = e.clientX / window.innerWidth;
-      const y = e.clientY / window.innerHeight;
-      setMousePosition({ x, y });
+      mouseRef.current = {
+        x: e.clientX / window.innerWidth,
+        y: e.clientY / window.innerHeight,
+      };
     };
 
-    // Multiple breathing cycles like a living ecosystem
-    let breathingInterval: number;
-    const updateBreathing = () => {
-      breathingInterval = requestAnimationFrame(() => {
-        const time = Date.now() * 0.001; // Convert to seconds
-        setBreathingPhases({
-          slow: Math.sin(time * 0.15), // 20 second cycle - deep breath
-          medium: Math.sin(time * 0.4), // 8 second cycle - regular breath
-          fast: Math.sin(time * 1.2), // 2.6 second cycle - heartbeat
-        });
-        updateBreathing();
-      });
+    const baseZoom = 2.2;
+    let rafId = 0;
+
+    const tick = () => {
+      const int = intensityRef.current;
+      const t = Date.now() * 0.001;
+      const slow = Math.sin(t * 0.15);
+      const medium = Math.sin(t * 0.4);
+      const fast = Math.sin(t * 1.2);
+      const deepBreath = slow * 0.08;
+      const regularBreath = medium * 0.04;
+      const heartbeat = fast * 0.02;
+      const bassPulse = int.eqBands.bass * 0.05;
+      const midShift = (int.eqBands.mid + int.eqBands.lowMid) * 0.03;
+      const totalZoom = baseZoom + deepBreath + regularBreath + heartbeat + bassPulse + midShift;
+
+      const mx = mouseRef.current.x;
+      const my = mouseRef.current.y;
+      const panX = (mx - 0.5) * 40 + slow * 5;
+      const panY = (my - 0.5) * 40 + medium * 3;
+      const colorPulse = 0.5 + medium * 0.3 + int.totalIntensity * 0.2;
+
+      const bg = bgLayerRef.current;
+      if (bg) {
+        bg.style.transform = `translate(${panX}%, ${panY}%) scale(${totalZoom})`;
+        bg.style.transformOrigin = 'center center';
+      }
+      const vig = vignetteRef.current;
+      if (vig) {
+        vig.style.opacity = String(0.8 + slow * 0.2);
+      }
+      const col = colorLayerRef.current;
+      if (col) {
+        col.style.opacity = String(0.5 + medium * 0.3);
+        col.style.background = `radial-gradient(ellipse at center, transparent 40%, rgba(0, 255, 255, ${0.08 * colorPulse}) 75%, rgba(255, 0, 255, ${0.12 * colorPulse}) 100%)`;
+      }
+      const bassEl = bassLayerRef.current;
+      if (bassEl) {
+        const cx = 50 + slow * 10;
+        const cy = 50 + medium * 10;
+        bassEl.style.background = `radial-gradient(circle at ${cx}% ${cy}%, rgba(255, 0, 255, ${int.eqBands.bass * 0.15}) 0%, transparent 60%)`;
+      }
+
+      rafId = requestAnimationFrame(tick);
     };
 
     window.addEventListener('mousemove', handleMouseMove);
-    updateBreathing();
+    rafId = requestAnimationFrame(tick);
 
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
-      cancelAnimationFrame(breathingInterval);
+      cancelAnimationFrame(rafId);
     };
   }, [isDescentMode]);
 
   if (!isDescentMode) return null;
-
-  // Multi-layered breathing - feels like a living organism
-  const deepBreath = breathingPhases.slow * 0.08; // Deep, slow expansion ±0.08
-  const regularBreath = breathingPhases.medium * 0.04; // Regular breathing ±0.04
-  const heartbeat = breathingPhases.fast * 0.02; // Quick pulse ±0.02
-  
-  // Bass pulse - synchronized with the music
-  const bassPulse = intensity.eqBands.bass * 0.05;
-  
-  // Mid frequencies create subtle shifts
-  const midShift = (intensity.eqBands.mid + intensity.eqBands.lowMid) * 0.03;
-  
-  // Total zoom with organic breathing
-  const totalZoom = baseZoom + deepBreath + regularBreath + heartbeat + bassPulse + midShift;
-
-  // Calculate pan offset with organic drift
-  const organicDriftX = breathingPhases.slow * 5; // Slow drift
-  const organicDriftY = breathingPhases.medium * 3;
-  const panX = (mousePosition.x - 0.5) * 40 + organicDriftX;
-  const panY = (mousePosition.y - 0.5) * 40 + organicDriftY;
-
-  // Color intensity breathing
-  const colorPulse = 0.5 + breathingPhases.medium * 0.3 + intensity.totalIntensity * 0.2;
 
   return (
     <motion.div
@@ -701,54 +713,29 @@ export function DescentBackground() {
       transition={{ duration: 1 }}
       className="fixed inset-0 z-[9990] pointer-events-none overflow-hidden"
     >
-      {/* Zoomed background with organic breathing */}
-      <motion.div
-        className="absolute inset-0"
+      <div
+        ref={bgLayerRef}
+        className="absolute inset-0 will-change-transform"
         style={{
           backgroundImage: `url(${heroBackground})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
-          scale: totalZoom,
-          x: `${panX}%`,
-          y: `${panY}%`,
-        }}
-        transition={{
-          scale: { duration: 0.6, ease: [0.4, 0.0, 0.2, 1] }, // Organic easing
-          x: { duration: 1.2, ease: 'easeOut' },
-          y: { duration: 1.2, ease: 'easeOut' },
         }}
       />
-
-      {/* Breathing vignette - expands and contracts */}
-      <motion.div
+      <div
+        ref={vignetteRef}
         className="absolute inset-0"
         style={{
-          background: 'radial-gradient(ellipse at center, transparent 40%, rgba(0, 0, 0, 0.3) 80%, rgba(0, 0, 0, 0.5) 100%)',
-          opacity: 0.8 + breathingPhases.slow * 0.2,
+          background:
+            'radial-gradient(ellipse at center, transparent 40%, rgba(0, 0, 0, 0.3) 80%, rgba(0, 0, 0, 0.5) 100%)',
+          opacity: 0.8,
         }}
       />
-
-      {/* Multi-layered pulsing color - like blood flow */}
-      <motion.div
+      <div ref={colorLayerRef} className="absolute inset-0" style={{ opacity: 0.5 }} />
+      <div
+        ref={bassLayerRef}
         className="absolute inset-0"
-        style={{
-          background: `radial-gradient(ellipse at center, 
-            transparent 40%, 
-            rgba(0, 255, 255, ${0.08 * colorPulse}) 75%, 
-            rgba(255, 0, 255, ${0.12 * colorPulse}) 100%)`,
-          opacity: 0.5 + breathingPhases.medium * 0.3,
-        }}
-      />
-
-      {/* Additional color layer that pulses with bass */}
-      <motion.div
-        className="absolute inset-0"
-        style={{
-          background: `radial-gradient(circle at ${50 + breathingPhases.slow * 10}% ${50 + breathingPhases.medium * 10}%, 
-            rgba(255, 0, 255, ${intensity.eqBands.bass * 0.15}) 0%, 
-            transparent 60%)`,
-          mixBlendMode: 'screen',
-        }}
+        style={{ mixBlendMode: 'screen' }}
       />
     </motion.div>
   );
@@ -757,18 +744,27 @@ export function DescentBackground() {
 // Main descent mode wrapper
 export function DescentModeWrapper() {
   const { isDescentMode } = useDescentMode();
+  const [reduceMotion, setReduceMotion] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const sync = () => setReduceMotion(mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
 
   return (
     <AnimatePresence>
       {isDescentMode && (
         <>
           <DescentBackground />
-          <ScrollBoundaryGlow />
-          <GlitchOverlay />
-          <ScanlineEffect />
-          <OrganicTendrils />
-          <DescentParticles />
-          
+          {!reduceMotion && <ScrollBoundaryGlow />}
+          {!reduceMotion && <GlitchOverlay />}
+          {!reduceMotion && <ScanlineEffect />}
+          {!reduceMotion && <OrganicTendrils />}
+          {!reduceMotion && <DescentParticles />}
+
           {/* Vignette effect */}
           <motion.div
             initial={{ opacity: 0 }}
@@ -780,18 +776,29 @@ export function DescentModeWrapper() {
             }}
           />
 
-          {/* Pulsing color overlay */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: [0.03, 0.08, 0.03] }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 3, repeat: Infinity }}
-            className="pointer-events-none fixed inset-0 z-[9994]"
-            style={{
-              background: 'linear-gradient(45deg, rgba(0, 255, 255, 0.05) 0%, rgba(255, 0, 255, 0.05) 100%)',
-              mixBlendMode: 'overlay',
-            }}
-          />
+          {reduceMotion ? (
+            <div
+              className="pointer-events-none fixed inset-0 z-[9994]"
+              style={{
+                background:
+                  'linear-gradient(45deg, rgba(0, 255, 255, 0.04) 0%, rgba(255, 0, 255, 0.04) 100%)',
+                mixBlendMode: 'overlay',
+                opacity: 0.06,
+              }}
+            />
+          ) : (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: [0.03, 0.08, 0.03] }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 3, repeat: Infinity }}
+              className="pointer-events-none fixed inset-0 z-[9994]"
+              style={{
+                background: 'linear-gradient(45deg, rgba(0, 255, 255, 0.05) 0%, rgba(255, 0, 255, 0.05) 100%)',
+                mixBlendMode: 'overlay',
+              }}
+            />
+          )}
         </>
       )}
     </AnimatePresence>

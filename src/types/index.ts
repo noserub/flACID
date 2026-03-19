@@ -303,5 +303,7 @@ export interface DescentModeContextType {
 
 export interface DescentIntensityContextType {
   intensity: IntensityData;
-  registerAnalyser: (analyser: AnalyserNode) => void;
+  intensityRef: { current: IntensityData };
+  registerAnalyser: (analyser: AnalyserNode | null, isPlaying: boolean) => void;
+  registerSharedSpectrum: (ref: { current: Uint8Array | null } | null) => void;
 }

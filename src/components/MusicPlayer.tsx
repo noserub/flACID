@@ -14,7 +14,8 @@ import { motion, AnimatePresence } from 'motion/react';
 export function MusicPlayer() {
   const { isEditMode } = useEditMode();
   const { isDescentMode, toggleDescentMode } = useDescentMode();
-  const { registerAnalyser } = useDescentIntensity();
+  const { registerAnalyser, registerSharedSpectrum } = useDescentIntensity();
+  const sharedSpectrumRef = useRef<Uint8Array | null>(null);
   const {
     tracks,
     currentTrack,
@@ -73,6 +74,11 @@ export function MusicPlayer() {
   useEffect(() => {
     registerAnalyser(analyserRef.current, isPlaying);
   }, [isPlaying, registerAnalyser]);
+
+  useEffect(() => {
+    registerSharedSpectrum(sharedSpectrumRef);
+    return () => registerSharedSpectrum(null);
+  }, [registerSharedSpectrum]);
 
   // Fullscreen functionality with loading state (isFullscreen lives in PlaybackContext for mini player visibility)
   const toggleFullscreen = () => {
@@ -146,11 +152,6 @@ export function MusicPlayer() {
       };
     }
   }, [isFullscreen]);
-
-  // Register analyser with Descent Mode
-  useEffect(() => {
-    registerAnalyser(analyserRef.current, isPlaying);
-  }, [isPlaying, registerAnalyser]);
 
   if (!tracks || tracks.length === 0) {
     return (
@@ -230,6 +231,7 @@ export function MusicPlayer() {
                 isPlaying={isPlaying} 
                 currentTrack={currentTrack}
                 visualizationId={tracks[currentTrack]?.visualizationId}
+                sharedSpectrumOutRef={sharedSpectrumRef}
               />
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <motion.div
@@ -357,6 +359,7 @@ export function MusicPlayer() {
             isPlaying={isPlaying} 
             currentTrack={currentTrack}
             visualizationId={tracks[currentTrack]?.visualizationId}
+            sharedSpectrumOutRef={sharedSpectrumRef}
           />
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="text-center">

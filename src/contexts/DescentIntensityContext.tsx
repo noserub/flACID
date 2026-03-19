@@ -1,4 +1,14 @@
-import { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  ReactNode,
+  useRef,
+  type MutableRefObject,
+} from 'react';
 import { useDescentMode } from './DescentModeContext';
 
 export interface IntensityData {
@@ -19,60 +29,64 @@ export interface IntensityData {
 
 interface DescentIntensityContextType {
   intensity: IntensityData;
+  /** Updated every animation frame — use inside RAF loops (canvas) instead of React state. */
+  intensityRef: MutableRefObject<IntensityData>;
   registerAnalyser: (analyser: AnalyserNode | null, isPlaying: boolean) => void;
+  /**
+   * Ref whose `.current` is set each frame by PsychedelicVisualizer (same buffer length as analyser).
+   * When set, Descent skips a duplicate getByteFrequencyData and copies this buffer instead.
+   */
+  registerSharedSpectrum: (ref: MutableRefObject<Uint8Array | null> | null) => void;
 }
+
+const DEFAULT_INTENSITY: IntensityData = {
+  baseIntensity: 0.3,
+  musicBoost: 0,
+  totalIntensity: 0.3,
+  eqBands: {
+    subBass: 0,
+    bass: 0,
+    lowMid: 0,
+    mid: 0,
+    highMid: 0,
+    presence: 0,
+    brilliance: 0,
+  },
+  energy: 0,
+};
+
+/** Throttle React re-renders from FFT; RAF readers use intensityRef every frame. */
+const REACT_INTENSITY_MIN_MS = 34;
 
 const DescentIntensityContext = createContext<DescentIntensityContextType | undefined>(undefined);
 
 export function DescentIntensityProvider({ children }: { children: ReactNode }) {
   const { isDescentMode } = useDescentMode();
-  const [intensity, setIntensity] = useState<IntensityData>({
-    baseIntensity: 0.3,
-    musicBoost: 0,
-    totalIntensity: 0.3,
-    eqBands: {
-      subBass: 0,
-      bass: 0,
-      lowMid: 0,
-      mid: 0,
-      highMid: 0,
-      presence: 0,
-      brilliance: 0,
-    },
-    energy: 0,
-  });
+  const [intensity, setIntensity] = useState<IntensityData>(DEFAULT_INTENSITY);
+  const intensityRef = useRef<IntensityData>(DEFAULT_INTENSITY);
 
   const analyserRef = useRef<AnalyserNode | null>(null);
   const isPlayingRef = useRef(false);
+  /** Parent-owned ref; `.current` updated by visualizer with latest spectrum bytes */
+  const sharedSpectrumBridgeRef = useRef<MutableRefObject<Uint8Array | null> | null>(null);
   const animationRef = useRef<number>();
   /** Smoothed overall energy for transient / “hit” detection */
   const smoothedEnergyRef = useRef(0);
   const transientPeakRef = useRef(0);
 
-  // Register the audio analyser from MusicPlayer
-  const registerAnalyser = (analyser: AnalyserNode | null, isPlaying: boolean) => {
+  const registerAnalyser = useCallback((analyser: AnalyserNode | null, isPlaying: boolean) => {
     analyserRef.current = analyser;
     isPlayingRef.current = isPlaying;
-  };
+  }, []);
+
+  const registerSharedSpectrum = useCallback((ref: MutableRefObject<Uint8Array | null> | null) => {
+    sharedSpectrumBridgeRef.current = ref;
+  }, []);
 
   useEffect(() => {
     if (!isDescentMode) {
-      // Reset to default when not in descent mode
-      setIntensity({
-        baseIntensity: 0.3,
-        musicBoost: 0,
-        totalIntensity: 0.3,
-        eqBands: {
-          subBass: 0,
-          bass: 0,
-          lowMid: 0,
-          mid: 0,
-          highMid: 0,
-          presence: 0,
-          brilliance: 0,
-        },
-        energy: 0,
-      });
+      intensityRef.current = DEFAULT_INTENSITY;
+      setIntensity(DEFAULT_INTENSITY);
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
       }
@@ -89,6 +103,8 @@ export function DescentIntensityProvider({ children }: { children: ReactNode }) 
       : null;
 
     let startTime = Date.now();
+    // Allow first frame to always emit so UI isn’t stuck on defaults for one throttle window
+    let lastReactPush = -REACT_INTENSITY_MIN_MS;
 
     const updateIntensity = () => {
       const elapsed = (Date.now() - startTime) / 1000; // seconds
@@ -110,9 +126,14 @@ export function DescentIntensityProvider({ children }: { children: ReactNode }) 
       };
       let energy = 0;
 
-      // MUSIC REACTIVITY: Extract EQ data if music is playing
+      // MUSIC REACTIVITY: reuse visualizer spectrum when bridged (one FFT / sim fill per frame)
       if (analyserRef.current && isPlayingRef.current && dataArray) {
-        analyserRef.current.getByteFrequencyData(dataArray);
+        const bridged = sharedSpectrumBridgeRef.current?.current;
+        if (bridged && bridged.length === dataArray.length) {
+          dataArray.set(bridged);
+        } else {
+          analyserRef.current.getByteFrequencyData(dataArray);
+        }
 
         const bufferLength = dataArray.length;
 
@@ -167,13 +188,20 @@ export function DescentIntensityProvider({ children }: { children: ReactNode }) 
       // Combine ambient swell with music reactivity
       const totalIntensity = Math.min(baseIntensity + musicBoost, 1.0);
 
-      setIntensity({
+      const packet: IntensityData = {
         baseIntensity,
         musicBoost,
         totalIntensity,
         eqBands,
         energy,
-      });
+      };
+      intensityRef.current = packet;
+
+      const now = performance.now();
+      if (now - lastReactPush >= REACT_INTENSITY_MIN_MS) {
+        lastReactPush = now;
+        setIntensity(packet);
+      }
 
       animationRef.current = requestAnimationFrame(updateIntensity);
     };
@@ -187,8 +215,18 @@ export function DescentIntensityProvider({ children }: { children: ReactNode }) 
     };
   }, [isDescentMode]);
 
+  const contextValue = useMemo(
+    () => ({
+      intensity,
+      intensityRef,
+      registerAnalyser,
+      registerSharedSpectrum,
+    }),
+    [intensity, registerAnalyser, registerSharedSpectrum]
+  );
+
   return (
-    <DescentIntensityContext.Provider value={{ intensity, registerAnalyser }}>
+    <DescentIntensityContext.Provider value={contextValue}>
       {children}
     </DescentIntensityContext.Provider>
   );

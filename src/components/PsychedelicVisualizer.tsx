@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react';
-import type { EQBands } from './visualizer/types';
+import { useEffect, useRef, type MutableRefObject } from 'react';
+import type { EQBands, MusicMotionSnapshot } from './visualizer/types';
 import { Particle } from './visualizer/Particle';
 import { VisualAudioSmoother } from '../lib/audioVisualControl';
 import { generateEQData } from '../lib/eqSimulator';
@@ -10,6 +10,8 @@ interface PsychedelicVisualizerProps {
   isPlaying: boolean;
   currentTrack: number;
   visualizationId?: number;
+  /** Latest spectrum bytes for Descent (smoothed when playing) — avoids duplicate FFT */
+  sharedSpectrumOutRef?: MutableRefObject<Uint8Array | null>;
 }
 
 const BACKGROUND_BASE = [
@@ -30,6 +32,7 @@ export function PsychedelicVisualizer({
   isPlaying,
   currentTrack,
   visualizationId,
+  sharedSpectrumOutRef,
 }: PsychedelicVisualizerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number>();
@@ -68,6 +71,9 @@ export function PsychedelicVisualizer({
 
     const draw = () => {
       if (!isVisible) {
+        if (sharedSpectrumOutRef) {
+          sharedSpectrumOutRef.current = null;
+        }
         animationRef.current = requestAnimationFrame(draw);
         return;
       }
@@ -121,11 +127,17 @@ export function PsychedelicVisualizer({
 
       let spectrumForViz = dataArray;
       let calm = 0.35;
+      let motion: MusicMotionSnapshot | undefined;
       if (isPlaying) {
         const shaped = audioSmoother.process(eq, dataArray, performance.now());
         eq = shaped.eq;
         spectrumForViz = shaped.smoothedSpectrum;
         calm = shaped.calm;
+        motion = shaped.motion;
+      }
+
+      if (sharedSpectrumOutRef) {
+        sharedSpectrumOutRef.current = isPlaying ? spectrumForViz : null;
       }
 
       const intensity = isPlaying ? eq.energy / 255 : 0.1;
@@ -158,6 +170,7 @@ export function PsychedelicVisualizer({
         drawViz(ctx, width, height, spectrumForViz, eq, time, bufferLength, {
           particles: particlesRef.current,
           isPlaying,
+          motion,
         });
       } else {
         const centerX = width / 2;

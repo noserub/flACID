@@ -3,9 +3,14 @@
  * - Per-band EMA smoothing (less jitter on quiet material)
  * - Slow vs fast energy + onset pulse (rhythmic accents, cooldown)
  * - Soft-signal gain so quiet tracks stay expressive without going erratic
+ * - Groove / beat phase bus for tempo-aligned motion across all viz
  */
 
-import type { EQBands } from '../components/visualizer/types';
+import type { EQBands, MusicMotionSnapshot } from '../components/visualizer/types';
+
+const GROOVE_PERIOD_MIN = 280;
+const GROOVE_PERIOD_MAX = 920;
+const DEFAULT_GROOVE_MS = 500;
 
 const BAND_KEYS = [
   'subBass',
@@ -29,6 +34,61 @@ function meanBandEnergy(eq: EQBands): number {
   return s / BAND_KEYS.length;
 }
 
+/** Rolling median spacing between onsets → groove period + phase */
+class GrooveEstimator {
+  private readonly intervals: number[] = [];
+  private lastOnsetMs = 0;
+  groovePeriodMs = DEFAULT_GROOVE_MS;
+
+  reset(): void {
+    this.intervals.length = 0;
+    this.lastOnsetMs = 0;
+    this.groovePeriodMs = DEFAULT_GROOVE_MS;
+  }
+
+  onOnset(nowMs: number): void {
+    if (this.lastOnsetMs > 0) {
+      const dt = nowMs - this.lastOnsetMs;
+      if (dt > 160 && dt < 1300) {
+        this.intervals.push(dt);
+        if (this.intervals.length > 10) {
+          this.intervals.shift();
+        }
+        const sorted = [...this.intervals].sort((a, b) => a - b);
+        const mid = sorted[Math.floor(sorted.length / 2)] ?? dt;
+        this.groovePeriodMs = this.groovePeriodMs * 0.82 + mid * 0.18;
+        this.groovePeriodMs = Math.min(
+          GROOVE_PERIOD_MAX,
+          Math.max(GROOVE_PERIOD_MIN, this.groovePeriodMs)
+        );
+      }
+    }
+    this.lastOnsetMs = nowMs;
+  }
+
+  getBeatPhase(nowMs: number): number {
+    if (this.lastOnsetMs <= 0) {
+      return ((nowMs * 0.003) % 1000) / 1000;
+    }
+    const p = (nowMs - this.lastOnsetMs) / this.groovePeriodMs;
+    return p - Math.floor(p);
+  }
+
+  /** 0–1 from regularity of recent intervals */
+  getConfidence(): number {
+    if (this.intervals.length < 2) {
+      return 0.15 + Math.min(0.35, this.intervals.length * 0.1);
+    }
+    const mean = this.intervals.reduce((a, b) => a + b, 0) / this.intervals.length;
+    if (mean < 1) return 0.2;
+    const variance =
+      this.intervals.reduce((s, x) => s + (x - mean) * (x - mean), 0) / this.intervals.length;
+    const std = Math.sqrt(variance);
+    const cv = std / mean;
+    return Math.min(1, Math.max(0, 1 - cv * 1.8));
+  }
+}
+
 export interface VisualAudioSmootherResult {
   eq: EQBands;
   /** Smoothed spectrum for viz code that reads raw bins */
@@ -37,6 +97,8 @@ export interface VisualAudioSmootherResult {
   beatPulse: number;
   /** 0–1 calm factor (higher = softer / less motion) */
   calm: number;
+  /** Shared motion bus for visualizations */
+  motion: MusicMotionSnapshot;
 }
 
 export class VisualAudioSmoother {
@@ -48,6 +110,7 @@ export class VisualAudioSmoother {
   private lastOnsetMs = 0;
   private energyHistory: number[] = [];
   private readonly historyMax = 90; // ~1.5s at 60fps
+  private readonly groove = new GrooveEstimator();
 
   reset(): void {
     this.prevEq = null;
@@ -57,6 +120,7 @@ export class VisualAudioSmoother {
     this.pulse = 0;
     this.lastOnsetMs = 0;
     this.energyHistory = [];
+    this.groove.reset();
   }
 
   /**
@@ -93,6 +157,7 @@ export class VisualAudioSmoother {
       const strength = Math.min(1, (delta - adaptiveThresh) / (40 + adaptiveThresh));
       this.pulse = Math.min(1, this.pulse + 0.35 + strength * 0.45);
       this.lastOnsetMs = nowMs;
+      this.groove.onOnset(nowMs);
     }
 
     this.pulse *= 0.9;
@@ -147,11 +212,29 @@ export class VisualAudioSmoother {
 
     const calm01 = Math.min(1, Math.max(0, 1 - nextEq.energy / 200));
 
+    const grooveConfidence = this.groove.getConfidence();
+    const rawPhase = this.groove.getBeatPhase(nowMs);
+    // Blend toward free phase when groove not confident (avoids wrong grid lock)
+    const freePhase = ((nowMs * 0.0028) % 1000) / 1000;
+    const beatPhase =
+      grooveConfidence * rawPhase + (1 - grooveConfidence) * freePhase;
+
+    const motion: MusicMotionSnapshot = {
+      beatPhase: beatPhase - Math.floor(beatPhase),
+      groovePeriodMs: this.groove.groovePeriodMs,
+      grooveConfidence,
+      intensityNorm: Math.min(1, Math.max(0, nextEq.energy / 255)),
+      slowIntensity: Math.min(1, Math.max(0, this.slowEnergy / 255)),
+      fastIntensity: Math.min(1, Math.max(0, this.fastEnergy / 255)),
+      pulse: this.pulse,
+    };
+
     return {
       eq: nextEq,
       smoothedSpectrum,
       beatPulse: this.pulse,
       calm: calm01,
+      motion,
     };
   }
 }
