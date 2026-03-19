@@ -82,15 +82,33 @@ export function MiniPlayer() {
   } = usePlayback();
   const [playerInView, setPlayerInView] = useState(true);
 
+  // Section is lazy-loaded so #music-player may not exist on first mount; retry until it does
   useEffect(() => {
+    let io: IntersectionObserver | null = null;
+    const attach = (el: Element) => {
+      // Shrink effective viewport from top so mini shows once player has scrolled up past ~header height
+      io = new IntersectionObserver(
+        ([entry]) => setPlayerInView(entry?.isIntersecting ?? false),
+        { threshold: 0, rootMargin: '-100px 0px 0px 0px' }
+      );
+      io.observe(el);
+    };
     const el = document.getElementById('music-player');
-    if (!el) return; // Section not mounted yet (e.g. lazy); assume in view, don't show mini
-    const io = new IntersectionObserver(
-      ([entry]) => setPlayerInView(entry?.isIntersecting ?? false),
-      { threshold: 0.1, rootMargin: '0px' }
-    );
-    io.observe(el);
-    return () => io.disconnect();
+    if (el) {
+      attach(el);
+      return () => { io?.disconnect(); };
+    }
+    const id = setInterval(() => {
+      const el = document.getElementById('music-player');
+      if (el) {
+        clearInterval(id);
+        attach(el);
+      }
+    }, 400);
+    return () => {
+      clearInterval(id);
+      io?.disconnect();
+    };
   }, []);
 
   const show = !playerInView && isPlaying && tracks.length > 0 && currentTrackData;
@@ -103,7 +121,7 @@ export function MiniPlayer() {
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -8 }}
         transition={{ duration: 0.2 }}
-        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-3 px-4 py-2 rounded-xl bg-background/90 backdrop-blur-md border border-cyan-500/20 shadow-lg min-w-[280px] max-w-[420px]"
+        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[60] flex items-center gap-3 px-4 py-2 rounded-xl bg-background/90 backdrop-blur-md border border-cyan-500/20 shadow-lg min-w-[280px] max-w-[420px]"
       >
         <div className="flex items-center gap-1">
           <button
