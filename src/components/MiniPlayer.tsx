@@ -25,25 +25,30 @@ function MiniEQ({ isPlaying, currentTrack }: { isPlaying: boolean; currentTrack:
     let raf: number;
 
     const draw = () => {
-      timeRef.current += 1;
-      if (isPlaying) musicTimeRef.current += 16;
-      const eq = generateEQData(dataArray, currentTrack % 5, musicTimeRef.current, timeRef.current);
-      const bands = [
-        eq.subBass,
-        eq.bass,
-        eq.lowMid,
-        eq.mid,
-        eq.highMid,
-        eq.high,
-        eq.presence,
-        eq.energy,
-        eq.mid,
-        eq.highMid,
-        eq.bass,
-        eq.subBass,
-      ];
       ctx.fillStyle = 'rgba(0,0,0,0.15)';
       ctx.fillRect(0, 0, w, h);
+      let bands: number[];
+      if (isPlaying) {
+        timeRef.current += 1;
+        musicTimeRef.current += 16;
+        const eq = generateEQData(dataArray, currentTrack % 5, musicTimeRef.current, timeRef.current);
+        bands = [
+          eq.subBass,
+          eq.bass,
+          eq.lowMid,
+          eq.mid,
+          eq.highMid,
+          eq.high,
+          eq.presence,
+          eq.energy,
+          eq.mid,
+          eq.highMid,
+          eq.bass,
+          eq.subBass,
+        ];
+      } else {
+        bands = [12, 8, 10, 6, 8, 6, 8, 10, 6, 8, 8, 12];
+      }
       bands.forEach((val, i) => {
         const x = i * (barWidth + 2) + 1;
         const barH = Math.min((val / 255) * h * 0.9, h - 2);
