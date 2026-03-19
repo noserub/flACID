@@ -161,7 +161,7 @@ export function MusicPlayerEditDialog() {
 
   const handleSave = () => {
     updateContent('musicPlayer', {
-      tracks,
+      tracks: tracks.map((t) => ({ ...t })),
     });
   };
 
@@ -278,6 +278,7 @@ export function MusicPlayerEditDialog() {
                   <div className="space-y-2">
                     <Label>Visualization</Label>
                     <Select
+                      key={`viz-${track.id}`}
                       value={(track.visualizationId ?? 0).toString()}
                       onValueChange={(value) =>
                         handleUpdateTrack(track.id, 'visualizationId', parseInt(value))

@@ -96,6 +96,8 @@ interface EditModeContextType {
   isEditMode: boolean;
   isDraft: boolean;
   content: SiteContent;
+  /** Increments when draft (e.g. music player) is updated so players can re-read and show changes before Publish */
+  draftRevision: number;
   loading: boolean;
   toggleEditMode: () => void;
   updateContent: <K extends keyof SiteContent>(section: K, data: SiteContent[K]) => void;
@@ -252,6 +254,7 @@ export function EditModeProvider({ children }: { children: ReactNode }) {
   const [publishLoading, setPublishLoading] = useState(false);
 
   const [audioCache, setAudioCache] = useState<Record<number, string>>({});
+  const [draftRevision, setDraftRevision] = useState(0);
 
   // Migration helper to ensure all required fields exist
   const migrateContent = (content: unknown): SiteContent => {
@@ -364,10 +367,17 @@ export function EditModeProvider({ children }: { children: ReactNode }) {
   };
 
   const updateContent = <K extends keyof SiteContent>(section: K, data: SiteContent[K]) => {
-    setDraftContent(prev => ({
-      ...prev,
-      [section]: data,
-    }));
+    setDraftContent(prev => {
+      if (section === 'musicPlayer' && typeof data === 'object' && data !== null && 'tracks' in data && Array.isArray((data as { tracks: unknown }).tracks)) {
+        const nextTracks = (data as SiteContent['musicPlayer']).tracks.map((t) => ({ ...t }));
+        return {
+          ...prev,
+          musicPlayer: { ...prev.musicPlayer, tracks: nextTracks },
+        };
+      }
+      return { ...prev, [section]: data };
+    });
+    if (section === 'musicPlayer') setDraftRevision((r) => r + 1);
     setIsDraft(true);
     
     // If updating music player tracks, cache the audio URLs
@@ -454,6 +464,7 @@ export function EditModeProvider({ children }: { children: ReactNode }) {
         isEditMode,
         isDraft,
         content,
+        draftRevision,
         loading,
         toggleEditMode,
         updateContent,

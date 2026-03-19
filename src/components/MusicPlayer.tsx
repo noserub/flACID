@@ -29,12 +29,18 @@ const parseDuration = (durationStr: string): number => {
 };
 
 export function MusicPlayer() {
-  const { content, isEditMode } = useEditMode();
+  const { content, isEditMode, draftRevision } = useEditMode();
   const { registerAnalyser } = useDescentIntensity();
   const { tracks: supabaseTracks, loading: tracksLoading } = useTracks();
 
-  // Use Supabase tracks when configured and loaded; otherwise use EditModeContext
+  // In edit mode use draft (content) so visualization/track changes show before Publish; otherwise use Supabase when configured
   const tracks: PlayerTrack[] = useMemo(() => {
+    if (isEditMode) {
+      return content.musicPlayer.tracks.map((t) => ({
+        ...t,
+        visualizationId: t.visualizationId ?? 0,
+      }));
+    }
     if (isSupabaseConfigured && !tracksLoading && supabaseTracks.length > 0) {
       return supabaseTracks.map((t, i) => ({
         id: i,
@@ -50,7 +56,7 @@ export function MusicPlayer() {
       ...t,
       visualizationId: t.visualizationId ?? 0,
     }));
-  }, [isSupabaseConfigured, tracksLoading, supabaseTracks, content.musicPlayer.tracks]);
+  }, [isEditMode, isSupabaseConfigured, tracksLoading, supabaseTracks, content.musicPlayer.tracks, draftRevision]);
   const [currentTrack, setCurrentTrack] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -445,7 +451,7 @@ export function MusicPlayer() {
               className="relative h-full w-full bg-gradient-to-br from-cyan-900/20 to-fuchsia-900/20"
             >
               <PsychedelicVisualizer 
-                key="fullscreen-visualizer"
+                key={`fullscreen-viz-${currentTrack}-${tracks[currentTrack]?.visualizationId ?? 0}`}
                 analyser={null}
                 isPlaying={isPlaying} 
                 currentTrack={currentTrack}
@@ -570,7 +576,7 @@ export function MusicPlayer() {
         {/* Visualizer */}
         <div className="relative h-64 md:h-96 bg-gradient-to-br from-cyan-900/20 to-fuchsia-900/20">
           <PsychedelicVisualizer 
-            key="normal-visualizer"
+            key={`normal-viz-${currentTrack}-${tracks[currentTrack]?.visualizationId ?? 0}`}
             analyser={null} 
             isPlaying={isPlaying} 
             currentTrack={currentTrack}
