@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, memo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from './ui/dialog';
@@ -8,38 +8,6 @@ import Masonry from 'react-responsive-masonry';
 import { useEditMode } from '../contexts/EditModeContext';
 import { EditableSection } from './EditableSection';
 import { GalleryEditDialog } from './GalleryEditDialog';
-
-interface Photo {
-  id: number;
-  src: string;
-  alt: string;
-  category: 'band' | 'albums' | 'live' | 'backstage';
-}
-
-const photos: Photo[] = [
-  // Band Photos
-  { id: 1, src: 'https://images.unsplash.com/photo-1709731191876-899e32264420?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyb2NrJTIwYmFuZCUyMHBlcmZvcm1hbmNlfGVufDF8fHx8MTc2MDIzMTI3Mnww&ixlib=rb-4.1.0&q=80&w=1080', alt: 'Band performing live', category: 'band' },
-  { id: 2, src: 'https://images.unsplash.com/photo-1718376749317-07f75817c7ff?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxndWl0YXIlMjBwbGF5ZXIlMjBsaXZlfGVufDF8fHx8MTc2MDIzMTI3Mnww&ixlib=rb-4.1.0&q=80&w=1080', alt: 'Guitarist on stage', category: 'band' },
-  { id: 3, src: 'https://images.unsplash.com/photo-1678654309451-d7f82c03bc72?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxkcnVtbWVyJTIwY29uY2VydHxlbnwxfHx8fDE3NjAyMzEyNzJ8MA&ixlib=rb-4.1.0&q=80&w=1080', alt: 'Drummer in action', category: 'band' },
-  { id: 4, src: 'https://images.unsplash.com/photo-1542359649-4b2b0be4e263?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtdXNpYyUyMHN0dWRpbyUyMHJlY29yZGluZ3xlbnwxfHx8fDE3NjAyMzEyNzJ8MA&ixlib=rb-4.1.0&q=80&w=1080', alt: 'Recording session', category: 'band' },
-  
-  // Album Photos
-  { id: 5, src: 'https://images.unsplash.com/photo-1564178413634-1ec30062c5e2?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx2aW55bCUyMHJlY29yZCUyMGFsYnVtfGVufDF8fHx8MTc2MDIyOTk5N3ww&ixlib=rb-4.1.0&q=80&w=1080', alt: 'Album artwork', category: 'albums' },
-  { id: 6, src: 'https://images.unsplash.com/photo-1644963779122-caa4c3d3e81c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxlbGVjdHJpYyUyMGd1aXRhciUyMGNsb3NlfGVufDF8fHx8MTc2MDIzMTI3M3ww&ixlib=rb-4.1.0&q=80&w=1080', alt: 'Guitar detail shot', category: 'albums' },
-  { id: 7, src: 'https://images.unsplash.com/photo-1615991732584-c0d3c4c6e5b7?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtdXNpYyUyMGFtcGxpZmllcnxlbnwxfHx8fDE3NjAyMzEyNzN8MA&ixlib=rb-4.1.0&q=80&w=1080', alt: 'Amplifier close-up', category: 'albums' },
-  
-  // Live Photos
-  { id: 8, src: 'https://images.unsplash.com/photo-1736969580483-363ced9b89ff?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjb25jZXJ0JTIwc3RhZ2UlMjBsaWdodHN8ZW58MXx8fHwxNzYwMjMxMjcyfDA&ixlib=rb-4.1.0&q=80&w=1080', alt: 'Stage lights', category: 'live' },
-  { id: 9, src: 'https://images.unsplash.com/photo-1736969580483-363ced9b89ff?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtdXNpYyUyMGZlc3RpdmFsJTIwY3Jvd2R8ZW58MXx8fHwxNzYwMjMxMjcyfDA&ixlib=rb-4.1.0&q=80&w=1080', alt: 'Festival crowd', category: 'live' },
-  { id: 10, src: 'https://images.unsplash.com/photo-1736969580483-363ced9b89ff?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjb25jZXJ0JTIwcGhvdG9ncmFwaHl8ZW58MXx8fHwxNzYwMjMxMjcyfDA&ixlib=rb-4.1.0&q=80&w=1080', alt: 'Live performance', category: 'live' },
-  { id: 11, src: 'https://images.unsplash.com/photo-1709731191876-899e32264420?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyb2NrJTIwYmFuZCUyMHBlcmZvcm1hbmNlfGVufDF8fHx8MTc2MDIzMTI3Mnww&ixlib=rb-4.1.0&q=80&w=1080', alt: 'Stage energy', category: 'live' },
-  
-  // Backstage Photos
-  { id: 12, src: 'https://images.unsplash.com/photo-1582555172866-f73bb12a2ab3?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxiYW5kJTIwYmFja3N0YWdlfGVufDF8fHx8MTc2MDIzMTI3M3ww&ixlib=rb-4.1.0&q=80&w=1080', alt: 'Backstage moment', category: 'backstage' },
-  { id: 13, src: 'https://images.unsplash.com/photo-1605020420620-20c943cc4669?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtdXNpYyUyMGVxdWlwbWVudHxlbnwxfHx8fDE3NjAyMzEyNzN8MA&ixlib=rb-4.1.0&q=80&w=1080', alt: 'Equipment setup', category: 'backstage' },
-  { id: 14, src: 'https://images.unsplash.com/photo-1542359649-31e03cd4d909?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxiYW5kJTIwcmVoZWFyc2FsfGVufDF8fHx8MTc2MDIzMTI3M3ww&ixlib=rb-4.1.0&q=80&w=1080', alt: 'Rehearsal space', category: 'backstage' },
-  { id: 15, src: 'https://images.unsplash.com/photo-1542359649-4b2b0be4e263?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtdXNpYyUyMHN0dWRpbyUyMHJlY29yZGluZ3xlbnwxfHx8fDE3NjAyMzEyNzJ8MA&ixlib=rb-4.1.0&q=80&w=1080', alt: 'Studio vibes', category: 'backstage' },
-];
 
 export function PhotoGallery() {
   const { content, isEditMode, updateContent } = useEditMode();
@@ -106,7 +74,9 @@ export function PhotoGallery() {
             <h2 className="text-5xl md:text-6xl mb-4 bg-gradient-to-r from-purple-400 to-orange-400 bg-clip-text text-transparent">
               {content.gallery.title}
             </h2>
-            <p className="text-muted-foreground text-lg">Captured moments from our journey</p>
+            {content.gallery.subtitle && (
+              <p className="text-muted-foreground text-lg max-w-2xl mx-auto">{content.gallery.subtitle}</p>
+            )}
             {isEditMode && (
               <div className="mt-4 flex justify-center">
                 <GalleryEditDialog />

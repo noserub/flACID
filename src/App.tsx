@@ -62,7 +62,7 @@ function AppContent() {
 
   return (
     <PlaybackProvider>
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-background text-foreground pb-24 md:pb-0">
             <Analytics pageName="home" />
             {/* Descent Mode Effects Overlay */}
             <DescentModeWrapper />

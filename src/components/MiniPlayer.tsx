@@ -137,14 +137,15 @@ export function MiniPlayer() {
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -8 }}
         transition={{ duration: 0.2 }}
-        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[60] flex items-center gap-3 px-4 py-2 rounded-xl bg-background/90 backdrop-blur-md border border-cyan-500/20 shadow-lg min-w-[280px] max-w-[420px]"
+        className="fixed md:relative md:justify-self-center left-1/2 md:left-auto bottom-2 md:bottom-auto -translate-x-1/2 md:translate-x-0 z-[45] flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2 rounded-xl bg-background/90 backdrop-blur-md border border-cyan-500/20 shadow-lg w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] md:w-auto md:min-w-[280px] md:max-w-[420px]"
+        style={{ bottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
       >
         <div className="flex items-center gap-1">
           <button
             type="button"
             onClick={skipBack}
             disabled={currentTrack === 0}
-            className="p-1.5 rounded-md text-cyan-400 hover:bg-cyan-500/20 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+            className="hidden sm:inline-flex p-1.5 rounded-md text-cyan-400 hover:bg-cyan-500/20 disabled:opacity-40 disabled:pointer-events-none transition-colors"
             aria-label="Previous track"
           >
             <SkipBack className="h-4 w-4" />
@@ -162,13 +163,13 @@ export function MiniPlayer() {
             type="button"
             onClick={skipForward}
             disabled={currentTrack === tracks.length - 1}
-            className="p-1.5 rounded-md text-cyan-400 hover:bg-cyan-500/20 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+            className="hidden sm:inline-flex p-1.5 rounded-md text-cyan-400 hover:bg-cyan-500/20 disabled:opacity-40 disabled:pointer-events-none transition-colors"
             aria-label="Next track"
           >
             <SkipForward className="h-4 w-4" />
           </button>
         </div>
-        <div className="flex-1 min-w-0 text-center">
+        <div className="flex-1 min-w-0 text-left sm:text-center">
           <p className="text-sm font-medium text-foreground truncate">{currentTrackData.title}</p>
           <p className="text-xs text-muted-foreground truncate">{currentTrackData.album || currentTrackData.artist}</p>
         </div>

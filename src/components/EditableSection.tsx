@@ -74,20 +74,27 @@ interface EditDialogProps {
   title: string;
   children: ReactNode;
   onSave?: () => void;
+  /** Fires when the dialog opens or closes (e.g. sync form state from context on open). */
+  onOpenChange?: (open: boolean) => void;
 }
 
-export function EditDialog({ trigger, title, children, onSave }: EditDialogProps) {
+export function EditDialog({ trigger, title, children, onSave, onOpenChange }: EditDialogProps) {
   const [open, setOpen] = useState(false);
+
+  const handleOpenChange = (next: boolean) => {
+    setOpen(next);
+    onOpenChange?.(next);
+  };
 
   const handleSave = () => {
     if (onSave) {
       onSave();
     }
-    setOpen(false);
+    handleOpenChange(false);
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <div>{trigger}</div>
       </DialogTrigger>
