@@ -24,13 +24,19 @@ function normalizeTourDateForDb(raw: string): string {
 }
 
 function tourRowFromSiteDate(d: SiteContent['tour']['dates'][number]) {
-  const status =
+  let status =
     d.status === 'sold_out' ||
     d.status === 'cancelled' ||
     d.status === 'selling_fast' ||
     d.status === 'upcoming'
       ? d.status
       : 'upcoming';
+
+  // Backward compatibility: projects without migration 004 reject "selling_fast".
+  // Downgrade to "upcoming" so tour edits still persist instead of failing publish.
+  if (status === 'selling_fast') {
+    status = 'upcoming';
+  }
 
   return {
     date: normalizeTourDateForDb(d.date),
