@@ -1,82 +1,54 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Play, Pause, SkipForward, SkipBack, Volume2, VolumeX, List, Maximize, Minimize, X, Loader2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Slider } from './ui/slider';
 import { PsychedelicVisualizer } from './PsychedelicVisualizer';
 import { useEditMode } from '../contexts/EditModeContext';
 import { useDescentIntensity } from '../contexts/DescentIntensityContext';
-import { useTracks } from '../hooks';
-import { isSupabaseConfigured } from '../lib/supabase';
-import { parseVisualizationId } from '../lib/contentMappers';
-import { formatDuration } from '../utils';
+import { usePlayback } from '../contexts/PlaybackContext';
 import { MusicPlayerEditDialog } from './MusicPlayerEditDialog';
 import { motion, AnimatePresence } from 'motion/react';
 
-interface PlayerTrack {
-  id: number;
-  title: string;
-  artist: string;
-  album: string;
-  duration: string;
-  url: string;
-  visualizationId: number;
-}
-
-// Parse duration string to seconds
-const parseDuration = (durationStr: string): number => {
-  const [minutes, seconds] = durationStr.split(':').map(Number);
-  return minutes * 60 + seconds;
-};
-
 export function MusicPlayer() {
-  const { content, isEditMode, draftRevision } = useEditMode();
+  const { isEditMode } = useEditMode();
   const { registerAnalyser } = useDescentIntensity();
-  const { tracks: supabaseTracks, loading: tracksLoading } = useTracks();
+  const {
+    tracks,
+    currentTrack,
+    isPlaying,
+    currentTime,
+    duration,
+    volume,
+    isMuted,
+    isAudioReady,
+    currentTrackData,
+    togglePlay,
+    skipForward,
+    skipBack,
+    handleSeek,
+    handleVolumeChange,
+    toggleMute,
+    formatTime,
+    selectTrack,
+  } = usePlayback();
 
-  // In edit mode use draft (content) so visualization/track changes show before Publish; otherwise use Supabase when configured
-  const tracks: PlayerTrack[] = useMemo(() => {
-    if (isEditMode) {
-      return content.musicPlayer.tracks.map((t) => ({
-        ...t,
-        visualizationId: t.visualizationId ?? 0,
-      }));
+  const handleTogglePlay = () => {
+    if (!currentTrackData?.url) {
+      alert('No audio file uploaded for this track. Please upload an audio file in edit mode.');
+      return;
     }
-    if (isSupabaseConfigured && !tracksLoading && supabaseTracks.length > 0) {
-      return supabaseTracks.map((t, i) => ({
-        id: i,
-        title: t.title,
-        artist: t.artist,
-        album: t.album ?? '',
-        duration: formatDuration(t.duration),
-        url: t.audio_url,
-        visualizationId: parseVisualizationId(t.visualization_type),
-      }));
-    }
-    return content.musicPlayer.tracks.map((t) => ({
-      ...t,
-      visualizationId: t.visualizationId ?? 0,
-    }));
-  }, [isEditMode, isSupabaseConfigured, tracksLoading, supabaseTracks, content.musicPlayer.tracks, draftRevision]);
-  const [currentTrack, setCurrentTrack] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [volume, setVolume] = useState(0.7);
-  const [isMuted, setIsMuted] = useState(false);
+    togglePlay();
+  };
+
   const [showPlaylist, setShowPlaylist] = useState(true);
-  const [isAudioReady, setIsAudioReady] = useState(false);
-  const [shouldAutoPlay, setShouldAutoPlay] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isVisualizerLoading, setIsVisualizerLoading] = useState(false);
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
   const [touchCurrentY, setTouchCurrentY] = useState<number | null>(null);
-  const audioRef = useRef<HTMLAudioElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
 
-  // AudioContext/analyser for visualizer only. We do NOT connect the audio element to the
-  // context so that cross-origin URLs (e.g. Supabase Storage) can play sound; connecting
-  // would require CORS and causes "MediaElementAudioSource outputs zeroes".
+  // AudioContext/analyser for visualizer + DescentIntensity (not connected to audio element for CORS)
   useEffect(() => {
     if (audioContextRef.current && analyserRef.current) return;
     const AudioContextConstructor = window.AudioContext ?? (window as Window & { webkitAudioContext?: typeof window.AudioContext }).webkitAudioContext;
@@ -86,7 +58,6 @@ export function MusicPlayer() {
     analyser.fftSize = 2048;
     audioContextRef.current = ctx;
     analyserRef.current = analyser;
-    console.log('Audio context and analyser created successfully');
     return () => {
       try {
         if (analyserRef.current) analyserRef.current.disconnect();
@@ -95,198 +66,9 @@ export function MusicPlayer() {
     };
   }, []);
 
-  // Track URL for stable effect deps (avoids reload loop when tracks array reference changes)
-  const currentTrackUrl = tracks[currentTrack]?.url?.trim() ?? '';
-  const currentTrackData = tracks[currentTrack];
-
-  // Update audio source when track index or track URL changes
   useEffect(() => {
-    setIsAudioReady(false);
-    setIsPlaying(false);
-    if (!audioRef.current || !currentTrackData) return;
-
-    if (currentTrackUrl) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-      audioRef.current.removeAttribute('crossOrigin');
-      audioRef.current.src = currentTrackData.url;
-      audioRef.current.load();
-      console.log(`Loading track: ${currentTrackData.title}`, currentTrackUrl.substring(0, 50) + '...');
-    } else {
-      audioRef.current.pause();
-      audioRef.current.removeAttribute('src');
-      audioRef.current.load();
-      setDuration(parseDuration(currentTrackData.duration));
-      setCurrentTime(0);
-      console.log(`No audio file for track: ${currentTrackData.title}`);
-    }
-  }, [currentTrack, currentTrackUrl]);
-
-  // Handle play/pause
-  useEffect(() => {
-    if (audioRef.current) {
-      if (isPlaying) {
-        audioRef.current.play().catch(err => {
-          console.log('Audio playback failed:', err);
-          setIsPlaying(false);
-        });
-      } else {
-        audioRef.current.pause();
-      }
-    }
-  }, [isPlaying]);
-
-  // Update volume
-  useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.volume = isMuted ? 0 : volume;
-    }
-  }, [volume, isMuted]);
-
-  // Audio event handlers
-  const handleTimeUpdate = () => {
-    if (audioRef.current) {
-      setCurrentTime(audioRef.current.currentTime);
-    }
-  };
-
-  const handleLoadedMetadata = () => {
-    if (audioRef.current) {
-      setDuration(audioRef.current.duration);
-      console.log(`Audio metadata loaded - Duration: ${audioRef.current.duration}s`);
-    }
-  };
-
-  const handleCanPlay = () => {
-    setIsAudioReady(true);
-    console.log('Audio ready to play');
-    
-    // Auto-play if requested (e.g., from playlist selection)
-    if (shouldAutoPlay) {
-      setIsPlaying(true);
-      setShouldAutoPlay(false);
-    }
-  };
-
-  const handleError = (_e: React.SyntheticEvent<HTMLAudioElement, Event>) => {
-    if (audioRef.current && audioRef.current.src) {
-      console.error('Failed to load audio:', {
-        track: tracks[currentTrack]?.title,
-        url: audioRef.current.src.substring(0, 100),
-        error: _e.type,
-        message: audioRef.current.error?.message || 'Unknown error'
-      });
-    }
-    setIsAudioReady(false);
-    setIsPlaying(false);
-  };
-
-  const handleEnded = () => {
-    // Auto-play next track
-    if (currentTrack < tracks.length - 1) {
-      const nextTrack = tracks[currentTrack + 1];
-      setCurrentTrack(currentTrack + 1);
-      
-      // Only auto-play if next track has audio
-      if (nextTrack.url) {
-        setShouldAutoPlay(true);
-      } else {
-        setIsPlaying(false);
-      }
-    } else {
-      setIsPlaying(false);
-    }
-  };
-
-  const resumeAudioContextIfNeeded = () => {
-    if (audioContextRef.current?.state === 'suspended') {
-      audioContextRef.current.resume();
-    }
-  };
-
-  const togglePlay = () => {
-    const track = tracks[currentTrack];
-    if (!track.url) {
-      alert('No audio file uploaded for this track. Please upload an audio file in edit mode.');
-      return;
-    }
-    
-    if (!isAudioReady && audioRef.current) {
-      console.log('Audio not ready yet, waiting...');
-      // Try to load again
-      audioRef.current.load();
-      return;
-    }
-    // Resume AudioContext on user gesture so sound is output (browser autoplay policy)
-    resumeAudioContextIfNeeded();
-    setIsPlaying(!isPlaying);
-  };
-
-  const skipForward = () => {
-    if (currentTrack < tracks.length - 1) {
-      const nextTrack = tracks[currentTrack + 1];
-      setIsPlaying(false);
-      setCurrentTime(0);
-      setCurrentTrack(currentTrack + 1);
-      if (nextTrack.url) {
-        resumeAudioContextIfNeeded();
-        setShouldAutoPlay(true);
-      }
-    }
-  };
-
-  const skipBack = () => {
-    if (currentTrack > 0) {
-      const prevTrack = tracks[currentTrack - 1];
-      setIsPlaying(false);
-      setCurrentTime(0);
-      setCurrentTrack(currentTrack - 1);
-      if (prevTrack.url) {
-        resumeAudioContextIfNeeded();
-        setShouldAutoPlay(true);
-      }
-    }
-  };
-
-  const handleSeek = (value: number[]) => {
-    const newTime = value[0];
-    setCurrentTime(newTime);
-    if (audioRef.current) {
-      audioRef.current.currentTime = newTime;
-    }
-  };
-
-  const handleVolumeChange = (value: number[]) => {
-    setVolume(value[0]);
-    setIsMuted(false);
-  };
-
-  const toggleMute = () => {
-    setIsMuted(!isMuted);
-  };
-
-  const formatTime = (time: number) => {
-    if (isNaN(time)) return '0:00';
-    const minutes = Math.floor(time / 60);
-    const seconds = Math.floor(time % 60);
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-  };
-
-  const selectTrack = (index: number) => {
-    const track = tracks[index];
-    if (!track.url) {
-      setCurrentTrack(index);
-      setCurrentTime(0);
-      setIsPlaying(false);
-      return;
-    }
-    setIsPlaying(false);
-    setCurrentTime(0);
-    setCurrentTrack(index);
-    resumeAudioContextIfNeeded();
-    setShouldAutoPlay(true);
-    console.log(`Playlist selection: ${track.title} - Auto-play queued`);
-  };
+    registerAnalyser(analyserRef.current, isPlaying);
+  }, [isPlaying, registerAnalyser]);
 
   // Fullscreen functionality with loading state
   const toggleFullscreen = () => {
@@ -381,17 +163,6 @@ export function MusicPlayer() {
   return (
     <div className="w-full max-w-6xl mx-auto relative">
       {isEditMode && <MusicPlayerEditDialog />}
-      {/* Hidden audio element */}
-      <audio
-        ref={audioRef}
-        onTimeUpdate={handleTimeUpdate}
-        onLoadedMetadata={handleLoadedMetadata}
-        onCanPlay={handleCanPlay}
-        onError={handleError}
-        onEnded={handleEnded}
-        preload="auto"
-      />
-      
       {/* Fullscreen container overlay with animation */}
       <AnimatePresence>
         {isFullscreen && (
@@ -545,7 +316,7 @@ export function MusicPlayer() {
                     </Button>
                     <Button
                       size="icon"
-                      onClick={togglePlay}
+                      onClick={handleTogglePlay}
                       disabled={!tracks[currentTrack].url || (!isAudioReady && !isPlaying)}
                       className="h-16 w-16 rounded-full bg-white hover:bg-white/90 text-black disabled:opacity-50 disabled:cursor-not-allowed"
                     >
@@ -644,7 +415,7 @@ export function MusicPlayer() {
               </Button>
               <Button
                 size="icon"
-                onClick={togglePlay}
+                onClick={handleTogglePlay}
                 disabled={!tracks[currentTrack].url || (!isAudioReady && !isPlaying)}
                 className="h-12 w-12 rounded-full bg-fuchsia-600 hover:bg-fuchsia-500 text-white shadow-lg shadow-fuchsia-900/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
               >

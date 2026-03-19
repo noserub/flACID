@@ -6,6 +6,7 @@ import { Analytics } from './components/Analytics';
 import { EditModeProvider, useEditMode } from './contexts/EditModeContext';
 import { DescentModeProvider } from './contexts/DescentModeContext';
 import { DescentIntensityProvider } from './contexts/DescentIntensityContext';
+import { PlaybackProvider } from './contexts/PlaybackContext';
 import { DescentModeWrapper } from './components/DescentModeEffects';
 import { SiteHeader } from './components/SiteHeader';
 import heroBackground from 'figma:asset/39f8e6db34bf477fef67b4d63027e0f5debf29fb.png';
@@ -60,6 +61,7 @@ function AppContent() {
   }
 
   return (
+    <PlaybackProvider>
     <div className="min-h-screen bg-background text-foreground">
             <Analytics pageName="home" />
             {/* Descent Mode Effects Overlay */}
@@ -96,6 +98,7 @@ function AppContent() {
               <Footer />
             </Suspense>
           </div>
+    </PlaybackProvider>
   );
 }
 

@@ -14,6 +14,7 @@ import { useEditMode } from '../contexts/EditModeContext';
 import { useAuth } from '../hooks';
 import { DescentModeToggle } from './DescentModeToggle';
 import { SignInDialog } from './SignInDialog';
+import { MiniPlayer } from './MiniPlayer';
 
 export function SiteHeader() {
   const { isEditMode, isDraft, toggleEditMode, publishChanges, discardDraft, content } = useEditMode();
@@ -115,8 +116,10 @@ export function SiteHeader() {
   };
 
   return (
-    <header className="fixed top-0 right-0 z-50 p-4">
-      <div className="flex items-center gap-3">
+    <header className="fixed top-0 left-0 right-0 z-50 p-4 pointer-events-none [&>*]:pointer-events-auto">
+      <div className="relative flex items-center justify-end min-h-[52px]">
+        <MiniPlayer />
+        <div className="flex items-center gap-3">
         {/* Descent Mode Toggle */}
         <DescentModeToggle />
         
@@ -235,6 +238,7 @@ export function SiteHeader() {
             )}
           </DropdownMenuContent>
         </DropdownMenu>
+        </div>
       </div>
 
       {/* Component Library Modal */}
