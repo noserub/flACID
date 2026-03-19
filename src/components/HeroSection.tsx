@@ -163,11 +163,11 @@ export function HeroSection() {
         />
       </div>
 
-      {/* Panning Gradient Overlays - Creates moving transparency zones */}
+      {/* Panning gradient overlays - smooth falloff to transparent so no hard edge */}
       <motion.div
-        className="absolute inset-0"
+        className="absolute inset-0 pointer-events-none"
         style={{
-          background: 'radial-gradient(circle at 50% 50%, rgba(0, 255, 255, 0.24) 0%, transparent 50%)',
+          background: 'radial-gradient(circle at 50% 50%, rgba(0, 255, 255, 0.22) 0%, rgba(0, 255, 255, 0.14) 25%, rgba(0, 255, 255, 0.06) 45%, rgba(0, 255, 255, 0.01) 58%, transparent 65%)',
         }}
         initial={{
           x: '-40%',
@@ -185,9 +185,9 @@ export function HeroSection() {
       />
       
       <motion.div
-        className="absolute inset-0"
+        className="absolute inset-0 pointer-events-none"
         style={{
-          background: 'radial-gradient(circle at 50% 50%, rgba(255, 0, 255, 0.20) 0%, transparent 50%)',
+          background: 'radial-gradient(circle at 50% 50%, rgba(255, 0, 255, 0.18) 0%, rgba(255, 0, 255, 0.11) 25%, rgba(255, 0, 255, 0.05) 45%, rgba(255, 0, 255, 0.01) 58%, transparent 65%)',
         }}
         initial={{
           x: '35%',
