@@ -58,27 +58,67 @@ async function replaceTourDatesFromSiteContent(content: SiteContent): Promise<vo
     const rows = withId.map((d) => ({ id: d.id, ...tourRowFromSiteDate(d) }));
     const { data, error } = await supabase.from('tour_dates').upsert(rows, { onConflict: 'id' }).select('id');
     if (error) throw error;
-    keptIds.push(...(data ?? []).map((r) => r.id));
+    // If RETURNING is empty (RLS/PostgREST edge cases), still trust the ids we upserted so we don't orphan-delete everything
+    if (data && data.length > 0) {
+      keptIds.push(...data.map((r) => r.id));
+    } else {
+      keptIds.push(...withId.map((d) => d.id));
+    }
   }
 
   for (const d of withoutId) {
-    const { data, error } = await supabase
+    const { data: inserted, error } = await supabase
       .from('tour_dates')
       .insert(tourRowFromSiteDate(d))
-      .select('id')
-      .single();
+      .select('id');
     if (error) throw error;
-    if (data?.id) keptIds.push(data.id);
+    const newId = inserted?.[0]?.id;
+    if (newId) keptIds.push(newId);
   }
+
+  // Only prune orphans when we have one id per show (otherwise we might delete good rows)
+  const canPruneOrphans = dates.length === 0 || keptIds.length === dates.length;
 
   const { data: allRows, error: listError } = await supabase.from('tour_dates').select('id');
   if (listError) throw listError;
 
   const orphanIds = (allRows ?? []).map((r) => r.id).filter((id) => !keptIds.includes(id));
-  if (orphanIds.length > 0) {
+  if (canPruneOrphans && orphanIds.length > 0) {
     const { error: deleteError } = await supabase.from('tour_dates').delete().in('id', orphanIds);
     if (deleteError) throw deleteError;
+  } else if (!canPruneOrphans && orphanIds.length > 0) {
+    console.warn(
+      '[contentSync] tour_dates: skipped orphan cleanup (could not confirm all row ids after insert). Check RLS SELECT after INSERT.'
+    );
   }
+}
+
+/** site_settings columns added in migration 004 — omit if DB not migrated yet */
+const SITE_SETTINGS_OPTIONAL_KEYS = ['tour_subtitle', 'tour_footer_note', 'gallery_subtitle'] as const;
+
+function stripOptionalSiteSettingsKeys(
+  row: Record<string, unknown>
+): Record<string, unknown> {
+  const next = { ...row };
+  for (const k of SITE_SETTINGS_OPTIONAL_KEYS) {
+    delete next[k];
+  }
+  return next;
+}
+
+function isMissingColumnSiteSettingsError(error: {
+  message?: string;
+  code?: string;
+  details?: string;
+} | null): boolean {
+  if (!error) return false;
+  const blob = `${error.message ?? ''} ${error.details ?? ''} ${error.code ?? ''}`.toLowerCase();
+  if (blob.includes('tour_subtitle') || blob.includes('gallery_subtitle') || blob.includes('tour_footer_note')) {
+    return true;
+  }
+  if (blob.includes('does not exist') && blob.includes('column')) return true;
+  if (blob.includes('could not find') && blob.includes('column')) return true;
+  return false;
 }
 
 export async function loadContentFromSupabase(
@@ -137,17 +177,29 @@ export async function publishContentToSupabase(content: SiteContent): Promise<vo
 
   const { siteSettings, tracks, albums, photos } = siteContentToDb(content);
 
-  // 1. Upsert site_settings
-  const { error: settingsError } = await supabase
-    .from('site_settings')
-    .upsert(
-      {
-        id: 'default',
-        ...siteSettings,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'id' }
+  // 1. Upsert site_settings (retry without 004-only columns if project hasn't run that migration)
+  const settingsRow = {
+    id: 'default' as const,
+    ...siteSettings,
+    updated_at: new Date().toISOString(),
+  };
+
+  let settingsError = (
+    await supabase.from('site_settings').upsert(settingsRow, { onConflict: 'id' })
+  ).error;
+
+  if (settingsError && isMissingColumnSiteSettingsError(settingsError)) {
+    console.warn(
+      '[contentSync] site_settings upsert missing optional columns; retrying without tour_subtitle / tour_footer_note / gallery_subtitle. Run migration 004 for full support.'
     );
+    settingsError = (
+      await supabase
+        .from('site_settings')
+        .upsert(stripOptionalSiteSettingsKeys(settingsRow as Record<string, unknown>), {
+          onConflict: 'id',
+        })
+    ).error;
+  }
 
   if (settingsError) throw settingsError;
 
