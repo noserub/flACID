@@ -135,15 +135,20 @@ export function ScrollBoundaryGlow() {
 // Glitch effect component for text
 export function GlitchOverlay() {
   const { isDescentMode } = useDescentMode();
-  const { intensity } = useDescentIntensity();
+  const { intensity, isPlaying } = useDescentIntensity();
 
   if (!isDescentMode) return null;
 
-  const aberrationAmount = 2 + (intensity.totalIntensity * 4); // 2-6px based on intensity
+  const aberrationAmount = isPlaying
+    ? 3 + (intensity.totalIntensity * 5)
+    : 1 + (intensity.baseIntensity * 1);
+  const opacity = isPlaying
+    ? 0.35 + (intensity.totalIntensity * 0.25)
+    : 0.15 + (intensity.baseIntensity * 0.1);
 
   return (
     <div className="pointer-events-none fixed inset-0 z-[9999] mix-blend-screen" 
-         style={{ opacity: 0.3 + (intensity.totalIntensity * 0.2) }}>
+         style={{ opacity }}>
       {/* Chromatic aberration effect */}
       <motion.div
         className="absolute inset-0"
@@ -184,12 +189,13 @@ export function GlitchOverlay() {
 // Scanline/VHS effect
 export function ScanlineEffect() {
   const { isDescentMode } = useDescentMode();
-  const { intensity } = useDescentIntensity();
+  const { intensity, isPlaying } = useDescentIntensity();
 
   if (!isDescentMode) return null;
 
-  // Scanline intensity increases with mid frequencies
-  const scanlineOpacity = 0.2 + (intensity.eqBands.mid * 0.3);
+  const scanlineOpacity = isPlaying
+    ? 0.2 + (intensity.eqBands.mid * 0.4)
+    : 0.08 + (intensity.baseIntensity * 0.04);
 
   return (
     <div 
@@ -217,7 +223,7 @@ export function ScanlineEffect() {
 // Organic tendril/creature animations
 export function OrganicTendrils() {
   const { isDescentMode } = useDescentMode();
-  const { intensity } = useDescentIntensity();
+  const { intensity, isPlaying } = useDescentIntensity();
   const [tendrils, setTendrils] = useState<Array<{ id: number; x: number; y: number; delay: number }>>([]);
 
   useEffect(() => {
@@ -226,9 +232,8 @@ export function OrganicTendrils() {
       return;
     }
 
-    // Generate random tendrils - count varies with bass
-    const baseCount = 12;
-    const bassBoost = Math.floor(intensity.eqBands.bass * 8); // Up to 8 extra tendrils from bass
+    const baseCount = isPlaying ? 12 : 4;
+    const bassBoost = isPlaying ? Math.floor(intensity.eqBands.bass * 8) : 0;
     const tendrilCount = baseCount + bassBoost;
     
     const newTendrils = Array.from({ length: tendrilCount }, (_, i) => ({
@@ -238,16 +243,20 @@ export function OrganicTendrils() {
       delay: Math.random() * 5,
     }));
     setTendrils(newTendrils);
-  }, [isDescentMode, intensity.eqBands.bass]);
+  }, [isDescentMode, isPlaying, intensity.eqBands.bass]);
 
   if (!isDescentMode) return null;
 
   return (
     <div className="pointer-events-none fixed inset-0 z-[9997] overflow-hidden">
       {tendrils.map((tendril) => {
-        // Tendrils react to low-mid frequencies
-        const tendrilIntensity = 0.5 + (intensity.eqBands.lowMid * 0.5);
-        const duration = 8 / tendrilIntensity; // Faster when intense
+        const tendrilIntensity = isPlaying
+          ? 0.5 + (intensity.eqBands.lowMid * 0.5)
+          : 0.3;
+        const duration = 8 / tendrilIntensity;
+        const opacity = isPlaying
+          ? 0.4 + (intensity.totalIntensity * 0.4)
+          : 0.2 + (intensity.baseIntensity * 0.15);
         
         return (
           <motion.div
@@ -257,7 +266,7 @@ export function OrganicTendrils() {
               left: `${tendril.x}%`,
               top: `${tendril.y}%`,
               filter: 'blur(2px)',
-              opacity: 0.4 + (intensity.totalIntensity * 0.4),
+              opacity,
             }}
             initial={{ scaleY: 0, opacity: 0 }}
             animate={{
@@ -281,7 +290,7 @@ export function OrganicTendrils() {
 // Particle system
 export function DescentParticles() {
   const { isDescentMode } = useDescentMode();
-  const { intensity } = useDescentIntensity();
+  const { intensity, isPlaying } = useDescentIntensity();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const particlesRef = useRef<Array<{
     x: number;
@@ -475,12 +484,11 @@ export function DescentParticles() {
           forceY += separationY * 0.1;
         }
 
-        // Apply music intensity influence (intensity from closure; effect re-runs when it changes)
-        const speedMultiplier = 1 + (intensity.eqBands.presence + intensity.eqBands.brilliance) * 0.5;
+        const speedMultiplier = isPlaying
+          ? 1 + (intensity.eqBands.presence + intensity.eqBands.brilliance) * 0.5
+          : 0.6;
         const bassInfluence = intensity.eqBands.bass * 0.3;
-        
-        // Bass creates random bursts of energy
-        if (bassInfluence > 0.5 && Math.random() > 0.95) {
+        if (isPlaying && bassInfluence > 0.5 && Math.random() > 0.95) {
           particle.energy = 1;
         }
         
@@ -514,8 +522,9 @@ export function DescentParticles() {
         if (particle.y < -20) particle.y = canvas.height + 20;
         if (particle.y > canvas.height + 20) particle.y = -20;
 
-        // Particle brightness reacts to overall intensity and energy
-        const alpha = particle.baseAlpha * (0.5 + intensity.totalIntensity * 0.5 + particle.energy * 0.3);
+        const alpha = isPlaying
+          ? particle.baseAlpha * (0.5 + intensity.totalIntensity * 0.5 + particle.energy * 0.3)
+          : particle.baseAlpha * 0.4;
 
         // Draw particle with glow
         const glowSize = particle.size + particle.energy * 2;
@@ -561,7 +570,7 @@ export function DescentParticles() {
       cancelAnimationFrame(animationId);
       window.removeEventListener('resize', handleResize);
     };
-  }, [isDescentMode, intensity]);
+  }, [isDescentMode, isPlaying, intensity]);
 
   if (!isDescentMode) return null;
 
@@ -629,7 +638,7 @@ export function GlitchText({ children, className = '' }: { children: React.React
 // Zooming Explorable Background
 export function DescentBackground() {
   const { isDescentMode } = useDescentMode();
-  const { intensity } = useDescentIntensity();
+  const { intensity, isPlaying } = useDescentIntensity();
   const [mousePosition, setMousePosition] = useState({ x: 0.5, y: 0.5 }); // Normalized 0-1
   const [breathingPhases, setBreathingPhases] = useState({ slow: 0, medium: 0, fast: 0 });
   const baseZoom = 2.2;
@@ -739,12 +748,12 @@ export function DescentBackground() {
         }}
       />
 
-      {/* Additional color layer that pulses with bass */}
+      {/* Additional color layer that pulses with bass - only when playing */}
       <motion.div
         className="absolute inset-0"
         style={{
           background: `radial-gradient(circle at ${50 + breathingPhases.slow * 10}% ${50 + breathingPhases.medium * 10}%, 
-            rgba(255, 0, 255, ${intensity.eqBands.bass * 0.15}) 0%, 
+            rgba(255, 0, 255, ${isPlaying ? intensity.eqBands.bass * 0.25 : 0}) 0%, 
             transparent 60%)`,
           mixBlendMode: 'screen',
         }}

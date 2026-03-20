@@ -19,6 +19,7 @@ export interface IntensityData {
 
 interface DescentIntensityContextType {
   intensity: IntensityData;
+  isPlaying: boolean;
   registerAnalyser: (analyser: AnalyserNode | null, isPlaying: boolean) => void;
   /** For CORS fallback: pass playback position so we can use simulated reactivity */
   registerPlaybackState: (currentTimeSeconds: number, trackIndex: number) => void;
@@ -46,6 +47,7 @@ export function DescentIntensityProvider({ children }: { children: ReactNode }) 
 
   const analyserRef = useRef<AnalyserNode | null>(null);
   const isPlayingRef = useRef(false);
+  const [isPlaying, setIsPlaying] = useState(false);
   const playbackStateRef = useRef({ currentTimeSeconds: 0, trackIndex: 0 });
   const animationRef = useRef<number>();
   const zeroCountRef = useRef(0);
@@ -55,9 +57,10 @@ export function DescentIntensityProvider({ children }: { children: ReactNode }) 
   const transientPeakRef = useRef(0);
 
   // Register the audio analyser from MusicPlayer
-  const registerAnalyser = (analyser: AnalyserNode | null, isPlaying: boolean) => {
+  const registerAnalyser = (analyser: AnalyserNode | null, playing: boolean) => {
     analyserRef.current = analyser;
-    isPlayingRef.current = isPlaying;
+    isPlayingRef.current = playing;
+    setIsPlaying(playing);
     if (!analyser) {
       useSimulationRef.current = false;
       zeroCountRef.current = 0;
@@ -233,7 +236,7 @@ export function DescentIntensityProvider({ children }: { children: ReactNode }) 
   }, [isDescentMode]);
 
   return (
-    <DescentIntensityContext.Provider value={{ intensity, registerAnalyser, registerPlaybackState }}>
+    <DescentIntensityContext.Provider value={{ intensity, isPlaying, registerAnalyser, registerPlaybackState }}>
       {children}
     </DescentIntensityContext.Provider>
   );
