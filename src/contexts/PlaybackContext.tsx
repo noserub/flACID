@@ -7,6 +7,7 @@ import {
   useMemo,
   useCallback,
   type ReactNode,
+  type RefObject,
 } from 'react';
 import { useEditMode } from './EditModeContext';
 import { useTracks } from '../hooks';
@@ -40,6 +41,8 @@ interface PlaybackContextType {
   isMuted: boolean;
   isAudioReady: boolean;
   currentTrackData: PlayerTrack | undefined;
+  /** Ref to the audio element — used by MusicPlayer to connect analyser for Descend reactivity */
+  audioRef: RefObject<HTMLAudioElement | null>;
   togglePlay: () => void;
   skipForward: () => void;
   skipBack: () => void;
@@ -106,7 +109,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     if (currentTrackUrl) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
-      audioRef.current.removeAttribute('crossOrigin');
+      audioRef.current.crossOrigin = 'anonymous';
       audioRef.current.src = currentTrackData.url;
       audioRef.current.load();
     } else {
@@ -167,7 +170,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   }, [currentTrack, tracks]);
 
   const resumeAudioContextIfNeeded = useCallback(() => {
-    // No-op: we don't connect audio to Analyser in this app (CORS). Visualizer uses simulated EQ.
+    // AudioContext resume is handled in MusicPlayer when isPlaying becomes true
   }, []);
 
   const togglePlay = useCallback(() => {
@@ -253,6 +256,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       isMuted,
       isAudioReady,
       currentTrackData,
+      audioRef,
       togglePlay,
       skipForward,
       skipBack,
@@ -276,6 +280,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       isMuted,
       isAudioReady,
       currentTrackData,
+      audioRef,
       togglePlay,
       skipForward,
       skipBack,

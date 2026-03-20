@@ -1,10 +1,10 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from './ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { ImageWithFallback } from './figma/ImageWithFallback';
-import Masonry from 'react-responsive-masonry';
+import Masonry, { ResponsiveMasonry } from 'react-responsive-masonry';
 import { useEditMode } from '../contexts/EditModeContext';
 import { useDescentSectionLiftClass } from '../hooks/useDescentSectionStacking';
 import { cn } from './ui/utils';
@@ -18,12 +18,26 @@ export function PhotoGallery() {
   const [activeTab, setActiveTab] = useState(0);
 
   const tabs = content.gallery.tabs;
-  const visibleTabs = useMemo(
-    () => tabs.filter((tab) => tab.visible || isEditMode),
-    [tabs, isEditMode]
-  );
+  const visibleTabs = useMemo(() => {
+    const byVisibility = tabs.filter((tab) => tab.visible || isEditMode);
+    if (isEditMode) return byVisibility;
+    return byVisibility.filter((tab) => tab.images.length > 0);
+  }, [tabs, isEditMode]);
+  useEffect(() => {
+    if (activeTab >= visibleTabs.length && visibleTabs.length > 0) {
+      setActiveTab(0);
+    }
+  }, [activeTab, visibleTabs.length]);
+
   const currentTabImages = visibleTabs[activeTab]?.images || [];
-  const filteredPhotos = currentTabImages;
+  const filteredPhotos = useMemo(() => {
+    const seen = new Set<string>();
+    return currentTabImages.filter((p) => {
+      if (seen.has(p.id)) return false;
+      seen.add(p.id);
+      return true;
+    });
+  }, [currentTabImages]);
 
   const handlePrevious = useCallback(() => {
     setSelectedPhoto((prev) => {
@@ -105,85 +119,54 @@ export function PhotoGallery() {
             </Tabs>
           )}
 
-        {/* Photo Grid */}
-        <motion.div
-          layout
-          className="mb-8"
-        >
-          <Masonry columnsCount={3} gutter="16px" className="md:block hidden">
-            <AnimatePresence mode="popLayout">
-              {filteredPhotos.map((photo, index) => (
-                <motion.div
-                  key={photo.id}
-                  layout
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.8 }}
-                  transition={{ duration: 0.4, delay: index * 0.05 }}
-                  className="group relative cursor-pointer overflow-hidden rounded-lg"
-                  onClick={() => handleSelectPhoto(photo)}
-                >
-                  <div className="relative overflow-hidden">
-                    <ImageWithFallback
-                      src={photo.url}
-                      alt={photo.caption || 'Gallery image'}
-                      loading="lazy"
-                      decoding="async"
-                      className="w-full h-auto object-cover transition-transform duration-500 group-hover:scale-110"
-                    />
-                    
-                    {/* Hover Overlay with Psychedelic Effect */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-purple-900/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                    
-                    {/* Glow Effect */}
-                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                      <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 via-pink-500/20 to-orange-500/20 animate-pulse" />
-                    </div>
-                    
-                    {/* Info Overlay */}
-                    {photo.caption && (
-                      <div className="absolute bottom-0 left-0 right-0 p-4 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
-                        <p className="text-white text-sm drop-shadow-lg">{photo.caption}</p>
+        {/* Photo Grid — single responsive masonry, one thumbnail per image */}
+        <motion.div layout className="mb-8">
+          <ResponsiveMasonry
+            columnsCountBreakPoints={{ 350: 2, 750: 3 }}
+            gutterBreakPoints={{ 350: '12px', 750: '16px' }}
+          >
+            <Masonry gutter="16px">
+              <AnimatePresence mode="popLayout">
+                {filteredPhotos.map((photo, index) => (
+                  <motion.div
+                    key={photo.id}
+                    layout
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                    transition={{ duration: 0.4, delay: index * 0.05 }}
+                    className="group relative cursor-pointer overflow-hidden rounded-lg"
+                    onClick={() => handleSelectPhoto(photo)}
+                  >
+                    <div className="relative overflow-hidden">
+                      <ImageWithFallback
+                        src={photo.url}
+                        alt={photo.caption || 'Gallery image'}
+                        loading="lazy"
+                        decoding="async"
+                        className="w-full h-auto object-cover transition-transform duration-500 group-hover:scale-110"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-purple-900/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                        <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 via-pink-500/20 to-orange-500/20 animate-pulse" />
                       </div>
-                    )}
-                  </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </Masonry>
-
-          {/* Mobile Grid (2 columns) */}
-          <Masonry columnsCount={2} gutter="12px" className="md:hidden block">
-            <AnimatePresence mode="popLayout">
-              {filteredPhotos.map((photo, index) => (
-                <motion.div
-                  key={photo.id}
-                  layout
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.8 }}
-                  transition={{ duration: 0.4, delay: index * 0.05 }}
-                  className="relative cursor-pointer overflow-hidden rounded-lg"
-                  onClick={() => setSelectedPhoto(photo)}
-                >
-                  <ImageWithFallback
-                    src={photo.url}
-                    alt={photo.caption || 'Gallery image'}
-                    loading="lazy"
-                    decoding="async"
-                    className="w-full h-auto object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-purple-900/60 to-transparent" />
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </Masonry>
+                      {photo.caption && (
+                        <div className="absolute bottom-0 left-0 right-0 p-4 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
+                          <p className="text-white text-sm drop-shadow-lg">{photo.caption}</p>
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </Masonry>
+          </ResponsiveMasonry>
         </motion.div>
       </div>
 
       {/* Lightbox Modal */}
       <Dialog open={!!selectedPhoto} onOpenChange={handleDialogChange}>
-        <DialogContent className="max-w-7xl w-full h-[90vh] p-0 bg-black/95 border-purple-500/30">
+        <DialogContent className="!max-w-[98vw] w-[98vw] h-[98vh] min-h-[80vh] p-0 bg-black/95 border-purple-500/30">
           <DialogTitle className="sr-only">
             {selectedPhoto?.caption || 'Photo'}
           </DialogTitle>
@@ -239,7 +222,7 @@ export function PhotoGallery() {
                     src={selectedPhoto.url}
                     alt={selectedPhoto.caption || 'Gallery image'}
                     decoding="async"
-                    className="max-w-full max-h-[calc(90vh-8rem)] w-auto h-auto object-contain rounded-lg shadow-2xl shadow-purple-900/50"
+                    className="max-w-full max-h-[calc(98vh-5rem)] w-auto h-auto object-contain rounded-lg shadow-2xl shadow-purple-900/50"
                   />
                   
                   {/* Psychedelic Glow */}

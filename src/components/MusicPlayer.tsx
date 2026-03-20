@@ -12,10 +12,15 @@ import { MusicPlayerEditDialog } from './MusicPlayerEditDialog';
 import { DescentToggleButton } from './DescentModeToggle';
 import { motion, AnimatePresence } from 'motion/react';
 
+/** One MediaElementSourceNode per HTMLMediaElement — persists across StrictMode remounts */
+const audioSourceByElement = new WeakMap<HTMLMediaElement, MediaElementAudioSourceNode>();
+/** Shared AudioContext so source stays valid across StrictMode remounts */
+let sharedAudioContext: AudioContext | null = null;
+
 export function MusicPlayer() {
   const { isEditMode } = useEditMode();
   const { isDescentMode, toggleDescentMode } = useDescentMode();
-  const { registerAnalyser } = useDescentIntensity();
+  const { registerAnalyser, registerPlaybackState } = useDescentIntensity();
   const {
     tracks,
     currentTrack,
@@ -26,6 +31,7 @@ export function MusicPlayer() {
     isMuted,
     isAudioReady,
     currentTrackData,
+    audioRef,
     togglePlay,
     skipForward,
     skipBack,
@@ -52,13 +58,18 @@ export function MusicPlayer() {
   const [touchCurrentY, setTouchCurrentY] = useState<number | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
+  const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
+  const [analyserForViz, setAnalyserForViz] = useState<AnalyserNode | null>(null);
 
-  // AudioContext/analyser for visualizer + DescentIntensity (not connected to audio element for CORS)
+  // AudioContext/analyser for visualizer + DescentIntensity (shared so source stays valid)
   useEffect(() => {
     if (audioContextRef.current && analyserRef.current) return;
     const AudioContextConstructor = window.AudioContext ?? (window as Window & { webkitAudioContext?: typeof window.AudioContext }).webkitAudioContext;
     if (!AudioContextConstructor) return;
-    const ctx = new AudioContextConstructor();
+    const ctx = sharedAudioContext && sharedAudioContext.state !== 'closed'
+      ? sharedAudioContext
+      : new AudioContextConstructor();
+    sharedAudioContext = ctx;
     const analyser = ctx.createAnalyser();
     analyser.fftSize = 2048;
     audioContextRef.current = ctx;
@@ -67,13 +78,58 @@ export function MusicPlayer() {
       try {
         if (analyserRef.current) analyserRef.current.disconnect();
       } catch (_) {}
-      if (audioContextRef.current?.state !== 'closed') audioContextRef.current?.close();
     };
   }, []);
 
+  // Connect analyser to audio element for real music reactivity (Descend + visualizer).
+  // createMediaElementSource can only be called ONCE per element — reuse via WeakMap.
   useEffect(() => {
-    registerAnalyser(analyserRef.current, isPlaying);
-  }, [isPlaying, registerAnalyser]);
+    const audio = audioRef?.current;
+    const url = currentTrackData?.url?.trim();
+    if (!audio || !url || !analyserRef.current || !audioContextRef.current) {
+      setAnalyserForViz(null);
+      return;
+    }
+    const ctx = audioContextRef.current;
+    const analyser = analyserRef.current;
+    let source = audioSourceByElement.get(audio);
+    const isNewSource = !source;
+    if (!source) {
+      try {
+        source = ctx.createMediaElementSource(audio);
+        audioSourceByElement.set(audio, source);
+      } catch {
+        setAnalyserForViz(analyser);
+        return;
+      }
+    }
+    if (isNewSource || !sourceRef.current) {
+      try {
+        source.connect(analyser);
+        analyser.connect(ctx.destination);
+      } catch {
+        setAnalyserForViz(analyser);
+        return;
+      }
+    }
+    sourceRef.current = source;
+    setAnalyserForViz(analyser);
+  }, [audioRef, currentTrackData?.url, isAudioReady]);
+
+  // Resume AudioContext on first play (browser autoplay policy)
+  useEffect(() => {
+    if (isPlaying && audioContextRef.current?.state === 'suspended') {
+      audioContextRef.current.resume();
+    }
+  }, [isPlaying]);
+
+  useEffect(() => {
+    registerAnalyser(analyserForViz ?? analyserRef.current, isPlaying);
+  }, [isPlaying, registerAnalyser, analyserForViz]);
+
+  useEffect(() => {
+    registerPlaybackState(currentTime, currentTrack);
+  }, [currentTime, currentTrack, registerPlaybackState]);
 
   // Fullscreen functionality with loading state (isFullscreen lives in PlaybackContext for mini player visibility)
   const toggleFullscreen = () => {
@@ -147,11 +203,6 @@ export function MusicPlayer() {
       };
     }
   }, [isFullscreen]);
-
-  // Register analyser with Descent Mode
-  useEffect(() => {
-    registerAnalyser(analyserRef.current, isPlaying);
-  }, [isPlaying, registerAnalyser]);
 
   if (!tracks || tracks.length === 0) {
     return (
@@ -235,7 +286,7 @@ export function MusicPlayer() {
             >
               <PsychedelicVisualizer 
                 key={`fullscreen-viz-${currentTrack}-${tracks[currentTrack]?.visualizationId ?? 0}`}
-                analyser={null}
+                analyser={analyserForViz}
                 isPlaying={isPlaying} 
                 currentTrack={currentTrack}
                 visualizationId={tracks[currentTrack]?.visualizationId}
@@ -368,7 +419,7 @@ export function MusicPlayer() {
         <div className="relative h-64 md:h-96 bg-gradient-to-br from-cyan-900/20 to-fuchsia-900/20">
           <PsychedelicVisualizer 
             key={`normal-viz-${currentTrack}-${tracks[currentTrack]?.visualizationId ?? 0}`}
-            analyser={null} 
+            analyser={analyserForViz} 
             isPlaying={isPlaying} 
             currentTrack={currentTrack}
             visualizationId={tracks[currentTrack]?.visualizationId}
