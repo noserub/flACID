@@ -310,7 +310,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
         onCanPlay={handleCanPlay}
         onError={handleError}
         onEnded={handleEnded}
-        preload="auto"
+        preload="none"
         className="sr-only"
         aria-hidden
       />

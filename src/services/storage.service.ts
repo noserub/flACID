@@ -59,7 +59,7 @@ export async function uploadImage(
       .from(bucket)
       .upload(uploadPath, blob, {
         contentType,
-        cacheControl: '31536000',
+        cacheControl: 'public, max-age=31536000',
         upsert: false,
       });
 
@@ -97,7 +97,7 @@ export async function uploadResponsiveImage(
         const path = `${basePath}_${size}.webp`;
         const { error } = await supabase.storage.from(bucket).upload(path, blob, {
           contentType: 'image/webp',
-          cacheControl: '31536000',
+          cacheControl: 'public, max-age=31536000',
         });
         if (error) throw error;
         const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(path);
@@ -134,7 +134,7 @@ export async function uploadAudio(
   if (isSupabaseConfigured) {
     const { data, error } = await supabase.storage.from('audio').upload(path, file, {
       contentType: file.type,
-      cacheControl: '31536000',
+      cacheControl: 'public, max-age=31536000',
       upsert: false,
     });
 

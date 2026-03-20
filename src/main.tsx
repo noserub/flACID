@@ -11,6 +11,16 @@ import "./index.css";
 
 validateEnvironmentWarn();
 
+// Preconnect to Supabase for faster audio/image loading
+const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL ?? '').trim();
+if (supabaseUrl && supabaseUrl.startsWith('https://')) {
+  const link = document.createElement('link');
+  link.rel = 'preconnect';
+  link.href = new URL(supabaseUrl).origin;
+  link.crossOrigin = 'anonymous';
+  document.head.appendChild(link);
+}
+
 if (import.meta.env.PROD) {
   setContentSecurityPolicy();
   loadAnalytics();

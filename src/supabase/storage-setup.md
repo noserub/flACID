@@ -100,10 +100,9 @@ The music player uses the Web Audio API (AnalyserNode) with audio from Supabase 
 
 ## Cost Optimization Settings
 
-### Enable CDN Caching
-In Supabase Dashboard > Storage > Settings:
-- Enable CDN
-- Set cache headers to maximize browser caching
+### CDN and Caching
+Supabase Storage uses a built-in CDN by default (no dashboard setting). To reduce egress:
+- Set cache headers on upload (we use `public, max-age=31536000` in storage.service)
 - Use image transformations for responsive images
 
 ### Bandwidth Optimization
