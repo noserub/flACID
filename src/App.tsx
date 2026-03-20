@@ -1,4 +1,5 @@
 import { lazy, Suspense } from 'react';
+import { Analytics as VercelAnalytics } from '@vercel/analytics/react';
 import { HeroSection } from './components/HeroSection';
 import { AboutSection } from './components/AboutSection';
 import { useSEO } from './hooks/useSEO';
@@ -109,12 +110,15 @@ export default function App() {
   useSEO(DEFAULT_SEO);
 
   return (
-    <EditModeProvider>
-      <DescentModeProvider>
-        <DescentIntensityProvider>
-          <AppContent />
-        </DescentIntensityProvider>
-      </DescentModeProvider>
-    </EditModeProvider>
+    <>
+      <EditModeProvider>
+        <DescentModeProvider>
+          <DescentIntensityProvider>
+            <AppContent />
+          </DescentIntensityProvider>
+        </DescentModeProvider>
+      </EditModeProvider>
+      <VercelAnalytics />
+    </>
   );
 }
