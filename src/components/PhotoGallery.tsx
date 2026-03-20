@@ -163,7 +163,7 @@ export function PhotoGallery() {
 
       {/* Lightbox Modal */}
       <Dialog open={!!selectedPhoto} onOpenChange={handleDialogChange}>
-        <DialogContent className="!max-w-[98vw] w-[98vw] h-[98vh] min-h-[80vh] p-0 bg-black/95 border-purple-500/30">
+        <DialogContent className="!max-w-[98vw] w-[98vw] h-[98vh] min-h-[80vh] p-0 bg-black/95 border-purple-500/30" hideCloseButton>
           <DialogTitle className="sr-only">
             {selectedPhoto?.caption || 'Photo'}
           </DialogTitle>
