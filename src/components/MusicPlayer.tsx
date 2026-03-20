@@ -10,6 +10,10 @@ import { useDescentIntensity } from '../contexts/DescentIntensityContext';
 import { usePlayback } from '../contexts/PlaybackContext';
 import { MusicPlayerEditDialog } from './MusicPlayerEditDialog';
 import { DescentToggleButton } from './DescentModeToggle';
+import { Popover, PopoverAnchor, PopoverContent } from './ui/popover';
+import { cn } from './ui/utils';
+import { DESCENT_MENU_PORTAL_LIFT } from '../lib/descentContentLayer';
+import { TRY_DESCENT_CLICKED_EVENT } from '../lib/descentHelp';
 import { motion, AnimatePresence } from 'motion/react';
 
 /** One MediaElementSourceNode per HTMLMediaElement — persists across StrictMode remounts */
@@ -54,6 +58,7 @@ export function MusicPlayer() {
 
   const [showPlaylist, setShowPlaylist] = useState(true);
   const [isVisualizerLoading, setIsVisualizerLoading] = useState(false);
+  const [showPlayHint, setShowPlayHint] = useState(false);
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
   const [touchCurrentY, setTouchCurrentY] = useState<number | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -203,6 +208,20 @@ export function MusicPlayer() {
       };
     }
   }, [isFullscreen]);
+
+  // Listen for "Try Descend" click — show play hint in fullscreen
+  useEffect(() => {
+    const handler = () => setShowPlayHint(true);
+    window.addEventListener(TRY_DESCENT_CLICKED_EVENT, handler);
+    return () => window.removeEventListener(TRY_DESCENT_CLICKED_EVENT, handler);
+  }, []);
+
+  // Auto-dismiss play hint after 5 seconds
+  useEffect(() => {
+    if (!showPlayHint || !isFullscreen) return;
+    const id = window.setTimeout(() => setShowPlayHint(false), 5000);
+    return () => window.clearTimeout(id);
+  }, [showPlayHint, isFullscreen]);
 
   if (!tracks || tracks.length === 0) {
     return (
@@ -360,14 +379,48 @@ export function MusicPlayer() {
                     >
                       <SkipBack className="h-7 w-7" />
                     </Button>
-                    <Button
-                      size="icon"
-                      onClick={handleTogglePlay}
-                      disabled={!tracks[currentTrack].url || (!isAudioReady && !isPlaying)}
-                      className="h-16 w-16 rounded-full bg-white hover:bg-white/90 text-black disabled:opacity-50 disabled:cursor-not-allowed"
+                    <Popover
+                      open={showPlayHint && !isPlaying}
+                      onOpenChange={(open) => !open && setShowPlayHint(false)}
                     >
-                      {isPlaying ? <Pause className="h-8 w-8" /> : <Play className="h-8 w-8 ml-0.5" />}
-                    </Button>
+                      <PopoverAnchor asChild>
+                        <Button
+                          size="icon"
+                          onClick={() => {
+                            setShowPlayHint(false);
+                            handleTogglePlay();
+                          }}
+                          disabled={!tracks[currentTrack]?.url || (!isAudioReady && !isPlaying)}
+                          className="h-16 w-16 rounded-full bg-white hover:bg-white/90 text-black disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {isPlaying ? <Pause className="h-8 w-8" /> : <Play className="h-8 w-8 ml-0.5" />}
+                        </Button>
+                      </PopoverAnchor>
+                      <PopoverContent
+                        side="top"
+                        align="center"
+                        sideOffset={12}
+                        collisionPadding={16}
+                        className={cn(
+                          DESCENT_MENU_PORTAL_LIFT,
+                          'rounded-lg border border-cyan-500/30 bg-background/95 backdrop-blur-md shadow-xl shadow-fuchsia-950/20 p-4 text-sm text-foreground'
+                        )}
+                        onOpenAutoFocus={(e) => e.preventDefault()}
+                      >
+                        <div className="space-y-3">
+                          <p className="text-cyan-100">Play music for the full experience</p>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="border border-cyan-500/25 text-cyan-200/90 hover:bg-cyan-500/10 hover:text-cyan-100"
+                            onClick={() => setShowPlayHint(false)}
+                          >
+                            Got it
+                          </Button>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                     <Button
                       variant="ghost"
                       size="icon"
