@@ -298,7 +298,7 @@ export function MusicPlayerEditDialog() {
                       <SelectTrigger>
                         <SelectValue placeholder="Select visualization" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="z-[10250]">
                         <SelectItem value="0">1. Organic Flow Field</SelectItem>
                         <SelectItem value="1">2. Depth Layers</SelectItem>
                         <SelectItem value="2">3. Waveform Interference</SelectItem>
