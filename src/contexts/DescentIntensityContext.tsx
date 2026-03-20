@@ -70,7 +70,6 @@ export function DescentIntensityProvider({ children }: { children: ReactNode }) 
 
   useEffect(() => {
     if (!isDescentMode) {
-      // Reset to default when not in descent mode
       setIntensity({
         baseIntensity: 0.3,
         musicBoost: 0,

@@ -11,7 +11,6 @@ export function ScrollBoundaryGlow() {
   const [bottomGlow, setBottomGlow] = useState(0);
   const lastScrollY = useRef(0);
   const lastScrollTime = useRef(Date.now());
-  const scrollAttemptRef = useRef(0);
 
   useEffect(() => {
     if (!isDescentMode) {
@@ -476,7 +475,7 @@ export function DescentParticles() {
           forceY += separationY * 0.1;
         }
 
-        // Apply music intensity influence
+        // Apply music intensity influence (intensity from closure; effect re-runs when it changes)
         const speedMultiplier = 1 + (intensity.eqBands.presence + intensity.eqBands.brilliance) * 0.5;
         const bassInfluence = intensity.eqBands.bass * 0.3;
         
