@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Play, Pause, SkipForward, SkipBack, Volume2, VolumeX, List, Maximize, Minimize, X, Loader2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Slider } from './ui/slider';
 import { PsychedelicVisualizer } from './PsychedelicVisualizer';
 import { useEditMode } from '../contexts/EditModeContext';
 import { useDescentMode } from '../contexts/DescentModeContext';
-import { DESCENT_CONTENT_LIFT, DESCENT_FULLSCREEN_SHELL_LIFT } from '../lib/descentContentLayer';
+import { DESCENT_CONTENT_LIFT } from '../lib/descentContentLayer';
 import { cn } from './ui/utils';
 import { useDescentIntensity } from '../contexts/DescentIntensityContext';
 import { usePlayback } from '../contexts/PlaybackContext';
@@ -51,6 +52,8 @@ export function MusicPlayer() {
   const [isVisualizerLoading, setIsVisualizerLoading] = useState(false);
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
   const [touchCurrentY, setTouchCurrentY] = useState<number | null>(null);
+  /** Avoid portaling before mount; keeps fullscreen overlay reliable with createPortal + AnimatePresence */
+  const [portalReady, setPortalReady] = useState(false);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
 
@@ -154,6 +157,10 @@ export function MusicPlayer() {
     registerAnalyser(analyserRef.current, isPlaying);
   }, [isPlaying, registerAnalyser]);
 
+  useEffect(() => {
+    setPortalReady(true);
+  }, []);
+
   if (!tracks || tracks.length === 0) {
     return (
       <div
@@ -179,18 +186,18 @@ export function MusicPlayer() {
       )}
     >
       {isEditMode && <MusicPlayerEditDialog />}
-      {/* Fullscreen container overlay with animation */}
-      <AnimatePresence>
-        {isFullscreen && (
+      {/* Fullscreen: portal to body at z-[9980] so Descent (~9990–9999) stacks above the viz. initial={false} avoids stuck opacity:0 under reduced-motion / portal+presence. */}
+      {portalReady &&
+        createPortal(
+          <AnimatePresence mode="sync">
+            {isFullscreen && (
           <motion.div
-            initial={{ opacity: 0 }}
+            key="music-fullscreen-shell"
+            initial={false}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.4, ease: "easeInOut" }}
-            className={cn(
-              'fixed inset-0 bg-black',
-              isDescentMode ? DESCENT_FULLSCREEN_SHELL_LIFT : 'z-[9980]'
-            )}
+            transition={{ duration: 0.35, ease: 'easeInOut' }}
+            className="fixed inset-0 z-[9980] bg-black"
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
@@ -249,9 +256,9 @@ export function MusicPlayer() {
               />
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <motion.div
-                  initial={{ y: 20, opacity: 0 }}
+                  initial={false}
                   animate={{ y: 0, opacity: 1 }}
-                  transition={{ delay: 0.3, duration: 0.5 }}
+                  transition={{ delay: 0.15, duration: 0.35 }}
                   className="text-center"
                 >
                   <h3 className="text-white/90 mb-2 text-4xl md:text-5xl">{tracks[currentTrack].title}</h3>
@@ -264,9 +271,9 @@ export function MusicPlayer() {
               
               {/* Fullscreen top-right controls: Descend toggle (left) + Exit (right) */}
               <motion.div
-                initial={{ y: -20, opacity: 0 }}
+                initial={false}
                 animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.2, duration: 0.4 }}
+                transition={{ delay: 0.1, duration: 0.3 }}
                 className="absolute top-6 right-6 pointer-events-auto z-50 flex items-center gap-3"
               >
                 <DescentToggleButton isDescentMode={isDescentMode} onClick={toggleDescentMode} />
@@ -284,9 +291,9 @@ export function MusicPlayer() {
 
             {/* Fullscreen controls overlay */}
             <motion.div
-              initial={{ y: 100, opacity: 0 }}
+              initial={false}
               animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.4, duration: 0.5, ease: "easeOut" }}
+              transition={{ delay: 0.15, duration: 0.35, ease: 'easeOut' }}
               className="absolute bottom-0 left-0 right-0 pointer-events-auto z-50 bg-gradient-to-t from-black/80 via-black/50 to-transparent p-8 pt-24"
             >
               <div className="max-w-4xl mx-auto space-y-4">
@@ -359,8 +366,10 @@ export function MusicPlayer() {
               </div>
             </motion.div>
           </motion.div>
+            )}
+          </AnimatePresence>,
+          document.body
         )}
-      </AnimatePresence>
       
       {/* Normal player view */}
       {!isFullscreen && (

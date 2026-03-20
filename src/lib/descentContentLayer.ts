@@ -13,5 +13,4 @@ export const DESCENT_CHROME_LIFT = 'z-[10020]';
 /** Portaled menus & popovers from header (must beat effects; typically above chrome) */
 export const DESCENT_MENU_PORTAL_LIFT = 'z-[10030]';
 
-/** Fullscreen player shell when Descend is on (entire tree above effects) */
-export const DESCENT_FULLSCREEN_SHELL_LIFT = 'z-[10040]';
+/** Fullscreen music player uses createPortal(document.body) + z-[9980] so Descent effects stay visually above the viz */
