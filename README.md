@@ -1,7 +1,7 @@
 
   # Band Page Design
 
-  This is a code bundle for Band Page Design. The original project is available at https://www.figma.com/design/NenWrIPOqTCfWaoYdzIFxN/Band-Page-Design.
+  This is a custom band page site with psychedelic visualizations, descend mode, and an immersive multi-sensory music experience for fans.
 
   ## Running the code
 
