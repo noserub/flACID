@@ -21,6 +21,10 @@ export function MusicPlayerEditDialog() {
   const [tracks, setTracks] = useState(content.musicPlayer.tracks);
   const [processingTrack, setProcessingTrack] = useState<number | null>(null);
 
+  const pushTracksToContext = (nextTracks: typeof tracks) => {
+    updateContent('musicPlayer', { tracks: nextTracks.map((t) => ({ ...t })) });
+  };
+
   const handleAddTrack = () => {
     const newTrack: Track = {
       id: Date.now(),
@@ -31,19 +35,23 @@ export function MusicPlayerEditDialog() {
       url: '',
       visualizationId: 0,
     };
-    setTracks([...tracks, newTrack]);
+    const nextTracks = [...tracks, newTrack];
+    setTracks(nextTracks);
+    pushTracksToContext(nextTracks);
   };
 
   const handleRemoveTrack = (id: number) => {
-    setTracks(tracks.filter((t) => t.id !== id));
+    const nextTracks = tracks.filter((t) => t.id !== id);
+    setTracks(nextTracks);
+    pushTracksToContext(nextTracks);
   };
 
   const handleUpdateTrack = (id: number, field: string, value: string | number | boolean) => {
-    setTracks(
-      tracks.map((track) =>
-        track.id === id ? { ...track, [field]: value } : track
-      )
+    const nextTracks = tracks.map((track) =>
+      track.id === id ? { ...track, [field]: value } : track
     );
+    setTracks(nextTracks);
+    pushTracksToContext(nextTracks);
   };
 
   const handleAudioUpload = async (id: number, url: string) => {
@@ -149,11 +157,11 @@ export function MusicPlayerEditDialog() {
       alert(error instanceof Error ? error.message : 'Failed to load audio file. Please try again with a different file.');
       
       // Still update the track with URL but keep original duration
-      setTracks(
-        tracks.map((track) =>
-          track.id === id ? { ...track, url } : track
-        )
+      const nextTracks = tracks.map((track) =>
+        track.id === id ? { ...track, url } : track
       );
+      setTracks(nextTracks);
+      pushTracksToContext(nextTracks);
     } finally {
       setProcessingTrack(null);
     }
@@ -167,6 +175,9 @@ export function MusicPlayerEditDialog() {
 
   return (
     <EditDialog
+      onOpenChange={(open) => {
+        if (open) setTracks(content.musicPlayer.tracks.map((t) => ({ ...t })));
+      }}
       trigger={
         <Button
           variant="secondary"
