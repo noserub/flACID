@@ -386,8 +386,9 @@ export function EditModeProvider({ children }: { children: ReactNode }) {
     const newEditMode = !isEditMode;
     setIsEditMode(newEditMode);
     
-    // Clear audio cache when exiting edit mode for performance
     if (!newEditMode) {
+      // Apply draft to preview so edits (e.g. visualization) persist when exiting edit mode
+      setPublishedContent(draftContent);
       setAudioCache({});
       console.log('Audio cache cleared for performance');
     }

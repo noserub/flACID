@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Edit2, Plus, Trash2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -19,7 +19,10 @@ import {
 export function MusicPlayerEditDialog() {
   const { content, updateContent } = useEditMode();
   const [tracks, setTracks] = useState(content.musicPlayer.tracks);
+  const tracksRef = useRef(tracks);
   const [processingTrack, setProcessingTrack] = useState<number | null>(null);
+
+  tracksRef.current = tracks;
 
   const pushTracksToContext = (nextTracks: typeof tracks) => {
     updateContent('musicPlayer', { tracks: nextTracks.map((t) => ({ ...t })) });
@@ -169,7 +172,7 @@ export function MusicPlayerEditDialog() {
 
   const handleSave = () => {
     updateContent('musicPlayer', {
-      tracks: tracks.map((t) => ({ ...t })),
+      tracks: tracksRef.current.map((t) => ({ ...t })),
     });
   };
 
