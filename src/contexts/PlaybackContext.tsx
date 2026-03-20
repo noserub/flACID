@@ -59,11 +59,18 @@ interface PlaybackContextType {
 const PlaybackContext = createContext<PlaybackContextType | undefined>(undefined);
 
 export function PlaybackProvider({ children }: { children: ReactNode }) {
-  const { content, isEditMode, draftRevision } = useEditMode();
+  const { content, isEditMode, isDraft, draftRevision } = useEditMode();
   const { tracks: supabaseTracks, loading: tracksLoading } = useTracks();
 
   const tracks: PlayerTrack[] = useMemo(() => {
     if (isEditMode) {
+      return content.musicPlayer.tracks.map((t) => ({
+        ...t,
+        visualizationId: t.visualizationId ?? 0,
+      }));
+    }
+    // When we have a draft (e.g. just exited edit mode), use content so visualization and other edits persist
+    if (isDraft) {
       return content.musicPlayer.tracks.map((t) => ({
         ...t,
         visualizationId: t.visualizationId ?? 0,
@@ -84,7 +91,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       ...t,
       visualizationId: t.visualizationId ?? 0,
     }));
-  }, [isEditMode, isSupabaseConfigured, tracksLoading, supabaseTracks, content.musicPlayer.tracks, draftRevision]);
+  }, [isEditMode, isDraft, isSupabaseConfigured, tracksLoading, supabaseTracks, content.musicPlayer.tracks, draftRevision]);
 
   const [currentTrack, setCurrentTrackState] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);

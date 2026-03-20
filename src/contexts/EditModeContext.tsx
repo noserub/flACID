@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { loadContentFromSupabase, publishContentToSupabase } from '../services/contentSync.service';
 import { uploadImage as storageUploadImage, uploadAudio as storageUploadAudio } from '../services/storage.service';
 import { isSupabaseConfigured } from '../lib/supabase';
@@ -255,6 +256,7 @@ function generatePath(prefix: string, ext = 'webp'): string {
 }
 
 export function EditModeProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
   const [isEditMode, setIsEditMode] = useState(false);
   const [isDraft, setIsDraft] = useState(false);
   const [publishedContent, setPublishedContent] = useState<SiteContent>(defaultContent);
@@ -431,6 +433,8 @@ export function EditModeProvider({ children }: { children: ReactNode }) {
     setPublishLoading(true);
     try {
       await publishContentToSupabase(draftContent);
+      // Invalidate tracks cache so visitor view (useTracks) refetches with new visualization_type
+      await queryClient.invalidateQueries({ queryKey: ['tracks'] });
       // Reload from DB so client ids (e.g. tour UUIDs) match server and all tables are consistent
       const refreshed = await loadContentFromSupabase(defaultContent);
       const migrated = migrateContent(refreshed);
@@ -443,7 +447,7 @@ export function EditModeProvider({ children }: { children: ReactNode }) {
     } finally {
       setPublishLoading(false);
     }
-  }, [draftContent, migrateContent]);
+  }, [draftContent, migrateContent, queryClient]);
 
   const discardDraft = useCallback(() => {
     setDraftContent(publishedContent);
