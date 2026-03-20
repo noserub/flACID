@@ -6,8 +6,6 @@ import { Slider } from './ui/slider';
 import { PsychedelicVisualizer } from './PsychedelicVisualizer';
 import { useEditMode } from '../contexts/EditModeContext';
 import { useDescentMode } from '../contexts/DescentModeContext';
-import { DESCENT_CONTENT_LIFT } from '../lib/descentContentLayer';
-import { cn } from './ui/utils';
 import { useDescentIntensity } from '../contexts/DescentIntensityContext';
 import { usePlayback } from '../contexts/PlaybackContext';
 import { MusicPlayerEditDialog } from './MusicPlayerEditDialog';
@@ -52,8 +50,6 @@ export function MusicPlayer() {
   const [isVisualizerLoading, setIsVisualizerLoading] = useState(false);
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
   const [touchCurrentY, setTouchCurrentY] = useState<number | null>(null);
-  /** Avoid portaling before mount; keeps fullscreen overlay reliable with createPortal + AnimatePresence */
-  const [portalReady, setPortalReady] = useState(false);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
 
@@ -157,18 +153,9 @@ export function MusicPlayer() {
     registerAnalyser(analyserRef.current, isPlaying);
   }, [isPlaying, registerAnalyser]);
 
-  useEffect(() => {
-    setPortalReady(true);
-  }, []);
-
   if (!tracks || tracks.length === 0) {
     return (
-      <div
-        className={cn(
-          'w-full max-w-6xl mx-auto relative',
-          isDescentMode && DESCENT_CONTENT_LIFT
-        )}
-      >
+      <div className="w-full max-w-6xl mx-auto relative z-0">
         {isEditMode && <MusicPlayerEditDialog />}
         <div className="bg-card border border-border rounded-lg p-12 text-center">
           <p className="text-muted-foreground">No tracks available. {isEditMode && 'Click "Edit Tracks" to add music.'}</p>
@@ -178,17 +165,14 @@ export function MusicPlayer() {
   }
 
   return (
-    <div
-      className={cn(
-        'w-full max-w-6xl mx-auto relative',
-        /* Without this, fixed fullscreen stays in a z-10000 context and page sections paint on top */
-        isDescentMode && !isFullscreen && DESCENT_CONTENT_LIFT
-      )}
-    >
-      {isEditMode && <MusicPlayerEditDialog />}
-      {/* Fullscreen: portal to body at z-[9980] so Descent (~9990–9999) stacks above the viz. initial={false} avoids stuck opacity:0 under reduced-motion / portal+presence. */}
-      {portalReady &&
-        createPortal(
+    <div className="w-full max-w-6xl mx-auto relative z-0">
+        {isEditMode && <MusicPlayerEditDialog />}
+        {/* Portal fullscreen to app root (last sibling of sections) so it paints above z-0 sections; stays in #root so Descend 9990+ remains on top */}
+      {typeof document !== 'undefined' &&
+        (() => {
+          const portalRoot = document.getElementById('fullscreen-portal-root');
+          return portalRoot
+            ? createPortal(
           <AnimatePresence mode="sync">
             {isFullscreen && (
           <motion.div
@@ -235,16 +219,18 @@ export function MusicPlayer() {
 
             {/* Visualizer */}
             <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ 
-                scale: 1, 
+              key="music-fullscreen-viz"
+              initial={false}
+              animate={{
+                scale: 1,
                 opacity: 1,
-                y: touchStartY !== null && touchCurrentY !== null 
-                  ? Math.max(0, touchCurrentY - touchStartY) * 0.5 
-                  : 0
+                y:
+                  touchStartY !== null && touchCurrentY !== null
+                    ? Math.max(0, touchCurrentY - touchStartY) * 0.5
+                    : 0,
               }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              transition={{ duration: 0.5, ease: "easeOut" }}
+              exit={{ scale: 0.98, opacity: 0 }}
+              transition={{ duration: 0.35, ease: 'easeOut' }}
               className="relative h-full w-full bg-gradient-to-br from-cyan-900/20 to-fuchsia-900/20"
             >
               <PsychedelicVisualizer 
@@ -268,25 +254,6 @@ export function MusicPlayer() {
                   )}
                 </motion.div>
               </div>
-              
-              {/* Fullscreen top-right controls: Descend toggle (left) + Exit (right) */}
-              <motion.div
-                initial={false}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.1, duration: 0.3 }}
-                className="absolute top-6 right-6 pointer-events-auto z-50 flex items-center gap-3"
-              >
-                <DescentToggleButton isDescentMode={isDescentMode} onClick={toggleDescentMode} />
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={toggleFullscreen}
-                  className="h-10 w-10 bg-background/80 text-cyan-400 border border-cyan-400/30 hover:border-fuchsia-400/50 hover:text-fuchsia-400 hover:bg-transparent hover:shadow-lg hover:shadow-fuchsia-500/20 transition-all duration-300"
-                  aria-label="Exit fullscreen"
-                >
-                  <X className="h-5 w-5" />
-                </Button>
-              </motion.div>
             </motion.div>
 
             {/* Fullscreen controls overlay */}
@@ -368,9 +335,32 @@ export function MusicPlayer() {
           </motion.div>
             )}
           </AnimatePresence>,
+                portalRoot
+              )
+            : null;
+        })()}
+
+        {/* Ascend + X portaled to document.body so they sit above Descend (9990+) and any stacking context */}
+      {typeof document !== 'undefined' && isFullscreen &&
+        createPortal(
+          <div
+            className="fixed top-0 right-0 z-[10100] flex items-center gap-3 pointer-events-auto p-4 sm:p-6 bg-black/60 backdrop-blur-md rounded-bl-xl"
+            style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))', paddingRight: 'max(1rem, env(safe-area-inset-right))' }}
+          >
+            <DescentToggleButton isDescentMode={isDescentMode} onClick={toggleDescentMode} />
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={toggleFullscreen}
+              className="h-10 w-10 bg-background/80 text-cyan-400 border border-cyan-400/30 hover:border-fuchsia-400/50 hover:text-fuchsia-400 hover:bg-transparent hover:shadow-lg hover:shadow-fuchsia-500/20 transition-all duration-300"
+              aria-label="Exit fullscreen"
+            >
+              <X className="h-5 w-5" />
+            </Button>
+          </div>,
           document.body
         )}
-      
+
       {/* Normal player view */}
       {!isFullscreen && (
       <div className="bg-card/80 backdrop-blur-md border-2 border-border rounded-lg overflow-hidden shadow-2xl shadow-cyan-500/10">

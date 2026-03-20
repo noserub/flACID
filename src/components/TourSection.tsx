@@ -3,8 +3,7 @@ import { motion } from 'motion/react';
 import { Calendar, MapPin, Ticket } from 'lucide-react';
 import { Button } from './ui/button';
 import { useEditMode } from '../contexts/EditModeContext';
-import { useDescentMode } from '../contexts/DescentModeContext';
-import { DESCENT_CONTENT_LIFT } from '../lib/descentContentLayer';
+import { useDescentSectionLiftClass } from '../hooks/useDescentSectionStacking';
 import { cn } from './ui/utils';
 import { EditableSection } from './EditableSection';
 import { VirtualizedList } from './VirtualizedList';
@@ -75,7 +74,7 @@ function TourDateCard({ show }: { show: TourShow }) {
 
 export function TourSection() {
   const { content, updateContent, isEditMode } = useEditMode();
-  const { isDescentMode } = useDescentMode();
+  const sectionLift = useDescentSectionLiftClass();
   const tourDates = content.tour.dates;
 
   const handleVisibilityChange = useCallback(
@@ -96,12 +95,7 @@ export function TourSection() {
       <section className="py-20 px-4 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-purple-950/5 to-background" />
 
-        <div
-          className={cn(
-            'max-w-5xl mx-auto',
-            isDescentMode ? DESCENT_CONTENT_LIFT : 'relative z-10'
-          )}
-        >
+        <div className={cn('max-w-5xl mx-auto', sectionLift)}>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}

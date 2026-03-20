@@ -3,8 +3,7 @@ import { motion } from 'motion/react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { Calendar, Music } from 'lucide-react';
 import { useEditMode } from '../contexts/EditModeContext';
-import { useDescentMode } from '../contexts/DescentModeContext';
-import { DESCENT_CONTENT_LIFT } from '../lib/descentContentLayer';
+import { useDescentSectionLiftClass } from '../hooks/useDescentSectionStacking';
 import { cn } from './ui/utils';
 import { EditableSection } from './EditableSection';
 import { DiscographyEditDialog } from './DiscographyEditDialog';
@@ -64,7 +63,7 @@ const AlbumCard = memo(function AlbumCard({ album, index }: AlbumCardProps) {
 
 export function AlbumsSection() {
   const { content, isEditMode, updateContent } = useEditMode();
-  const { isDescentMode } = useDescentMode();
+  const sectionLift = useDescentSectionLiftClass();
   const albums = content.discography.albums;
   
   return (
@@ -76,12 +75,7 @@ export function AlbumsSection() {
       }
     >
       <section className="py-20 px-4 bg-gradient-to-b from-background to-cyan-950/5">
-        <div
-          className={cn(
-            'max-w-7xl mx-auto',
-            isDescentMode ? DESCENT_CONTENT_LIFT : 'relative z-10'
-          )}
-        >
+        <div className={cn('max-w-7xl mx-auto', sectionLift)}>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}

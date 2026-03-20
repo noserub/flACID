@@ -25,6 +25,7 @@ import {
 } from './ui/dropdown-menu';
 import { useEditMode } from '../contexts/EditModeContext';
 import { useDescentMode } from '../contexts/DescentModeContext';
+import { usePlayback } from '../contexts/PlaybackContext';
 import { useAuth } from '../hooks';
 import { DESCENT_CHROME_LIFT, DESCENT_MENU_PORTAL_LIFT } from '../lib/descentContentLayer';
 import { cn } from './ui/utils';
@@ -36,10 +37,13 @@ import { requestDescentHelp } from '../lib/descentHelp';
 export function SiteHeader() {
   const { isEditMode, isDraft, toggleEditMode, publishChanges, discardDraft, content } = useEditMode();
   const { isDescentMode } = useDescentMode();
+  const { isFullscreen } = usePlayback();
   const { isAuthenticated, signOut } = useAuth();
   const [signInOpen, setSignInOpen] = useState(false);
   const [exportSuccess, setExportSuccess] = useState(false);
   const [showComponentLibrary, setShowComponentLibrary] = useState(false);
+
+  if (isFullscreen) return null;
 
   const handleToggleEditMode = () => {
     if (isEditMode) {

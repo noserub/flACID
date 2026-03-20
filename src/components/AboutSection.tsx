@@ -1,15 +1,14 @@
 import { motion } from 'motion/react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { useEditMode } from '../contexts/EditModeContext';
-import { useDescentMode } from '../contexts/DescentModeContext';
-import { DESCENT_CONTENT_LIFT } from '../lib/descentContentLayer';
+import { useDescentSectionLiftClass } from '../hooks/useDescentSectionStacking';
 import { cn } from './ui/utils';
 import { EditableSection } from './EditableSection';
 import { AboutEditDialog } from './AboutEditDialog';
 
 export function AboutSection() {
   const { content, isEditMode, updateContent } = useEditMode();
-  const { isDescentMode } = useDescentMode();
+  const sectionLift = useDescentSectionLiftClass();
 
   return (
     <EditableSection
@@ -22,12 +21,7 @@ export function AboutSection() {
       <section className="py-20 px-4 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-background via-cyan-950/10 to-background" />
         
-        <div
-          className={cn(
-            'max-w-6xl mx-auto relative',
-            isDescentMode ? DESCENT_CONTENT_LIFT : 'z-10'
-          )}
-        >
+        <div className={cn('max-w-6xl mx-auto', sectionLift)}>
           {isEditMode && (
             <div className="flex justify-center mb-4">
               <AboutEditDialog />

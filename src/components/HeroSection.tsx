@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { ChevronDown } from 'lucide-react';
 import { useEditMode } from '../contexts/EditModeContext';
-import { useDescentMode } from '../contexts/DescentModeContext';
-import { DESCENT_CONTENT_LIFT } from '../lib/descentContentLayer';
+import { useDescentOverlayZClass } from '../hooks/useDescentSectionStacking';
 import { cn } from './ui/utils';
 import { EditableSection } from './EditableSection';
 import { HeroEditDialog } from './HeroEditDialog';
@@ -84,7 +83,7 @@ function StutteringLogo({ logoSrc, isInitialLoad }: StutteringLogoProps) {
 
 export function HeroSection() {
   const { content, isEditMode, updateContent } = useEditMode();
-  const { isDescentMode } = useDescentMode();
+  const scrollHintZ = useDescentOverlayZClass();
   const [stutterKey, setStutterKey] = useState(0);
   const isInitialLoad = stutterKey === 0;
   
@@ -246,7 +245,7 @@ export function HeroSection() {
       <motion.div
         className={cn(
           'absolute bottom-8 left-1/2 -translate-x-1/2 cursor-pointer',
-          isDescentMode ? 'z-[10000]' : 'z-10'
+          scrollHintZ
         )}
         animate={{ y: [0, 10, 0] }}
         transition={{ duration: 2, repeat: Infinity }}

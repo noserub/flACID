@@ -97,6 +97,9 @@ function AppContent() {
             <Suspense fallback={<SectionLoader />}>
               <Footer />
             </Suspense>
+
+            {/* Portal target for fullscreen player — last child so it paints above z-0 sections but below Descend (9990+) */}
+            <div id="fullscreen-portal-root" aria-hidden="true" />
           </div>
     </PlaybackProvider>
   );
