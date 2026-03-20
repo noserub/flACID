@@ -1,14 +1,23 @@
 import { Facebook, Instagram, Twitter, Youtube, Music } from 'lucide-react';
 import { useEditMode } from '../contexts/EditModeContext';
+import { useDescentMode } from '../contexts/DescentModeContext';
+import { DESCENT_CONTENT_LIFT } from '../lib/descentContentLayer';
+import { cn } from './ui/utils';
 import { FooterEditDialog } from './FooterEditDialog';
 
 export function Footer() {
   const { content, isEditMode } = useEditMode();
+  const { isDescentMode } = useDescentMode();
   const footer = content.footer;
 
   return (
     <footer className="py-12 px-4 border-t border-border bg-gradient-to-b from-background to-cyan-950/10 relative">
-      <div className="max-w-6xl mx-auto">
+      <div
+        className={cn(
+          'max-w-6xl mx-auto',
+          isDescentMode ? DESCENT_CONTENT_LIFT : 'relative z-10'
+        )}
+      >
         {isEditMode && (
           <div className="absolute top-4 right-4">
             <FooterEditDialog />

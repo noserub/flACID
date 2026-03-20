@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Play, Pause, SkipBack, SkipForward } from 'lucide-react';
 import { usePlayback } from '../contexts/PlaybackContext';
+import { useDescentMode } from '../contexts/DescentModeContext';
+import { DESCENT_CHROME_LIFT } from '../lib/descentContentLayer';
+import { cn } from './ui/utils';
 import { generateEQData } from '../lib/eqSimulator';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -137,7 +140,10 @@ export function MiniPlayer() {
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -8 }}
         transition={{ duration: 0.2 }}
-        className="fixed md:relative md:justify-self-center left-1/2 md:left-auto bottom-2 md:bottom-auto -translate-x-1/2 md:translate-x-0 z-[45] flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2 rounded-xl bg-background/90 backdrop-blur-md border border-cyan-500/20 shadow-lg w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] md:w-auto md:min-w-[280px] md:max-w-[420px]"
+        className={cn(
+          'fixed md:relative md:justify-self-center left-1/2 md:left-auto bottom-2 md:bottom-auto -translate-x-1/2 md:translate-x-0 flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2 rounded-xl bg-background/90 backdrop-blur-md border border-cyan-500/20 shadow-lg w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] md:w-auto md:min-w-[280px] md:max-w-[420px]',
+          isDescentMode ? DESCENT_CHROME_LIFT : 'z-[45]'
+        )}
         style={{ bottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
       >
         <div className="flex items-center gap-1">

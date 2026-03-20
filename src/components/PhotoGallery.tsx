@@ -6,6 +6,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import Masonry from 'react-responsive-masonry';
 import { useEditMode } from '../contexts/EditModeContext';
+import { useDescentMode } from '../contexts/DescentModeContext';
+import { DESCENT_CONTENT_LIFT } from '../lib/descentContentLayer';
+import { cn } from './ui/utils';
 import { EditableSection } from './EditableSection';
 import { GalleryEditDialog } from './GalleryEditDialog';
 
@@ -63,7 +66,12 @@ export function PhotoGallery() {
       <section className="py-20 px-4 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-background via-purple-950/10 to-background" />
         
-        <div className="max-w-7xl mx-auto relative z-10">
+        <div
+          className={cn(
+            'max-w-7xl mx-auto',
+            isDescentMode ? DESCENT_CONTENT_LIFT : 'relative z-10'
+          )}
+        >
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}

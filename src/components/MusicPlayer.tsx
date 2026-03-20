@@ -5,6 +5,8 @@ import { Slider } from './ui/slider';
 import { PsychedelicVisualizer } from './PsychedelicVisualizer';
 import { useEditMode } from '../contexts/EditModeContext';
 import { useDescentMode } from '../contexts/DescentModeContext';
+import { DESCENT_CONTENT_LIFT, DESCENT_FULLSCREEN_SHELL_LIFT } from '../lib/descentContentLayer';
+import { cn } from './ui/utils';
 import { useDescentIntensity } from '../contexts/DescentIntensityContext';
 import { usePlayback } from '../contexts/PlaybackContext';
 import { MusicPlayerEditDialog } from './MusicPlayerEditDialog';
@@ -154,7 +156,12 @@ export function MusicPlayer() {
 
   if (!tracks || tracks.length === 0) {
     return (
-      <div className="w-full max-w-6xl mx-auto relative">
+      <div
+        className={cn(
+          'w-full max-w-6xl mx-auto relative',
+          isDescentMode && DESCENT_CONTENT_LIFT
+        )}
+      >
         {isEditMode && <MusicPlayerEditDialog />}
         <div className="bg-card border border-border rounded-lg p-12 text-center">
           <p className="text-muted-foreground">No tracks available. {isEditMode && 'Click "Edit Tracks" to add music.'}</p>
@@ -164,7 +171,12 @@ export function MusicPlayer() {
   }
 
   return (
-    <div className="w-full max-w-6xl mx-auto relative">
+    <div
+      className={cn(
+        'w-full max-w-6xl mx-auto relative',
+        isDescentMode && DESCENT_CONTENT_LIFT
+      )}
+    >
       {isEditMode && <MusicPlayerEditDialog />}
       {/* Fullscreen container overlay with animation */}
       <AnimatePresence>
@@ -174,7 +186,10 @@ export function MusicPlayer() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.4, ease: "easeInOut" }}
-            className="fixed inset-0 z-[9980] bg-black"
+            className={cn(
+              'fixed inset-0 bg-black',
+              isDescentMode ? DESCENT_FULLSCREEN_SHELL_LIFT : 'z-[9980]'
+            )}
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
