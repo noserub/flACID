@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useDescentMode } from '../contexts/DescentModeContext';
 import { useDescentIntensity } from '../contexts/DescentIntensityContext';
+import { isMobile } from '../utils/isMobile';
 import heroBackground from 'figma:asset/410f7e9ef9caea1564a1bf87577512030154fe84.png';
 
 // Scroll Boundary Glow Effect
@@ -85,11 +86,12 @@ export function ScrollBoundaryGlow() {
     };
 
     // Decay effect for smooth fade-out
+    const decayMs = isMobile() ? 32 : 16;
     const startDecay = () => {
       decayInterval = window.setInterval(() => {
         setTopGlow(prev => Math.max(0, prev - 0.08));
         setBottomGlow(prev => Math.max(0, prev - 0.08));
-      }, 16); // ~60fps
+      }, decayMs);
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
@@ -329,19 +331,23 @@ export function DescentParticles() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const dpr = isMobile() ? Math.min(2, window.devicePixelRatio || 1) : window.devicePixelRatio || 1;
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    ctx.scale(dpr, dpr);
 
     // Initialize particles as living organisms
     if (particlesRef.current.length === 0) {
-      const particleCount = 120;
+      const particleCount = isMobile() ? 45 : 120;
       const behaviors: Array<'wanderer' | 'seeker' | 'avoider' | 'orbiter'> = ['wanderer', 'seeker', 'avoider', 'orbiter'];
       
       for (let i = 0; i < particleCount; i++) {
         const behavior = behaviors[Math.floor(Math.random() * behaviors.length)];
         particlesRef.current.push({
-          x: Math.random() * canvas.width,
-          y: Math.random() * canvas.height,
+          x: Math.random() * w,
+          y: Math.random() * h,
           vx: (Math.random() - 0.5) * 2,
           vy: (Math.random() - 0.5) * 2,
           size: Math.random() * 3 + 1,
@@ -362,9 +368,10 @@ export function DescentParticles() {
     let frameCount = 0;
 
     const animate = () => {
-      // Gentle trail effect for organic motion trails
+      const cw = window.innerWidth;
+      const ch = window.innerHeight;
       ctx.fillStyle = 'rgba(0, 0, 0, 0.08)';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillRect(0, 0, cw, ch);
 
       frameCount++;
 
@@ -381,8 +388,8 @@ export function DescentParticles() {
           }
 
           // Choose new target
-          particle.targetX = Math.random() * canvas.width;
-          particle.targetY = Math.random() * canvas.height;
+          particle.targetX = Math.random() * w;
+          particle.targetY = Math.random() * h;
         }
 
         // Behavior-based movement
@@ -516,11 +523,11 @@ export function DescentParticles() {
         particle.x += particle.vx;
         particle.y += particle.vy;
 
-        // Wrap around edges
-        if (particle.x < -20) particle.x = canvas.width + 20;
-        if (particle.x > canvas.width + 20) particle.x = -20;
-        if (particle.y < -20) particle.y = canvas.height + 20;
-        if (particle.y > canvas.height + 20) particle.y = -20;
+        // Wrap around edges (use logical dimensions)
+        if (particle.x < -20) particle.x = cw + 20;
+        if (particle.x > cw + 20) particle.x = -20;
+        if (particle.y < -20) particle.y = ch + 20;
+        if (particle.y > ch + 20) particle.y = -20;
 
         const alpha = isPlaying
           ? particle.baseAlpha * (0.5 + intensity.totalIntensity * 0.5 + particle.energy * 0.3)
@@ -560,8 +567,13 @@ export function DescentParticles() {
     animate();
 
     const handleResize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
+      const nw = window.innerWidth;
+      const nh = window.innerHeight;
+      const ndpr = isMobile() ? Math.min(2, window.devicePixelRatio || 1) : window.devicePixelRatio || 1;
+      canvas.width = nw * ndpr;
+      canvas.height = nh * ndpr;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.scale(ndpr, ndpr);
     };
 
     window.addEventListener('resize', handleResize);
@@ -655,14 +667,18 @@ export function DescentBackground() {
 
     // Multiple breathing cycles like a living ecosystem
     let breathingInterval: number;
+    let breathingFrameCount = 0;
     const updateBreathing = () => {
       breathingInterval = requestAnimationFrame(() => {
-        const time = Date.now() * 0.001; // Convert to seconds
-        setBreathingPhases({
-          slow: Math.sin(time * 0.15), // 20 second cycle - deep breath
-          medium: Math.sin(time * 0.4), // 8 second cycle - regular breath
-          fast: Math.sin(time * 1.2), // 2.6 second cycle - heartbeat
-        });
+        breathingFrameCount++;
+        if (!isMobile() || breathingFrameCount % 2 === 0) {
+          const time = Date.now() * 0.001; // Convert to seconds
+          setBreathingPhases({
+            slow: Math.sin(time * 0.15), // 20 second cycle - deep breath
+            medium: Math.sin(time * 0.4), // 8 second cycle - regular breath
+            fast: Math.sin(time * 1.2), // 2.6 second cycle - heartbeat
+          });
+        }
         updateBreathing();
       });
     };

@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { useDescentMode } from './DescentModeContext';
+import { isMobile } from '../utils/isMobile';
 
 export interface IntensityData {
   baseIntensity: number; // 0-1, from breathing pattern
@@ -108,6 +109,8 @@ export function DescentIntensityProvider({ children }: { children: ReactNode }) 
 
     let startTime = Date.now();
     const ZERO_THRESHOLD = 30; // Frames of zeros before switching to simulation
+    const reduceUpdates = isMobile();
+    let frameCount = 0;
 
     const computeSimulatedBoost = () => {
       const { currentTimeSeconds, trackIndex } = playbackStateRef.current;
@@ -215,13 +218,16 @@ export function DescentIntensityProvider({ children }: { children: ReactNode }) 
       // Combine ambient swell with music reactivity
       const totalIntensity = Math.min(baseIntensity + musicBoost, 1.0);
 
-      setIntensity({
-        baseIntensity,
-        musicBoost,
-        totalIntensity,
-        eqBands,
-        energy,
-      });
+      frameCount++;
+      if (!reduceUpdates || frameCount % 2 === 0) {
+        setIntensity({
+          baseIntensity,
+          musicBoost,
+          totalIntensity,
+          eqBands,
+          energy,
+        });
+      }
 
       animationRef.current = requestAnimationFrame(updateIntensity);
     };
