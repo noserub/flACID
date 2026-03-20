@@ -179,11 +179,14 @@ export function PhotoGallery() {
                 exit={{ opacity: 0, scale: 0.9 }}
                 transition={{ duration: 0.3 }}
                 className="relative w-full h-full flex items-center justify-center p-4"
+                onClick={(e) => {
+                  if (e.target === e.currentTarget) handleCloseLightbox();
+                }}
               >
-                {/* Close Button */}
+                {/* Close Button - lower on mobile to clear browser toolbar */}
                 <button
                   onClick={handleCloseLightbox}
-                  className="absolute top-4 right-4 z-50 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center transition-colors border border-purple-500/30"
+                  className="absolute top-16 right-4 sm:top-4 z-[10250] min-w-[44px] min-h-[44px] rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center transition-colors border border-purple-500/30"
                   aria-label="Close dialog"
                 >
                   <X className="w-6 h-6" />
