@@ -119,46 +119,43 @@ export function PhotoGallery() {
             </Tabs>
           )}
 
-        {/* Photo Grid — single responsive masonry, one thumbnail per image */}
+        {/* Photo Grid — Masonry needs each photo as a direct child (no AnimatePresence wrapper) */}
         <motion.div layout className="mb-8">
           <ResponsiveMasonry
-            columnsCountBreakPoints={{ 350: 2, 750: 3 }}
-            gutterBreakPoints={{ 350: '12px', 750: '16px' }}
+            columnsCountBreakPoints={{ 350: 1, 640: 2, 1024: 3 }}
+            gutterBreakPoints={{ 350: '12px', 640: '16px', 1024: '20px' }}
           >
             <Masonry gutter="16px">
-              <AnimatePresence mode="popLayout">
-                {filteredPhotos.map((photo, index) => (
-                  <motion.div
-                    key={photo.id}
-                    layout
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.8 }}
-                    transition={{ duration: 0.4, delay: index * 0.05 }}
-                    className="group relative cursor-pointer overflow-hidden rounded-lg"
-                    onClick={() => handleSelectPhoto(photo)}
-                  >
-                    <div className="relative overflow-hidden">
-                      <ImageWithFallback
-                        src={photo.url}
-                        alt={photo.caption || 'Gallery image'}
-                        loading="lazy"
-                        decoding="async"
-                        className="w-full h-auto object-cover transition-transform duration-500 group-hover:scale-110"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-purple-900/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                        <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 via-pink-500/20 to-orange-500/20 animate-pulse" />
-                      </div>
-                      {photo.caption && (
-                        <div className="absolute bottom-0 left-0 right-0 p-4 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
-                          <p className="text-white text-sm drop-shadow-lg">{photo.caption}</p>
-                        </div>
-                      )}
+              {filteredPhotos.map((photo, index) => (
+                <motion.div
+                  key={photo.id}
+                  layout
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.4, delay: index * 0.05 }}
+                  className="group relative cursor-pointer overflow-hidden rounded-lg"
+                  onClick={() => handleSelectPhoto(photo)}
+                >
+                  <div className="relative overflow-hidden">
+                    <ImageWithFallback
+                      src={photo.url}
+                      alt={photo.caption || 'Gallery image'}
+                      loading="lazy"
+                      decoding="async"
+                      className="w-full h-auto object-cover transition-transform duration-500 group-hover:scale-110"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-purple-900/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                      <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 via-pink-500/20 to-orange-500/20 animate-pulse" />
                     </div>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
+                    {photo.caption && (
+                      <div className="absolute bottom-0 left-0 right-0 p-4 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
+                        <p className="text-white text-sm drop-shadow-lg">{photo.caption}</p>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              ))}
             </Masonry>
           </ResponsiveMasonry>
         </motion.div>
