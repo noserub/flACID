@@ -1,15 +1,16 @@
   /// <reference types="vitest" />
-  import { defineConfig } from 'vite';
+  import { defineConfig, loadEnv } from 'vite';
   import react from '@vitejs/plugin-react';
   import tailwindcss from '@tailwindcss/vite';
   import { visualizer } from 'rollup-plugin-visualizer';
   import path from 'path';
 
   export default defineConfig(({ mode }) => {
-    // Explicitly inject Supabase env from process.env so Vercel (and other platforms)
-    // reliably provide them at build time.
-    const supabaseUrl = process.env.VITE_SUPABASE_URL ?? '';
-    const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY ?? '';
+    // Load .env files (local) and merge with process.env (Vercel/CI) so Supabase
+    // credentials are available at build time for both local and deployed builds.
+    const env = loadEnv(mode, process.cwd(), '');
+    const supabaseUrl = env.VITE_SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? '';
+    const supabaseAnonKey = env.VITE_SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY ?? '';
 
     return {
     plugins: [

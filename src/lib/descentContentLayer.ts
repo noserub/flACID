@@ -13,4 +13,7 @@ export const DESCENT_CHROME_LIFT = 'z-[10020]';
 /** Portaled menus & popovers from header (must beat effects; typically above chrome) */
 export const DESCENT_MENU_PORTAL_LIFT = 'z-[10030]';
 
+/** Modals (e.g. NewsletterSignup) — above section content (10000), menus (10030), fullscreen controls (10100) */
+export const MODAL_PORTAL_LIFT = 'z-[10200]';
+
 /** Fullscreen player: fixed z-[9980] in-tree, below Descend (~9990–9999). */

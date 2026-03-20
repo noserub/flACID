@@ -2,6 +2,8 @@
 
 ## 1. Environment Variables
 
+### Local development
+
 Copy `.env.local.example` to `.env.local` and add your Supabase credentials:
 
 ```bash
@@ -16,6 +18,18 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 ```
 
 Get these from your [Supabase Dashboard](https://supabase.com/dashboard/project/_/settings/api).
+
+### Vercel (Preview & Production)
+
+For newsletter signup and other Supabase features to work on Vercel deployments:
+
+1. Open your project in [Vercel Dashboard](https://vercel.com/dashboard)
+2. Go to **Settings → Environment Variables**
+3. Add:
+   - `VITE_SUPABASE_URL` = your Supabase project URL
+   - `VITE_SUPABASE_ANON_KEY` = your Supabase anon/public key
+4. Apply to **Preview** and **Production**
+5. Redeploy
 
 ---
 
