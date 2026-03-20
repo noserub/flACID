@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Edit2, Plus, Trash2 } from 'lucide-react';
+import { Edit2, Plus, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -45,6 +45,15 @@ export function MusicPlayerEditDialog() {
 
   const handleRemoveTrack = (id: number) => {
     const nextTracks = tracks.filter((t) => t.id !== id);
+    setTracks(nextTracks);
+    pushTracksToContext(nextTracks);
+  };
+
+  const handleMoveTrack = (fromIndex: number, direction: 'up' | 'down') => {
+    const toIndex = direction === 'up' ? fromIndex - 1 : fromIndex + 1;
+    if (toIndex < 0 || toIndex >= tracks.length) return;
+    const nextTracks = [...tracks];
+    [nextTracks[fromIndex], nextTracks[toIndex]] = [nextTracks[toIndex], nextTracks[fromIndex]];
     setTracks(nextTracks);
     pushTracksToContext(nextTracks);
   };
@@ -207,12 +216,34 @@ export function MusicPlayerEditDialog() {
         <Accordion type="single" collapsible className="w-full">
           {tracks.map((track, index) => (
             <AccordionItem key={track.id} value={track.id.toString()}>
-              <AccordionTrigger>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs bg-primary/20 text-primary px-2 py-1 rounded">
+              <AccordionTrigger className="group">
+                <div className="flex items-center gap-2 w-full">
+                  <div className="flex shrink-0" onClick={(e) => e.stopPropagation()}>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                      onClick={() => handleMoveTrack(index, 'up')}
+                      disabled={index === 0}
+                      aria-label="Move up"
+                    >
+                      <ChevronUp className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                      onClick={() => handleMoveTrack(index, 'down')}
+                      disabled={index === tracks.length - 1}
+                      aria-label="Move down"
+                    >
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <span className="text-xs bg-primary/20 text-primary px-2 py-1 rounded shrink-0">
                     Viz {(track.visualizationId ?? index % 10) + 1}
                   </span>
-                  {track.title} - {track.duration}
+                  <span className="truncate">{track.title} - {track.duration}</span>
                 </div>
               </AccordionTrigger>
               <AccordionContent>
