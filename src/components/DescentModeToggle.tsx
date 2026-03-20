@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useDescentMode } from '../contexts/DescentModeContext';
+import { usePlayback } from '../contexts/PlaybackContext';
 import { OPEN_DESCENT_HELP_EVENT } from '../lib/descentHelp';
 import { DESCENT_MENU_PORTAL_LIFT } from '../lib/descentContentLayer';
 import { Popover, PopoverAnchor, PopoverContent } from './ui/popover';
@@ -98,6 +99,7 @@ const MIN_MS_BEFORE_OUTSIDE_DISMISS_COUNTS = 320;
 
 export function DescentModeToggle() {
   const { isDescentMode, toggleDescentMode, setDescentMode } = useDescentMode();
+  const { setIsFullscreen } = usePlayback();
   const [onboardingOpen, setOnboardingOpen] = useState(readOnboardingShouldShow);
   const openedAtRef = useRef(Date.now());
 
@@ -145,8 +147,9 @@ export function DescentModeToggle() {
     if (!isDescentMode) {
       setDescentMode(true);
     }
+    setIsFullscreen(true);
     markOnboardingSeen();
-  }, [isDescentMode, setDescentMode, markOnboardingSeen]);
+  }, [isDescentMode, setDescentMode, setIsFullscreen, markOnboardingSeen]);
 
   const handleToggleClick = useCallback(() => {
     toggleDescentMode();
@@ -182,11 +185,9 @@ export function DescentModeToggle() {
           <div>
             <p className="font-semibold text-cyan-100 tracking-tight">Turn the site into the show</p>
             <p className="mt-2 text-muted-foreground leading-relaxed text-[13px] sm:text-sm">
-              <span className="text-cyan-400/90">Descend</span> adds full-page layers and motion, plus a slow
-              ambient swell in the background.{' '}
-              <span className="text-fuchsia-400/90">When audio is playing</span>, intensity{' '}
-              <span className="text-cyan-300/80">follows the track</span>—bass and loud moments push harder.{' '}
-              <span className="text-muted-foreground/95">Best with the in-site player playing.</span>
+              <span className="text-cyan-400/90">Descend</span> turns the page into the stage—full-screen visuals
+              and motion that move with the music.{' '}
+              <span className="text-muted-foreground/95">Best on desktop with the in-site player playing. Go fullscreen for the full show.</span>
             </p>
           </div>
           <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end pt-1">

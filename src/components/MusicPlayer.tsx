@@ -452,10 +452,10 @@ export function MusicPlayer() {
             </div>
           </div>
 
-          {/* Playback Controls */}
-          <div className="flex items-center justify-between gap-6">
+          {/* Playback Controls - wrap on mobile so fullscreen/playlist stay visible */}
+          <div className="flex flex-wrap items-center justify-between gap-4 sm:gap-6">
             {/* Volume Controls Group */}
-            <div className="flex items-center gap-2 bg-background/40 rounded-lg px-3 py-2 backdrop-blur-sm">
+            <div className="flex flex-shrink-0 items-center gap-2 bg-background/40 rounded-lg px-3 py-2 backdrop-blur-sm">
               <Button
                 variant="ghost"
                 size="icon"
@@ -469,12 +469,12 @@ export function MusicPlayer() {
                 max={1}
                 step={0.01}
                 onValueChange={handleVolumeChange}
-                className="w-24 cursor-pointer"
+                className="w-16 sm:w-24 cursor-pointer"
               />
             </div>
 
             {/* Playback Controls Group */}
-            <div className="flex items-center gap-2 bg-background/40 rounded-lg px-4 py-2 backdrop-blur-sm">
+            <div className="flex flex-shrink-0 items-center gap-2 bg-background/40 rounded-lg px-4 py-2 backdrop-blur-sm">
               <Button
                 variant="ghost"
                 size="icon"
@@ -504,7 +504,7 @@ export function MusicPlayer() {
             </div>
 
             {/* View Controls Group */}
-            <div className="flex items-center gap-2 bg-background/40 rounded-lg px-3 py-2 backdrop-blur-sm">
+            <div className="flex w-full flex-shrink-0 basis-full items-center justify-center gap-2 sm:w-auto sm:basis-auto bg-background/40 rounded-lg px-3 py-2 backdrop-blur-sm">
               <Button
                 variant="ghost"
                 size="icon"

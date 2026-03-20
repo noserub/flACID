@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Play, Pause, SkipBack, SkipForward } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Maximize } from 'lucide-react';
 import { usePlayback } from '../contexts/PlaybackContext';
 import { useDescentMode } from '../contexts/DescentModeContext';
 import { DESCENT_CHROME_LIFT } from '../lib/descentContentLayer';
@@ -93,6 +93,7 @@ export function MiniPlayer() {
     skipForward,
     skipBack,
     isFullscreen,
+    setIsFullscreen,
   } = usePlayback();
   const { isDescentMode } = useDescentMode();
   const [playerInView, setPlayerInView] = useState(true);
@@ -182,9 +183,19 @@ export function MiniPlayer() {
         </div>
         <button
           type="button"
+          onClick={() => setIsFullscreen(true)}
+          className="flex-shrink-0 p-1.5 rounded-md text-cyan-400 hover:bg-cyan-500/20 transition-colors"
+          aria-label="Enter fullscreen"
+          title="Full screen"
+        >
+          <Maximize className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
           onClick={scrollToFullPlayer}
           className="flex-shrink-0 rounded overflow-hidden cursor-pointer hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-cyan-400/50"
           aria-label="Go to full player"
+          title="Go to main player"
         >
           <MiniEQ isPlaying={isPlaying} currentTrack={currentTrack} />
         </button>
