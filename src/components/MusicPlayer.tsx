@@ -174,7 +174,8 @@ export function MusicPlayer() {
     <div
       className={cn(
         'w-full max-w-6xl mx-auto relative',
-        isDescentMode && DESCENT_CONTENT_LIFT
+        /* Without this, fixed fullscreen stays in a z-10000 context and page sections paint on top */
+        isDescentMode && !isFullscreen && DESCENT_CONTENT_LIFT
       )}
     >
       {isEditMode && <MusicPlayerEditDialog />}

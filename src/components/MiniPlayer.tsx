@@ -94,6 +94,7 @@ export function MiniPlayer() {
     skipBack,
     isFullscreen,
   } = usePlayback();
+  const { isDescentMode } = useDescentMode();
   const [playerInView, setPlayerInView] = useState(true);
 
   const scrollToFullPlayer = () => {

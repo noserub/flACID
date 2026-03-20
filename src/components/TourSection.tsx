@@ -75,6 +75,7 @@ function TourDateCard({ show }: { show: TourShow }) {
 
 export function TourSection() {
   const { content, updateContent, isEditMode } = useEditMode();
+  const { isDescentMode } = useDescentMode();
   const tourDates = content.tour.dates;
 
   const handleVisibilityChange = useCallback(

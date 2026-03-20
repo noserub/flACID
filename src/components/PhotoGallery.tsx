@@ -14,6 +14,7 @@ import { GalleryEditDialog } from './GalleryEditDialog';
 
 export function PhotoGallery() {
   const { content, isEditMode, updateContent } = useEditMode();
+  const { isDescentMode } = useDescentMode();
   const [selectedPhoto, setSelectedPhoto] = useState<{ id: string; url: string; caption?: string } | null>(null);
   const [activeTab, setActiveTab] = useState(0);
 
