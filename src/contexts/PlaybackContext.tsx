@@ -42,7 +42,7 @@ interface PlaybackContextType {
   isMuted: boolean;
   isAudioReady: boolean;
   currentTrackData: PlayerTrack | undefined;
-  /** Ref to the audio element — used by MusicPlayer to connect analyser for Descend reactivity */
+  /** Ref to the visualizer audio element — used by MusicPlayer to connect analyser (Web Audio) */
   audioRef: RefObject<HTMLAudioElement | null>;
   togglePlay: () => void;
   skipForward: () => void;
@@ -103,54 +103,97 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   const [isAudioReady, setIsAudioReady] = useState(false);
   const [shouldAutoPlay, setShouldAutoPlay] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isPageVisible, setIsPageVisible] = useState(
+    () => (typeof document !== 'undefined' ? document.visibilityState === 'visible' : true)
+  );
 
-  const audioRef = useRef<HTMLAudioElement>(null);
+  const visualizerAudioRef = useRef<HTMLAudioElement>(null);
+  const backgroundAudioRef = useRef<HTMLAudioElement>(null);
+  const audioRef = visualizerAudioRef; // alias for MusicPlayer
 
   const currentTrackUrl = tracks[currentTrack]?.url?.trim() ?? '';
   const currentTrackData = tracks[currentTrack];
 
+  // Use background (direct) audio when hidden so playback continues with screen off
+  const useBackgroundAudio = !isPageVisible;
+
   useEffect(() => {
     setIsAudioReady(false);
     setIsPlaying(false);
-    if (!audioRef.current || !currentTrackData) return;
+    if (!currentTrackData) return;
 
-    if (currentTrackUrl) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-      audioRef.current.crossOrigin = 'anonymous';
-      audioRef.current.src = currentTrackData.url;
-      audioRef.current.load();
-    } else {
-      audioRef.current.pause();
-      audioRef.current.removeAttribute('src');
-      audioRef.current.load();
-      setDuration(parseDurationStr(currentTrackData.duration));
-      setCurrentTime(0);
-    }
+    const setupElement = (el: HTMLAudioElement | null) => {
+      if (!el) return;
+      if (currentTrackUrl) {
+        el.pause();
+        el.currentTime = 0;
+        el.crossOrigin = 'anonymous';
+        el.src = currentTrackData.url;
+        el.load();
+      } else {
+        el.pause();
+        el.removeAttribute('src');
+        el.load();
+        setDuration(parseDurationStr(currentTrackData.duration));
+        setCurrentTime(0);
+      }
+    };
+
+    setupElement(visualizerAudioRef.current);
+    setupElement(backgroundAudioRef.current);
   }, [currentTrack, currentTrackUrl, currentTrackData]);
 
+  // Sync play/pause and volume to the active element
   useEffect(() => {
-    if (audioRef.current) {
-      if (isPlaying) {
-        audioRef.current.play().catch(() => setIsPlaying(false));
-      } else {
-        audioRef.current.pause();
-      }
+    const active = useBackgroundAudio ? backgroundAudioRef.current : visualizerAudioRef.current;
+    const inactive = useBackgroundAudio ? visualizerAudioRef.current : backgroundAudioRef.current;
+    if (active) {
+      if (isPlaying) active.play().catch(() => setIsPlaying(false));
+      else active.pause();
+      active.volume = isMuted ? 0 : volume;
     }
-  }, [isPlaying]);
+    if (inactive) {
+      inactive.pause();
+      inactive.volume = isMuted ? 0 : volume;
+    }
+  }, [isPlaying, volume, isMuted, useBackgroundAudio]);
 
+  // Apply volume to both when it changes
   useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.volume = isMuted ? 0 : volume;
-    }
+    const vol = isMuted ? 0 : volume;
+    if (visualizerAudioRef.current) visualizerAudioRef.current.volume = vol;
+    if (backgroundAudioRef.current) backgroundAudioRef.current.volume = vol;
   }, [volume, isMuted]);
 
-  const handleTimeUpdate = useCallback(() => {
-    if (audioRef.current) setCurrentTime(audioRef.current.currentTime);
+  // Switch audio elements when visibility changes (background = direct output, continues when screen off)
+  const visibilityRef = useRef(isPageVisible);
+  useEffect(() => {
+    if (visibilityRef.current === isPageVisible) return;
+    visibilityRef.current = isPageVisible;
+
+    const from = isPageVisible ? backgroundAudioRef.current : visualizerAudioRef.current;
+    const to = isPageVisible ? visualizerAudioRef.current : backgroundAudioRef.current;
+    if (!from || !to || !currentTrackUrl) return;
+
+    const t = from.currentTime;
+    to.currentTime = t;
+    setCurrentTime(t);
+    if (isPlaying) {
+      from.pause();
+      to.play().catch(() => setIsPlaying(false));
+    } else {
+      from.pause();
+      to.pause();
+    }
+  }, [isPageVisible, isPlaying, currentTrackUrl]);
+
+  const handleTimeUpdate = useCallback((e: React.SyntheticEvent<HTMLAudioElement>) => {
+    setCurrentTime(e.currentTarget.currentTime);
   }, []);
 
   const handleLoadedMetadata = useCallback(() => {
-    if (audioRef.current) setDuration(audioRef.current.duration);
+    const el = visualizerAudioRef.current ?? backgroundAudioRef.current;
+    if (el) setDuration(el.duration);
   }, []);
 
   const handleCanPlay = useCallback(() => {
@@ -223,7 +266,8 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       const t = details.seekTime;
       if (typeof t === 'number' && Number.isFinite(t)) {
         setCurrentTime(t);
-        if (audioRef.current) audioRef.current.currentTime = t;
+        if (visualizerAudioRef.current) visualizerAudioRef.current.currentTime = t;
+        if (backgroundAudioRef.current) backgroundAudioRef.current.currentTime = t;
       }
     });
 
@@ -236,19 +280,22 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     };
   }, [currentTrack, tracks]);
 
-  // Sync UI to paused when AudioContext suspends (screen lock, etc.) so player state matches actual sound
+  // Sync UI to paused when AudioContext suspends — only when using visualizer (visible)
   useEffect(() => {
-    registerOnSuspend(() => setIsPlaying(false));
+    registerOnSuspend(() => {
+      if (document.visibilityState === 'visible') setIsPlaying(false);
+    });
     return () => registerOnSuspend(null);
   }, []);
 
-  // Resume AudioContext when tab becomes visible (fixes silence after background/sleep)
+  // Track visibility and switch audio; resume context when visible
   useEffect(() => {
     const handler = () => {
-      if (document.visibilityState === 'visible') {
-        resumeAudioContext();
-      }
+      const visible = document.visibilityState === 'visible';
+      setIsPageVisible(visible);
+      if (visible) resumeAudioContext();
     };
+    handler(); // sync initial state
     document.addEventListener('visibilitychange', handler);
     return () => document.removeEventListener('visibilitychange', handler);
   }, []);
@@ -260,13 +307,14 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   const togglePlay = useCallback(() => {
     const track = tracks[currentTrack];
     if (!track?.url) return;
-    if (!isAudioReady && audioRef.current) {
-      audioRef.current.load();
+    const activeEl = useBackgroundAudio ? backgroundAudioRef.current : visualizerAudioRef.current;
+    if (!isAudioReady && activeEl) {
+      activeEl.load();
       return;
     }
     resumeAudioContextIfNeeded();
     setIsPlaying((p) => !p);
-  }, [tracks, currentTrack, isAudioReady, resumeAudioContextIfNeeded]);
+  }, [tracks, currentTrack, isAudioReady, useBackgroundAudio, resumeAudioContextIfNeeded]);
 
   const skipForward = useCallback(() => {
     if (currentTrack >= tracks.length - 1) return;
@@ -289,7 +337,8 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   const handleSeek = useCallback((value: number[]) => {
     const t = value[0];
     setCurrentTime(t);
-    if (audioRef.current) audioRef.current.currentTime = t;
+    if (visualizerAudioRef.current) visualizerAudioRef.current.currentTime = t;
+    if (backgroundAudioRef.current) backgroundAudioRef.current.currentTime = t;
   }, []);
 
   const handleVolumeChange = useCallback((value: number[]) => {
@@ -381,7 +430,18 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     <PlaybackContext.Provider value={value}>
       {children}
       <audio
-        ref={audioRef}
+        ref={visualizerAudioRef}
+        onTimeUpdate={handleTimeUpdate}
+        onLoadedMetadata={handleLoadedMetadata}
+        onCanPlay={handleCanPlay}
+        onError={handleError}
+        onEnded={handleEnded}
+        preload="none"
+        className="sr-only"
+        aria-hidden
+      />
+      <audio
+        ref={backgroundAudioRef}
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
         onCanPlay={handleCanPlay}
