@@ -14,6 +14,7 @@ import { Popover, PopoverAnchor, PopoverContent } from './ui/popover';
 import { cn } from './ui/utils';
 import { DESCENT_MENU_PORTAL_LIFT } from '../lib/descentContentLayer';
 import { TRY_DESCENT_CLICKED_EVENT } from '../lib/descentHelp';
+import { registerAudioContext } from '../lib/audioContextManager';
 import { motion, AnimatePresence } from 'motion/react';
 
 /** One MediaElementSourceNode per HTMLMediaElement — persists across StrictMode remounts */
@@ -75,14 +76,18 @@ export function MusicPlayer() {
       ? sharedAudioContext
       : new AudioContextConstructor();
     sharedAudioContext = ctx;
+    registerAudioContext(ctx);
     const analyser = ctx.createAnalyser();
     analyser.fftSize = 2048;
+    audioContextRef.current = ctx;
+    analyserRef.current = analyser;
     audioContextRef.current = ctx;
     analyserRef.current = analyser;
     return () => {
       try {
         if (analyserRef.current) analyserRef.current.disconnect();
       } catch (_) {}
+      registerAudioContext(null);
     };
   }, []);
 

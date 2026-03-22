@@ -11,6 +11,7 @@ import {
 } from 'react';
 import { useEditMode } from './EditModeContext';
 import { useTracks } from '../hooks';
+import { resumeAudioContext } from '../lib/audioContextManager';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { parseVisualizationId } from '../lib/contentMappers';
 import { formatDuration } from '../utils';
@@ -175,6 +176,76 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       setIsPlaying(false);
     }
   }, [currentTrack, tracks]);
+
+  // Media Session API: metadata for lock screen, car display, etc.
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
+    const track = currentTrackData;
+    if (!track) {
+      navigator.mediaSession.metadata = null;
+      return;
+    }
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: track.title,
+      artist: track.artist,
+      album: track.album || undefined,
+      // artwork: add when album art URLs available
+    });
+  }, [currentTrackData]);
+
+  // Media Session API: action handlers so lock screen / car controls work
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
+    const ms = navigator.mediaSession;
+
+    ms.setActionHandler('play', async () => {
+      await resumeAudioContext();
+      setIsPlaying(true);
+    });
+    ms.setActionHandler('pause', () => setIsPlaying(false));
+    ms.setActionHandler('previoustrack', () => {
+      if (currentTrack > 0) {
+        setCurrentTrackState(currentTrack - 1);
+        setCurrentTime(0);
+        const prev = tracks[currentTrack - 1];
+        if (prev?.url) setShouldAutoPlay(true);
+      }
+    });
+    ms.setActionHandler('nexttrack', () => {
+      if (currentTrack < tracks.length - 1) {
+        setCurrentTrackState(currentTrack + 1);
+        setCurrentTime(0);
+        const next = tracks[currentTrack + 1];
+        if (next?.url) setShouldAutoPlay(true);
+      }
+    });
+    ms.setActionHandler('seekto', (details) => {
+      const t = details.seekTime;
+      if (typeof t === 'number' && Number.isFinite(t)) {
+        setCurrentTime(t);
+        if (audioRef.current) audioRef.current.currentTime = t;
+      }
+    });
+
+    return () => {
+      ms.setActionHandler('play', null);
+      ms.setActionHandler('pause', null);
+      ms.setActionHandler('previoustrack', null);
+      ms.setActionHandler('nexttrack', null);
+      ms.setActionHandler('seekto', null);
+    };
+  }, [currentTrack, tracks]);
+
+  // Resume AudioContext when tab becomes visible (fixes silence after background/sleep)
+  useEffect(() => {
+    const handler = () => {
+      if (document.visibilityState === 'visible') {
+        resumeAudioContext();
+      }
+    };
+    document.addEventListener('visibilitychange', handler);
+    return () => document.removeEventListener('visibilitychange', handler);
+  }, []);
 
   const resumeAudioContextIfNeeded = useCallback(() => {
     // AudioContext resume is handled in MusicPlayer when isPlaying becomes true
