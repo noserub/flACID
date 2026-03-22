@@ -236,6 +236,12 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     });
   }, [currentTrackData]);
 
+  // Media Session playbackState — helps iOS treat us as active media (lock screen, Control Center)
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
+    navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+  }, [isPlaying]);
+
   // Media Session API: action handlers so lock screen / car controls work
   useEffect(() => {
     if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
@@ -244,8 +250,12 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     ms.setActionHandler('play', async () => {
       await resumeAudioContext();
       setIsPlaying(true);
+      ms.playbackState = 'playing';
     });
-    ms.setActionHandler('pause', () => setIsPlaying(false));
+    ms.setActionHandler('pause', () => {
+      setIsPlaying(false);
+      ms.playbackState = 'paused';
+    });
     ms.setActionHandler('previoustrack', () => {
       if (currentTrack > 0) {
         setCurrentTrackState(currentTrack - 1);
