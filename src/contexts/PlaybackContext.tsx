@@ -11,7 +11,7 @@ import {
 } from 'react';
 import { useEditMode } from './EditModeContext';
 import { useTracks } from '../hooks';
-import { resumeAudioContext } from '../lib/audioContextManager';
+import { resumeAudioContext, registerOnSuspend } from '../lib/audioContextManager';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { parseVisualizationId } from '../lib/contentMappers';
 import { formatDuration } from '../utils';
@@ -235,6 +235,12 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       ms.setActionHandler('seekto', null);
     };
   }, [currentTrack, tracks]);
+
+  // Sync UI to paused when AudioContext suspends (screen lock, etc.) so player state matches actual sound
+  useEffect(() => {
+    registerOnSuspend(() => setIsPlaying(false));
+    return () => registerOnSuspend(null);
+  }, []);
 
   // Resume AudioContext when tab becomes visible (fixes silence after background/sleep)
   useEffect(() => {
