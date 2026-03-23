@@ -36,27 +36,57 @@ const VIZ_NAMES = [
 const AUTO_CYCLE_DURATIONS = [5, 6, 8, 10, 12, 16] as const;
 
 const STAGE_VIZ_CHANNEL = 'stage-viz-sync';
+const STAGE_VIZ_STORAGE_KEY = 'stage-viz-id';
 
 /** Projection-only view: viz only, no controls. For second display / projector. */
 function StageProjectionView() {
-  const initialViz = typeof window !== 'undefined'
-    ? parseInt(new URLSearchParams(window.location.search).get('viz') ?? '0', 10) % VIZ_NAMES.length
-    : 0;
+  // Prefer localStorage (control writes on every viz change) — reliable cross-window sync
+  const initialViz = (() => {
+    if (typeof window === 'undefined') return 0;
+    const fromStorage = localStorage.getItem(STAGE_VIZ_STORAGE_KEY);
+    if (fromStorage !== null) {
+      const n = parseInt(fromStorage, 10);
+      if (!Number.isNaN(n)) return n % VIZ_NAMES.length;
+    }
+    const fromUrl = new URLSearchParams(window.location.search).get('viz');
+    return parseInt(fromUrl ?? '0', 10) % VIZ_NAMES.length;
+  })();
   const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [vizId, setVizId] = useState(initialViz);
   const [demoMode, setDemoMode] = useState(false);
+  const [showTapOverlay, setShowTapOverlay] = useState(true);
   const streamRef = useRef<MediaStream | null>(null);
   streamRef.current = stream;
 
+  const enterFullscreen = useCallback(() => {
+    const el = document.documentElement;
+    if (el.requestFullscreen) {
+      el.requestFullscreen().then(() => setShowTapOverlay(false)).catch(() => {});
+    } else {
+      setShowTapOverlay(false);
+    }
+  }, []);
+
   useEffect(() => {
-    const ch = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel(STAGE_VIZ_CHANNEL) : null;
-    if (!ch) return;
-    const handler = (e: MessageEvent) => {
-      if (typeof e.data?.vizId === 'number') setVizId(e.data.vizId);
+    const onFullscreenChange = () => setShowTapOverlay(!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
+  }, []);
+
+  useEffect(() => {
+    let ch: BroadcastChannel | null = null;
+    const t = window.setTimeout(() => {
+      if (typeof BroadcastChannel === 'undefined') return;
+      ch = new BroadcastChannel(STAGE_VIZ_CHANNEL);
+      ch.addEventListener('message', (e: MessageEvent) => {
+        if (typeof e.data?.vizId === 'number') setVizId(e.data.vizId);
+      });
+    }, 400);
+    return () => {
+      clearTimeout(t);
+      ch?.close();
     };
-    ch.addEventListener('message', handler);
-    return () => ch.close();
   }, []);
 
   useEffect(() => {
@@ -90,6 +120,18 @@ function StageProjectionView() {
         currentTrack={vizId}
         visualizationId={vizId}
       />
+      {showTapOverlay && (
+        <button
+          type="button"
+          onClick={enterFullscreen}
+          className="absolute inset-0 z-[10001] flex items-center justify-center bg-black/40 backdrop-blur-[2px] cursor-pointer transition-opacity hover:bg-black/50 focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+          aria-label="Tap to present fullscreen"
+        >
+          <span className="text-white/80 text-lg font-medium px-6 py-3 rounded-lg border border-white/20 bg-black/40">
+            Tap anywhere to present
+          </span>
+        </button>
+      )}
     </div>
   );
 }
@@ -209,14 +251,21 @@ export function StagePage() {
     };
   }, [startLiveInput, stopStream]);
 
-  // Broadcast vizId for projection window sync (optional; no-op if no projection window open)
+  // Broadcast vizId for projection window sync (live updates only)
   const vizChannelRef = useRef<BroadcastChannel | null>(null);
   useEffect(() => {
     if (typeof BroadcastChannel === 'undefined') return;
-    vizChannelRef.current = new BroadcastChannel(STAGE_VIZ_CHANNEL);
-    return () => { vizChannelRef.current?.close(); vizChannelRef.current = null; };
+    const ch = new BroadcastChannel(STAGE_VIZ_CHANNEL);
+    vizChannelRef.current = ch;
+    return () => { ch.close(); vizChannelRef.current = null; };
   }, []);
+  const vizBroadcastInitRef = useRef(false);
   useEffect(() => {
+    if (typeof localStorage !== 'undefined') localStorage.setItem(STAGE_VIZ_STORAGE_KEY, String(vizId));
+    if (!vizBroadcastInitRef.current) {
+      vizBroadcastInitRef.current = true;
+      return;
+    }
     vizChannelRef.current?.postMessage({ vizId });
   }, [vizId]);
 
@@ -228,6 +277,7 @@ export function StagePage() {
       setVizId((v) => {
         const next = (v + 1) % VIZ_NAMES.length;
         vizIdRef.current = next;
+        if (typeof localStorage !== 'undefined') localStorage.setItem(STAGE_VIZ_STORAGE_KEY, String(next));
         return next;
       });
     }, ms);
@@ -238,6 +288,7 @@ export function StagePage() {
     setVizId((v) => {
       const next = (v + 1) % VIZ_NAMES.length;
       vizIdRef.current = next;
+      if (typeof localStorage !== 'undefined') localStorage.setItem(STAGE_VIZ_STORAGE_KEY, String(next));
       return next;
     });
   };
@@ -246,6 +297,7 @@ export function StagePage() {
     setVizId((v) => {
       const next = (v - 1 + VIZ_NAMES.length) % VIZ_NAMES.length;
       vizIdRef.current = next;
+      if (typeof localStorage !== 'undefined') localStorage.setItem(STAGE_VIZ_STORAGE_KEY, String(next));
       return next;
     });
   };
@@ -416,6 +468,7 @@ export function StagePage() {
             <Select value={String(vizId)} onValueChange={(v) => {
                 const n = Number(v);
                 vizIdRef.current = n;
+                if (typeof localStorage !== 'undefined') localStorage.setItem(STAGE_VIZ_STORAGE_KEY, String(n));
                 setVizId(n);
               }}>
               <SelectTrigger className="bg-white/10 border-white/20 text-white">
@@ -468,6 +521,7 @@ export function StagePage() {
                 className="w-full text-white border-white/30 hover:bg-white/20 flex items-center gap-2"
                 onClick={() => {
                   const id = vizIdRef.current;
+                  if (typeof localStorage !== 'undefined') localStorage.setItem(STAGE_VIZ_STORAGE_KEY, String(id));
                   const url = `${window.location.origin}/stage?projection=1&viz=${id}`;
                   const existing = projectionWindowRef.current;
                   if (existing && !existing.closed) {
@@ -482,7 +536,7 @@ export function StagePage() {
                 <Monitor className="h-4 w-4" />
                 Project (viz only)
               </Button>
-              <p className="text-white/40 text-xs mt-1.5">Opens a second window with visuals only. Move to projector, then fullscreen.</p>
+              <p className="text-white/40 text-xs mt-1.5">Opens a second window. Move to projector, then tap to present.</p>
             </div>
           </div>
         )}
