@@ -14,6 +14,16 @@ import {
   CircleHelp,
   Mic,
 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from './ui/alert-dialog';
 import { Button } from './ui/button';
 import { ComponentLibrary } from './ComponentLibrary';
 import {
@@ -43,17 +53,38 @@ export function SiteHeader() {
   const [signInOpen, setSignInOpen] = useState(false);
   const [exportSuccess, setExportSuccess] = useState(false);
   const [showComponentLibrary, setShowComponentLibrary] = useState(false);
+  const [exitConfirmOpen, setExitConfirmOpen] = useState(false);
+  const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
 
   if (isFullscreen) return null;
 
   const handleToggleEditMode = () => {
-    if (isEditMode) {
+    if (isEditMode && isDraft) {
+      setExitConfirmOpen(true);
+      return;
+    }
+    if (isEditMode && !isDraft) {
       const confirmed = window.confirm(
         'Exiting edit mode will clear uploaded audio from memory. Continue?'
       );
       if (!confirmed) return;
     }
     toggleEditMode();
+  };
+
+  const handleDiscardAndExit = () => {
+    discardDraft();
+    toggleEditMode();
+    setExitConfirmOpen(false);
+  };
+
+  const handleDiscardDraftClick = () => {
+    setDiscardConfirmOpen(true);
+  };
+
+  const handleConfirmDiscard = () => {
+    discardDraft();
+    setDiscardConfirmOpen(false);
   };
 
   const handleExportJSON = () => {
@@ -238,7 +269,7 @@ export function SiteHeader() {
                   <CheckCircle className="mr-2 h-4 w-4" />
                   <span>Publish Changes</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={discardDraft} className="text-red-400">
+                <DropdownMenuItem onClick={handleDiscardDraftClick} className="text-red-400">
                   <XCircle className="mr-2 h-4 w-4" />
                   <span>Discard Draft</span>
                 </DropdownMenuItem>
@@ -314,6 +345,48 @@ export function SiteHeader() {
 
       {/* Sign In Dialog */}
       <SignInDialog open={signInOpen} onOpenChange={setSignInOpen} />
+
+      {/* Exit with unsaved changes */}
+      <AlertDialog open={exitConfirmOpen} onOpenChange={setExitConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>You have unsaved changes</AlertDialogTitle>
+            <AlertDialogDescription>
+              Your changes will be lost if you exit without publishing. What would you like to do?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Stay in edit mode</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDiscardAndExit}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Discard & exit
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Discard draft confirmation */}
+      <AlertDialog open={discardConfirmOpen} onOpenChange={setDiscardConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard all unsaved changes?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This cannot be undone. Your draft will revert to the last published state.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDiscard}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Discard
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </header>
   );
 }
