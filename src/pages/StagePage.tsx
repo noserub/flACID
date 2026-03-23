@@ -75,6 +75,11 @@ function StageProjectionView() {
     return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
   }, []);
 
+  const deviceIdFromUrl = typeof window !== 'undefined'
+    ? new URLSearchParams(window.location.search).get('device') ?? ''
+    : '';
+  const [deviceId, setDeviceId] = useState(deviceIdFromUrl);
+
   useEffect(() => {
     let ch: BroadcastChannel | null = null;
     const t = window.setTimeout(() => {
@@ -82,6 +87,7 @@ function StageProjectionView() {
       ch = new BroadcastChannel(STAGE_VIZ_CHANNEL);
       ch.addEventListener('message', (e: MessageEvent) => {
         if (typeof e.data?.vizId === 'number') setVizId(e.data.vizId);
+        if (typeof e.data?.deviceId === 'string') setDeviceId(e.data.deviceId);
       });
     }, 400);
     return () => {
@@ -93,14 +99,21 @@ function StageProjectionView() {
   useEffect(() => {
     const init = async () => {
       try {
-        const mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const constraints: MediaStreamConstraints = {
+          audio: deviceId ? { deviceId: { exact: deviceId } } : true,
+          video: false,
+        };
+        const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
         setStream(mediaStream);
         const AudioCtx = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
         const ctx = new AudioCtx();
         const source = ctx.createMediaStreamSource(mediaStream);
+        const gain = ctx.createGain();
+        gain.gain.value = 1.5; // Boost low-volume sources (e.g. line-in)
         const a = ctx.createAnalyser();
         a.fftSize = 2048;
-        source.connect(a);
+        source.connect(gain);
+        gain.connect(a);
         setAnalyser(a);
         if (ctx.state === 'suspended') await ctx.resume();
       } catch {
@@ -111,7 +124,7 @@ function StageProjectionView() {
     return () => {
       streamRef.current?.getTracks().forEach((t) => t.stop());
     };
-  }, []);
+  }, [deviceId]);
 
   return (
     <div className="fixed inset-0 z-[9999] bg-black">
@@ -160,6 +173,8 @@ export function StagePage() {
   const justShowedRef = useRef(0);
   const vizIdRef = useRef(vizId);
   vizIdRef.current = vizId; // Always current for Project button (avoids stale closure)
+  const selectedDeviceIdRef = useRef(selectedDeviceId);
+  selectedDeviceIdRef.current = selectedDeviceId;
   const projectionWindowRef = useRef<Window | null>(null);
 
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -196,9 +211,12 @@ export function StagePage() {
         audioContextRef.current = ctx;
 
         const source = ctx.createMediaStreamSource(mediaStream);
+        const gain = ctx.createGain();
+        gain.gain.value = 1.5; // Boost low-volume sources (e.g. line-in)
         const analyserNode = ctx.createAnalyser();
         analyserNode.fftSize = 2048;
-        source.connect(analyserNode);
+        source.connect(gain);
+        gain.connect(analyserNode);
         setAnalyser(analyserNode);
 
         if (ctx.state === 'suspended') {
@@ -252,7 +270,7 @@ export function StagePage() {
     };
   }, [startLiveInput, stopStream]);
 
-  // Broadcast vizId for projection window sync (live updates only)
+  // Broadcast vizId and deviceId for projection window sync (live updates only)
   const vizChannelRef = useRef<BroadcastChannel | null>(null);
   useEffect(() => {
     if (typeof BroadcastChannel === 'undefined') return;
@@ -269,6 +287,9 @@ export function StagePage() {
     }
     vizChannelRef.current?.postMessage({ vizId });
   }, [vizId]);
+  useEffect(() => {
+    vizChannelRef.current?.postMessage({ deviceId: selectedDeviceId });
+  }, [selectedDeviceId]);
 
   // Auto-cycle: advance viz every N minutes when enabled
   useEffect(() => {
@@ -522,8 +543,11 @@ export function StagePage() {
                 className="w-full text-white border-white/30 hover:bg-white/20 flex items-center gap-2"
                 onClick={() => {
                   const id = vizIdRef.current;
+                  const dev = selectedDeviceIdRef.current;
                   if (typeof localStorage !== 'undefined') localStorage.setItem(STAGE_VIZ_STORAGE_KEY, String(id));
-                  const url = `${window.location.origin}/stage?projection=1&viz=${id}`;
+                  const params = new URLSearchParams({ projection: '1', viz: String(id) });
+                  if (dev) params.set('device', dev);
+                  const url = `${window.location.origin}/stage?${params}`;
                   // Try to get existing projection window by name (works across tabs)
                   const existingByName = window.open('', 'stage-projection');
                   const existing = (existingByName && !existingByName.closed)
