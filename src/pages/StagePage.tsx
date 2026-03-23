@@ -8,7 +8,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { PsychedelicVisualizer } from '../components/PsychedelicVisualizer';
-import { Mic, Home, Loader2, Settings2, SkipBack, SkipForward, Timer } from 'lucide-react';
+import { Mic, Home, Loader2, Monitor, Settings2, SkipBack, SkipForward, Timer } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import {
   Select,
@@ -35,10 +35,71 @@ const VIZ_NAMES = [
 
 const AUTO_CYCLE_DURATIONS = [5, 6, 8, 10, 12, 16] as const;
 
+const STAGE_VIZ_CHANNEL = 'stage-viz-sync';
+
+/** Projection-only view: viz only, no controls. For second display / projector. */
+function StageProjectionView() {
+  const initialViz = typeof window !== 'undefined'
+    ? parseInt(new URLSearchParams(window.location.search).get('viz') ?? '0', 10) % VIZ_NAMES.length
+    : 0;
+  const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
+  const [stream, setStream] = useState<MediaStream | null>(null);
+  const [vizId, setVizId] = useState(initialViz);
+  const [demoMode, setDemoMode] = useState(false);
+  const streamRef = useRef<MediaStream | null>(null);
+  streamRef.current = stream;
+
+  useEffect(() => {
+    const ch = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel(STAGE_VIZ_CHANNEL) : null;
+    if (!ch) return;
+    const handler = (e: MessageEvent) => {
+      if (typeof e.data?.vizId === 'number') setVizId(e.data.vizId);
+    };
+    ch.addEventListener('message', handler);
+    return () => ch.close();
+  }, []);
+
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        setStream(mediaStream);
+        const AudioCtx = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        const ctx = new AudioCtx();
+        const source = ctx.createMediaStreamSource(mediaStream);
+        const a = ctx.createAnalyser();
+        a.fftSize = 2048;
+        source.connect(a);
+        setAnalyser(a);
+        if (ctx.state === 'suspended') await ctx.resume();
+      } catch {
+        setDemoMode(true);
+      }
+    };
+    init();
+    return () => {
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+    };
+  }, []);
+
+  return (
+    <div className="fixed inset-0 z-[9999] bg-black">
+      <PsychedelicVisualizer
+        analyser={demoMode ? null : analyser}
+        isPlaying={!!stream || demoMode}
+        currentTrack={vizId}
+        visualizationId={vizId}
+      />
+    </div>
+  );
+}
+
 interface AudioDevice {
   deviceId: string;
   label: string;
 }
+
+const isProjection = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('projection') === '1';
 
 export function StagePage() {
   const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
@@ -145,6 +206,17 @@ export function StagePage() {
     };
   }, [startLiveInput, stopStream]);
 
+  // Broadcast vizId for projection window sync (optional; no-op if no projection window open)
+  const vizChannelRef = useRef<BroadcastChannel | null>(null);
+  useEffect(() => {
+    if (typeof BroadcastChannel === 'undefined') return;
+    vizChannelRef.current = new BroadcastChannel(STAGE_VIZ_CHANNEL);
+    return () => { vizChannelRef.current?.close(); vizChannelRef.current = null; };
+  }, []);
+  useEffect(() => {
+    vizChannelRef.current?.postMessage({ vizId });
+  }, [vizId]);
+
   // Auto-cycle: advance viz every N minutes when enabled
   useEffect(() => {
     if (!autoCycleEnabled) return;
@@ -173,6 +245,11 @@ export function StagePage() {
     if (Date.now() - justShowedRef.current < 300) return;
     setShowControls((v) => !v);
   };
+
+  // Projection-only view: viz only, no controls. Syncs vizId from main via BroadcastChannel.
+  if (isProjection) {
+    return <StageProjectionView />;
+  }
 
   return (
     <div
@@ -374,6 +451,22 @@ export function StagePage() {
                   </SelectContent>
                 </Select>
               )}
+            </div>
+
+            <div className="pt-2 border-t border-white/20">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full text-white border-white/30 hover:bg-white/20 flex items-center gap-2"
+                onClick={() => {
+                  const url = `${window.location.origin}/stage?projection=1&viz=${vizId}`;
+                  window.open(url, 'stage-projection', 'noopener,width=1920,height=1080');
+                }}
+              >
+                <Monitor className="h-4 w-4" />
+                Project (viz only)
+              </Button>
+              <p className="text-white/40 text-xs mt-1.5">Opens a second window with visuals only. Move to projector, then fullscreen.</p>
             </div>
           </div>
         )}
