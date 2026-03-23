@@ -140,7 +140,7 @@ export class VisualAudioSmoother {
     const fluxNorm = Math.min(1, (flux - fluxLow) / fluxSpread);
 
     const normMean = meanBandEnergy(normEq);
-    const softLift = 0.6 + 0.4 * Math.pow(normMean / 255, 0.6);
+    const softLift = 0.72 + 0.28 * Math.pow(normMean / 255, 0.55);
 
     // Per-band relative change (pattern-based: band vs its own baseline)
     const relativeBoost: Partial<Record<keyof EQBands, number>> = {};
@@ -176,7 +176,7 @@ export class VisualAudioSmoother {
 
     this.pulse *= 0.91;
 
-    const bandAlpha = 0.15 + this.pulse * 0.1;
+    const bandAlpha = 0.22 + this.pulse * 0.12;
     const nextEq: EQBands = { ...normEq };
 
     if (!this.prevEq) {

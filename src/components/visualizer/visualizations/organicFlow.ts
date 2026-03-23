@@ -1,4 +1,4 @@
-import type { EQBands } from '../types';
+import type { EQBands, VisualizerDrawOptions } from '../types';
 import { Particle } from '../Particle';
 
 export function drawOrganicFlow(
@@ -9,10 +9,12 @@ export function drawOrganicFlow(
   eq: EQBands,
   time: number,
   bufferLength: number,
-  options?: { particles?: Particle[]; isPlaying?: boolean }
+  options?: VisualizerDrawOptions
 ): void {
   const particles = options?.particles ?? [];
   const isPlaying = options?.isPlaying ?? false;
+  const beatPulse = options?.beatPulse ?? 0;
+  const calm = options?.calm ?? 0.5;
   const centerX = width / 2;
   const centerY = height / 2;
   const scale = Math.min(width, height) / 400;
@@ -26,19 +28,20 @@ export function drawOrganicFlow(
       const radius = Math.random() * 150 * scale + 50 * scale;
       const x = centerX + Math.cos(angle) * radius;
       const y = centerY + Math.sin(angle) * radius;
-      const vx = (Math.random() - 0.5) * (eq.highMid / 120);
-      const vy = (Math.random() - 0.5) * (eq.highMid / 120);
+      const vx = (Math.random() - 0.5) * (eq.highMid / 100 + 0.5);
+      const vy = (Math.random() - 0.5) * (eq.highMid / 100 + 0.5);
       const hue = 260 + Math.random() * 80;
-      particles.push(new Particle(x, y, vx, vy, Math.random() * 20 + 10 + eq.bass / 30, hue));
+      particles.push(new Particle(x, y, vx, vy, Math.random() * 20 + 10 + eq.bass / 25, hue));
     }
   }
 
-  const flow = eq.bass / 40;
-  const turbulence = eq.high / 50;
+  const beatBoost = beatPulse * 2.5;
+  const flow = Math.max(1.2, eq.bass / 32) + beatBoost - calm * 0.5;
+  const turbulence = Math.max(0.8, eq.high / 40) + beatBoost * 0.6;
   const living: Particle[] = [];
   for (const p of particles) {
     p.update(width, height, flow, turbulence, time);
-    p.draw(ctx, 0.6 + eq.mid / 400);
+    p.draw(ctx, 0.65 + eq.mid / 350 + beatPulse * 0.15);
     if (!p.isDead()) living.push(p);
   }
   particles.length = 0;
