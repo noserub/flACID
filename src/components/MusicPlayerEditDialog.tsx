@@ -241,7 +241,7 @@ export function MusicPlayerEditDialog() {
                     </Button>
                   </div>
                   <span className="text-xs bg-primary/20 text-primary px-2 py-1 rounded shrink-0">
-                    Viz {(track.visualizationId ?? index % 10) + 1}
+                    Viz {(track.visualizationId ?? index % 11) + 1}
                   </span>
                   <span className="truncate">{track.title} - {track.duration}</span>
                 </div>
@@ -265,12 +265,6 @@ export function MusicPlayerEditDialog() {
                     currentUrl={track.url}
                     onUpload={(url) => handleAudioUpload(track.id, url)}
                   />
-                  <div className="rounded-lg bg-purple-500/10 border border-purple-500/30 p-3">
-                    <p className="text-xs text-purple-300">
-                      💡 <strong>Edit Mode Only:</strong> Audio files are kept in memory while editing so you can test visualizations. They're cleared when you exit edit mode for performance.
-                    </p>
-                  </div>
-
                   {processingTrack === track.id && (
                     <div className="rounded-lg bg-blue-500/10 border border-blue-500/30 p-3">
                       <p className="text-xs text-blue-300">
@@ -332,7 +326,7 @@ export function MusicPlayerEditDialog() {
                       <SelectTrigger>
                         <SelectValue placeholder="Select visualization" />
                       </SelectTrigger>
-                      <SelectContent className="z-[10250]">
+                      <SelectContent className="z-[10250] max-h-80">
                         <SelectItem value="0">1. Organic Flow Field</SelectItem>
                         <SelectItem value="1">2. Depth Layers</SelectItem>
                         <SelectItem value="2">3. Waveform Interference</SelectItem>
@@ -343,6 +337,7 @@ export function MusicPlayerEditDialog() {
                         <SelectItem value="7">8. Neon Grid</SelectItem>
                         <SelectItem value="8">9. Spiral Galaxy</SelectItem>
                         <SelectItem value="9">10. Crystal Lattice</SelectItem>
+                        <SelectItem value="10">11. Breathing Mandala</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

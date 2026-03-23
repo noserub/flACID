@@ -6,9 +6,11 @@
 
 import type { DrawVisualization, EQBands, VisualizerDrawOptions } from '../types';
 import { drawOrganicFlow } from './organicFlow';
+import { drawBreathingMandala } from './breathingMandala';
 
 // Re-export for use in main component
 export { drawOrganicFlow } from './organicFlow';
+export { drawBreathingMandala } from './breathingMandala';
 
 type DrawFn = (
   ctx: CanvasRenderingContext2D,
@@ -33,7 +35,10 @@ const VISUALIZATIONS: DrawFn[] = [
   drawNeonGrid,
   drawSpiralGalaxy,
   drawCrystalLattice,
+  drawBreathingMandala,
 ];
+
+export const NUM_VISUALIZATIONS = VISUALIZATIONS.length;
 
 export function getVisualization(id: number): DrawFn {
   return VISUALIZATIONS[id % VISUALIZATIONS.length] ?? VISUALIZATIONS[0];

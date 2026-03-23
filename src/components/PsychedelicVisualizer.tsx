@@ -3,7 +3,7 @@ import type { EQBands } from './visualizer/types';
 import { Particle } from './visualizer/Particle';
 import { VisualAudioSmoother } from '../lib/audioVisualControl';
 import { generateEQData } from '../lib/eqSimulator';
-import { getVisualization } from './visualizer/visualizations';
+import { getVisualization, NUM_VISUALIZATIONS } from './visualizer/visualizations';
 
 interface PsychedelicVisualizerProps {
   analyser: AnalyserNode | null;
@@ -23,6 +23,7 @@ const BACKGROUND_BASE = [
   { h: 200, s: 25, l1: 6, l2: 4, l3: 2 },
   { h: 240, s: 30, l1: 8, l2: 5, l3: 2 },
   { h: 290, s: 35, l1: 9, l2: 5, l3: 3 },
+  { h: 310, s: 38, l1: 9, l2: 5, l3: 2 },
 ];
 
 export function PsychedelicVisualizer({
@@ -121,11 +122,13 @@ export function PsychedelicVisualizer({
 
       let spectrumForViz = dataArray;
       let calm = 0.35;
+      let beatPulse = 0;
       if (isPlaying) {
         const shaped = audioSmoother.process(eq, dataArray, performance.now());
         eq = shaped.eq;
         spectrumForViz = shaped.smoothedSpectrum;
         calm = shaped.calm;
+        beatPulse = shaped.beatPulse;
       }
 
       const intensity = isPlaying ? eq.energy / 255 : 0.1;
@@ -154,10 +157,12 @@ export function PsychedelicVisualizer({
       ctx.fillRect(0, 0, width, height);
 
       if (isPlaying) {
-        const drawViz = getVisualization(vizId % 10);
+        const drawViz = getVisualization(vizId % NUM_VISUALIZATIONS);
         drawViz(ctx, width, height, spectrumForViz, eq, time, bufferLength, {
           particles: particlesRef.current,
           isPlaying,
+          beatPulse,
+          calm,
         });
       } else {
         const centerX = width / 2;

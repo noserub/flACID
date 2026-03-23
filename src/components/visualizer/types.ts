@@ -18,6 +18,10 @@ export interface EQBands {
 export interface VisualizerDrawOptions {
   particles?: Particle[];
   isPlaying?: boolean;
+  /** 0–1, spikes on transients (kicks, snare) — use for rhythmic accents */
+  beatPulse?: number;
+  /** 0–1, higher = softer moment — use for breath/calm modulation */
+  calm?: number;
 }
 
 export type DrawVisualization = (

@@ -41,10 +41,10 @@ function formatDurationFromSeconds(seconds: number): string {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
-/** Parse visualization_type from DB (handles 'flowField' and non-numeric; returns 0-9). */
+/** Parse visualization_type from DB (handles 'flowField' and non-numeric; returns 0-based viz index). */
 export function parseVisualizationId(value: string | undefined): number {
   const n = parseInt(String(value ?? ''), 10);
-  return Number.isInteger(n) && n >= 0 && n <= 9 ? n : 0;
+  return Number.isInteger(n) && n >= 0 && n <= 10 ? n : 0;
 }
 
 /** Map database rows to SiteContent */

@@ -31,6 +31,7 @@ const VIZ_NAMES = [
   'Neon Grid',
   'Spiral Galaxy',
   'Crystal Lattice',
+  'Breathing Mandala',
 ];
 
 const AUTO_CYCLE_DURATIONS = [5, 6, 8, 10, 12, 16] as const;
