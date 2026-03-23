@@ -40,6 +40,8 @@ export interface VisualAudioSmootherResult {
   calm: number;
 }
 
+type BandKey = (typeof BAND_KEYS)[number];
+
 export class VisualAudioSmoother {
   private prevEq: EQBands | null = null;
   private spectrumFloat: Float32Array | null = null;
@@ -49,6 +51,7 @@ export class VisualAudioSmoother {
   private pulse = 0;
   private lastOnsetMs = 0;
   private energyHistory: number[] = [];
+  private bandHistory: Partial<Record<BandKey, number[]>> = {};
   private fluxHistory: number[] = [];
   private bandBaselines: Partial<Record<keyof EQBands, number>> = {};
   private readonly historyMax = 90;
@@ -63,6 +66,7 @@ export class VisualAudioSmoother {
     this.pulse = 0;
     this.lastOnsetMs = 0;
     this.energyHistory = [];
+    this.bandHistory = {};
     this.fluxHistory = [];
     this.bandBaselines = {};
   }
@@ -75,26 +79,41 @@ export class VisualAudioSmoother {
   process(rawEq: EQBands, rawSpectrum: Uint8Array, nowMs: number): VisualAudioSmootherResult {
     const mean = meanBandEnergy(rawEq);
 
-    // Rolling history for adaptive normalization (must run first)
-    this.energyHistory.push(mean);
-    if (this.energyHistory.length > this.historyMax) this.energyHistory.shift();
-    const sorted = [...this.energyHistory].sort((a, b) => a - b);
-    const low = sorted[Math.floor(sorted.length * 0.1)] ?? mean;
-    const high = sorted[Math.floor(sorted.length * 0.9)] ?? mean;
-    const spread = Math.max(16, high - low);
-
-    // Always-on volume normalization: map (low, high) to consistent 0–255 range
-    // So visuals react to music dynamics, not device volume
-    const normScale = 220 / spread;
+    // Per-band rolling history: each band normalizes within its own range
+    // so bass/mids/highs don't get zeroed by a global floor
     const normEq: EQBands = { ...rawEq };
     for (const k of BAND_KEYS) {
-      normEq[k] = clamp255((rawEq[k] - low) * normScale);
+      const v = rawEq[k];
+      let hist = this.bandHistory[k];
+      if (!hist) hist = this.bandHistory[k] = [];
+      hist.push(v);
+      if (hist.length > this.historyMax) hist.shift();
+      const sorted = [...hist].sort((a, b) => a - b);
+      const n = sorted.length;
+      const low = sorted[Math.floor(n * 0.1)] ?? v;
+      const high = sorted[Math.floor(n * 0.9)] ?? v;
+      const spread = Math.max(12, high - low);
+      const scale = 220 / spread;
+      normEq[k] = clamp255((v - low) * scale);
     }
-    normEq.energy = clamp255((mean - low) * normScale);
 
+    // Energy from mean (global history for overall level)
+    this.energyHistory.push(mean);
+    if (this.energyHistory.length > this.historyMax) this.energyHistory.shift();
+    const meanSorted = [...this.energyHistory].sort((a, b) => a - b);
+    const n = meanSorted.length;
+    const meanLow = meanSorted[Math.floor(n * 0.1)] ?? mean;
+    const meanHigh = meanSorted[Math.floor(n * 0.9)] ?? mean;
+    const meanSpread = Math.max(12, meanHigh - meanLow);
+    normEq.energy = clamp255((mean - meanLow) * (220 / meanSpread));
+
+    // Spectrum: use average of per-band floors for spectrum bins (spectrum is full-range)
+    const spectrumLow = meanLow;
+    const spectrumSpread = Math.max(12, meanSpread);
+    const spectrumScale = 220 / spectrumSpread;
     const normSpectrum = new Uint8Array(rawSpectrum.length);
     for (let i = 0; i < rawSpectrum.length; i++) {
-      normSpectrum[i] = clamp255((rawSpectrum[i] - low) * normScale);
+      normSpectrum[i] = clamp255((rawSpectrum[i] - spectrumLow) * spectrumScale);
     }
 
     // Spectral flux: change in spectrum (detects transients even at low volume)
