@@ -60,6 +60,10 @@ export function MusicPlayer() {
   const [showPlaylist, setShowPlaylist] = useState(true);
   const [isVisualizerLoading, setIsVisualizerLoading] = useState(false);
   const [showPlayHint, setShowPlayHint] = useState(false);
+  const [showFullscreenControls, setShowFullscreenControls] = useState(true);
+  const showFullscreenControlsRef = useRef(showFullscreenControls);
+  showFullscreenControlsRef.current = showFullscreenControls;
+  const justShowedFromActivityRef = useRef(0);
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
   const [touchCurrentY, setTouchCurrentY] = useState<number | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -141,10 +145,64 @@ export function MusicPlayer() {
     registerPlaybackState(currentTime, currentTrack);
   }, [currentTime, currentTrack, registerPlaybackState]);
 
+  // Auto-hide fullscreen controls after 3s inactivity — only when playing (keep visible if paused so user can hit play)
+  useEffect(() => {
+    if (!isFullscreen) return;
+
+    const AUTO_HIDE_MS = 3000;
+    let timeoutId: number | null = null;
+
+    const scheduleHide = () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      timeoutId = window.setTimeout(() => {
+        setShowFullscreenControls(false);
+        timeoutId = null;
+      }, AUTO_HIDE_MS);
+    };
+
+    const cancelHide = () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+    };
+
+    const handleActivity = () => {
+      const wasHidden = !showFullscreenControlsRef.current;
+      setShowFullscreenControls(true);
+      if (isPlaying) scheduleHide();
+      if (wasHidden) {
+        justShowedFromActivityRef.current = Date.now();
+      }
+    };
+
+    if (isPlaying && showFullscreenControls) {
+      scheduleHide();
+    } else {
+      cancelHide();
+    }
+
+    window.addEventListener('mousemove', handleActivity);
+    window.addEventListener('mousedown', handleActivity);
+    window.addEventListener('keydown', handleActivity);
+    window.addEventListener('touchstart', handleActivity);
+    window.addEventListener('touchmove', handleActivity);
+
+    return () => {
+      window.removeEventListener('mousemove', handleActivity);
+      window.removeEventListener('mousedown', handleActivity);
+      window.removeEventListener('keydown', handleActivity);
+      window.removeEventListener('touchstart', handleActivity);
+      window.removeEventListener('touchmove', handleActivity);
+      cancelHide();
+    };
+  }, [isFullscreen, isPlaying, showFullscreenControls]);
+
   // Fullscreen functionality with loading state (isFullscreen lives in PlaybackContext for mini player visibility)
   const toggleFullscreen = () => {
     if (!isFullscreen) {
       setIsVisualizerLoading(true);
+      setShowFullscreenControls(true);
       setIsFullscreen(true);
       setTimeout(() => setIsVisualizerLoading(false), 800);
     } else {
@@ -256,10 +314,15 @@ export function MusicPlayer() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.35, ease: 'easeInOut' }}
-            className="fixed inset-0 z-[9980] bg-black"
+            className="fixed inset-0 z-[9980] bg-black cursor-pointer"
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
+            onClick={() => {
+              // Ignore click if we just showed from touchstart (avoids show-then-immediate-hide)
+              if (Date.now() - justShowedFromActivityRef.current < 300) return;
+              setShowFullscreenControls((v) => !v);
+            }}
           >
             {/* Loading indicator */}
             <AnimatePresence>
@@ -279,8 +342,8 @@ export function MusicPlayer() {
               )}
             </AnimatePresence>
 
-            {/* Swipe indicator (visible during swipe) */}
-            {touchStartY !== null && touchCurrentY !== null && (
+            {/* Swipe indicator (visible during swipe, hidden when controls hidden) */}
+            {showFullscreenControls && touchStartY !== null && touchCurrentY !== null && (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: Math.min((touchCurrentY - touchStartY) / 100, 0.6) }}
@@ -315,28 +378,32 @@ export function MusicPlayer() {
                 currentTrack={currentTrack}
                 visualizationId={tracks[currentTrack]?.visualizationId}
               />
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <motion.div
-                  initial={false}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ delay: 0.15, duration: 0.35 }}
-                  className="text-center"
-                >
-                  <h3 className="text-white/90 mb-2 text-4xl md:text-5xl">{tracks[currentTrack].title}</h3>
-                  <p className="text-white/60 text-2xl md:text-3xl">{tracks[currentTrack].artist}</p>
-                  {tracks[currentTrack].album && (
-                    <p className="text-white/50 mt-1 text-xl md:text-2xl">{tracks[currentTrack].album}</p>
-                  )}
-                </motion.div>
-              </div>
+              {showFullscreenControls && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <motion.div
+                    initial={false}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.15, duration: 0.35 }}
+                    className="text-center"
+                  >
+                    <h3 className="text-white/90 mb-2 text-4xl md:text-5xl">{tracks[currentTrack].title}</h3>
+                    <p className="text-white/60 text-2xl md:text-3xl">{tracks[currentTrack].artist}</p>
+                    {tracks[currentTrack].album && (
+                      <p className="text-white/50 mt-1 text-xl md:text-2xl">{tracks[currentTrack].album}</p>
+                    )}
+                  </motion.div>
+                </div>
+              )}
             </motion.div>
 
-            {/* Fullscreen controls overlay */}
+            {/* Fullscreen controls overlay — tap/click elsewhere to hide for recording */}
+            {showFullscreenControls && (
             <motion.div
               initial={false}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.15, duration: 0.35, ease: 'easeOut' }}
               className="absolute bottom-0 left-0 right-0 pointer-events-auto z-50 bg-gradient-to-t from-black/80 via-black/50 to-transparent p-8 pt-24"
+              onClick={(e) => e.stopPropagation()}
             >
               <div className="max-w-4xl mx-auto space-y-4">
                 {/* Progress Bar */}
@@ -441,6 +508,7 @@ export function MusicPlayer() {
                 </div>
               </div>
             </motion.div>
+            )}
           </motion.div>
             )}
           </AnimatePresence>,
@@ -450,7 +518,7 @@ export function MusicPlayer() {
         })()}
 
         {/* Ascend + X portaled to document.body so they sit above Descend (9990+) and any stacking context */}
-      {typeof document !== 'undefined' && isFullscreen &&
+      {typeof document !== 'undefined' && isFullscreen && showFullscreenControls &&
         createPortal(
           <div
             className="fixed top-0 right-0 z-[10100] flex items-center gap-3 pointer-events-auto p-4 sm:p-6 bg-black/60 backdrop-blur-md rounded-bl-xl"
