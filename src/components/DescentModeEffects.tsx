@@ -188,7 +188,7 @@ export function GlitchOverlay() {
   );
 }
 
-// Scanline/VHS effect
+// Scanline/VHS effect — static on mobile for performance
 export function ScanlineEffect() {
   const { isDescentMode } = useDescentMode();
   const { intensity, isPlaying } = useDescentIntensity();
@@ -198,6 +198,20 @@ export function ScanlineEffect() {
   const scanlineOpacity = isPlaying
     ? 0.2 + (intensity.eqBands.mid * 0.4)
     : 0.08 + (intensity.baseIntensity * 0.04);
+
+  const mobile = isMobile();
+
+  if (mobile) {
+    return (
+      <div
+        className="pointer-events-none fixed inset-0 z-[9998]"
+        style={{
+          opacity: scanlineOpacity,
+          backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 255, 255, 0.03) 2px, rgba(0, 255, 255, 0.03) 4px)',
+        }}
+      />
+    );
+  }
 
   return (
     <div 
@@ -333,14 +347,15 @@ export function DescentParticles() {
 
     const w = window.innerWidth;
     const h = window.innerHeight;
-    const dpr = isMobile() ? Math.min(2, window.devicePixelRatio || 1) : window.devicePixelRatio || 1;
+    const mobile = isMobile();
+    const dpr = mobile ? 1 : window.devicePixelRatio || 1;
     canvas.width = w * dpr;
     canvas.height = h * dpr;
     ctx.scale(dpr, dpr);
 
-    // Initialize particles as living organisms
+    // Initialize particles as living organisms — fewer on mobile for smoother animation
     if (particlesRef.current.length === 0) {
-      const particleCount = isMobile() ? 45 : 120;
+      const particleCount = mobile ? 28 : 120;
       const behaviors: Array<'wanderer' | 'seeker' | 'avoider' | 'orbiter'> = ['wanderer', 'seeker', 'avoider', 'orbiter'];
       
       for (let i = 0; i < particleCount; i++) {
@@ -447,48 +462,50 @@ export function DescentParticles() {
             break;
         }
 
-        // Flocking behavior: interact with nearby particles
-        let neighborCount = 0;
-        let avgVx = 0;
-        let avgVy = 0;
-        let separationX = 0;
-        let separationY = 0;
+        // Flocking behavior: interact with nearby particles — skip on mobile for performance
+        if (!mobile) {
+          let neighborCount = 0;
+          let avgVx = 0;
+          let avgVy = 0;
+          let separationX = 0;
+          let separationY = 0;
 
-        for (let j = 0; j < particlesRef.current.length; j++) {
-          if (j === index) continue;
-          
-          const other = particlesRef.current[j];
-          const dx = other.x - particle.x;
-          const dy = other.y - particle.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-
-          // Interact with nearby particles
-          if (dist < 80 && dist > 0) {
-            neighborCount++;
+          for (let j = 0; j < particlesRef.current.length; j++) {
+            if (j === index) continue;
             
-            // Alignment: match velocity of neighbors
-            avgVx += other.vx;
-            avgVy += other.vy;
+            const other = particlesRef.current[j];
+            const dx = other.x - particle.x;
+            const dy = other.y - particle.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
 
-            // Separation: avoid crowding
-            if (dist < 40) {
-              separationX -= dx / dist;
-              separationY -= dy / dist;
+            // Interact with nearby particles
+            if (dist < 80 && dist > 0) {
+              neighborCount++;
+              
+              // Alignment: match velocity of neighbors
+              avgVx += other.vx;
+              avgVy += other.vy;
+
+              // Separation: avoid crowding
+              if (dist < 40) {
+                separationX -= dx / dist;
+                separationY -= dy / dist;
+              }
             }
           }
-        }
 
-        if (neighborCount > 0) {
-          avgVx /= neighborCount;
-          avgVy /= neighborCount;
-          
-          // Gentle alignment
-          forceX += (avgVx - particle.vx) * 0.05;
-          forceY += (avgVy - particle.vy) * 0.05;
-          
-          // Separation force
-          forceX += separationX * 0.1;
-          forceY += separationY * 0.1;
+          if (neighborCount > 0) {
+            avgVx /= neighborCount;
+            avgVy /= neighborCount;
+            
+            // Gentle alignment
+            forceX += (avgVx - particle.vx) * 0.05;
+            forceY += (avgVy - particle.vy) * 0.05;
+            
+            // Separation force
+            forceX += separationX * 0.1;
+            forceY += separationY * 0.1;
+          }
         }
 
         const speedMultiplier = isPlaying
@@ -569,7 +586,7 @@ export function DescentParticles() {
     const handleResize = () => {
       const nw = window.innerWidth;
       const nh = window.innerHeight;
-      const ndpr = isMobile() ? Math.min(2, window.devicePixelRatio || 1) : window.devicePixelRatio || 1;
+      const ndpr = mobile ? 1 : window.devicePixelRatio || 1;
       canvas.width = nw * ndpr;
       canvas.height = nh * ndpr;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -781,6 +798,7 @@ export function DescentBackground() {
 // Main descent mode wrapper
 export function DescentModeWrapper() {
   const { isDescentMode } = useDescentMode();
+  const mobile = isMobile();
 
   return (
     <AnimatePresence>
@@ -788,9 +806,9 @@ export function DescentModeWrapper() {
         <>
           <DescentBackground />
           <ScrollBoundaryGlow />
-          <GlitchOverlay />
+          {!mobile && <GlitchOverlay />}
           <ScanlineEffect />
-          <OrganicTendrils />
+          {!mobile && <OrganicTendrils />}
           <DescentParticles />
           
           {/* Vignette effect */}
