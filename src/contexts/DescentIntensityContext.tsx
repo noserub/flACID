@@ -219,7 +219,7 @@ export function DescentIntensityProvider({ children }: { children: ReactNode }) 
       const totalIntensity = Math.min(baseIntensity + musicBoost, 1.0);
 
       frameCount++;
-      if (!reduceUpdates || frameCount % 2 === 0) {
+      if (!reduceUpdates || frameCount % 4 === 0) {
         setIntensity({
           baseIntensity,
           musicBoost,
