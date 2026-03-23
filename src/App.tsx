@@ -10,6 +10,7 @@ import { DescentIntensityProvider } from './contexts/DescentIntensityContext';
 import { PlaybackProvider } from './contexts/PlaybackContext';
 import { DescentModeWrapper } from './components/DescentModeEffects';
 import { SiteHeader } from './components/SiteHeader';
+import { StagePage } from './pages/StagePage';
 import heroBackground from 'figma:asset/39f8e6db34bf477fef67b4d63027e0f5debf29fb.png';
 import logoImage from 'figma:asset/64ba7001cc82a53524d3d0f758edddb6dafba520.png';
 
@@ -106,8 +107,24 @@ function AppContent() {
   );
 }
 
+const STAGE_MODE_AVAILABLE =
+  import.meta.env.VITE_STAGE_MODE_AVAILABLE === 'true' ||
+  import.meta.env.VITE_STAGE_MODE_AVAILABLE === '1';
+
 export default function App() {
   useSEO(DEFAULT_SEO);
+
+  const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+
+  if (pathname === '/stage') {
+    if (!STAGE_MODE_AVAILABLE) {
+      window.location.replace('/');
+      return null;
+    }
+    return (
+      <StagePage />
+    );
+  }
 
   return (
     <>

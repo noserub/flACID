@@ -12,6 +12,7 @@ import {
   LogIn,
   LogOut,
   CircleHelp,
+  Mic,
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { ComponentLibrary } from './ComponentLibrary';
@@ -33,6 +34,10 @@ import { DescentModeToggle } from './DescentModeToggle';
 import { SignInDialog } from './SignInDialog';
 import { MiniPlayer } from './MiniPlayer';
 import { requestDescentHelp } from '../lib/descentHelp';
+
+const STAGE_MODE_AVAILABLE =
+  import.meta.env.VITE_STAGE_MODE_AVAILABLE === 'true' ||
+  import.meta.env.VITE_STAGE_MODE_AVAILABLE === '1';
 
 export function SiteHeader() {
   const { isEditMode, isDraft, toggleEditMode, publishChanges, discardDraft, content } = useEditMode();
@@ -271,6 +276,22 @@ export function SiteHeader() {
                 <DropdownMenuItem onClick={() => setShowComponentLibrary(true)}>
                   <Package className="mr-2 h-4 w-4" />
                   <span>Component Library</span>
+                </DropdownMenuItem>
+              </>
+            )}
+
+            {/* Stage / Live Mode — venue projection, signed-in only */}
+            {isAuthenticated && STAGE_MODE_AVAILABLE && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="text-xs text-muted-foreground">
+                  Venue
+                </DropdownMenuLabel>
+                <DropdownMenuItem asChild>
+                  <a href="/stage" target="_blank" rel="noopener noreferrer">
+                    <Mic className="mr-2 h-4 w-4" />
+                    <span>Stage / Live Mode</span>
+                  </a>
                 </DropdownMenuItem>
               </>
             )}
