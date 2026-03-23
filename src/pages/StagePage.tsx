@@ -115,6 +115,8 @@ export function StagePage() {
   const [autoCycleEnabled, setAutoCycleEnabled] = useState(false);
   const [autoCycleMinutes, setAutoCycleMinutes] = useState(8);
   const justShowedRef = useRef(0);
+  const vizIdRef = useRef(vizId);
+  vizIdRef.current = vizId; // Always current for Project button (avoids stale closure)
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -459,7 +461,8 @@ export function StagePage() {
                 size="sm"
                 className="w-full text-white border-white/30 hover:bg-white/20 flex items-center gap-2"
                 onClick={() => {
-                  const url = `${window.location.origin}/stage?projection=1&viz=${vizId}`;
+                  const id = vizIdRef.current;
+                  const url = `${window.location.origin}/stage?projection=1&viz=${id}`;
                   window.open(url, 'stage-projection', 'noopener,width=1920,height=1080');
                 }}
               >
