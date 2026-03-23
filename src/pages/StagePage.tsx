@@ -117,6 +117,7 @@ export function StagePage() {
   const justShowedRef = useRef(0);
   const vizIdRef = useRef(vizId);
   vizIdRef.current = vizId; // Always current for Project button (avoids stale closure)
+  const projectionWindowRef = useRef<Window | null>(null);
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -468,7 +469,14 @@ export function StagePage() {
                 onClick={() => {
                   const id = vizIdRef.current;
                   const url = `${window.location.origin}/stage?projection=1&viz=${id}`;
-                  window.open(url, 'stage-projection', 'noopener,width=1920,height=1080');
+                  const existing = projectionWindowRef.current;
+                  if (existing && !existing.closed) {
+                    existing.location.replace(url);
+                    existing.focus();
+                  } else {
+                    const win = window.open(url, 'stage-projection', 'noopener,width=1920,height=1080');
+                    if (win) projectionWindowRef.current = win;
+                  }
                 }}
               >
                 <Monitor className="h-4 w-4" />
