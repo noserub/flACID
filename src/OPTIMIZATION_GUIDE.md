@@ -199,7 +199,7 @@ const PsychedelicVisualizer = lazy(() => import('./PsychedelicVisualizer'));
 - [x] Limit file size to 50MB
 - [x] Validate format before upload
 - [x] Extract metadata client-side
-- [x] Use preload="none"
+- [x] Use preload="metadata" (avoids full preload; browser streams via range requests)
 - [ ] Consider transcoding to 192kbps MP3
 - [ ] Implement streaming for long tracks
 

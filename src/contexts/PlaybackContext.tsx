@@ -125,14 +125,19 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     setIsPlaying(false);
     if (!currentTrackData) return;
 
-    const setupElement = (el: HTMLAudioElement | null) => {
+    const activeEl = useBackgroundAudio ? backgroundAudioRef.current : visualizerAudioRef.current;
+    const inactiveEl = useBackgroundAudio ? visualizerAudioRef.current : backgroundAudioRef.current;
+
+    const setupElement = (el: HTMLAudioElement | null, shouldLoad: boolean) => {
       if (!el) return;
       if (currentTrackUrl) {
-        el.pause();
-        el.currentTime = 0;
-        el.crossOrigin = 'anonymous';
-        el.src = currentTrackData.url;
-        el.load();
+        if (shouldLoad) {
+          el.pause();
+          el.currentTime = 0;
+          el.crossOrigin = 'anonymous';
+          el.src = currentTrackData.url;
+          el.load();
+        }
       } else {
         el.pause();
         el.removeAttribute('src');
@@ -142,9 +147,9 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       }
     };
 
-    setupElement(visualizerAudioRef.current);
-    setupElement(backgroundAudioRef.current);
-  }, [currentTrack, currentTrackUrl, currentTrackData]);
+    setupElement(activeEl, true);
+    setupElement(inactiveEl, false);
+  }, [currentTrack, currentTrackUrl, currentTrackData, useBackgroundAudio]);
 
   // Sync play/pause and volume to the active element
   useEffect(() => {
@@ -179,6 +184,10 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     if (!from || !to || !currentTrackUrl) return;
 
     const t = from.currentTime;
+    if (!to.src || to.src !== currentTrackData?.url) {
+      to.src = currentTrackData?.url ?? '';
+      to.load();
+    }
     to.currentTime = t;
     setCurrentTime(t);
     if (isPlaying) {
@@ -188,7 +197,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       from.pause();
       to.pause();
     }
-  }, [isPageVisible, isPlaying, currentTrackUrl]);
+  }, [isPageVisible, isPlaying, currentTrackUrl, currentTrackData?.url]);
 
   const handleTimeUpdate = useCallback((e: React.SyntheticEvent<HTMLAudioElement>) => {
     setCurrentTime(e.currentTarget.currentTime);
@@ -457,7 +466,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
         onPlaying={handlePlaying}
         onError={handleError}
         onEnded={handleEnded}
-        preload={currentTrackUrl ? 'auto' : 'none'}
+        preload={currentTrackUrl ? 'metadata' : 'none'}
         className="sr-only"
         aria-hidden
       />
@@ -470,7 +479,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
         onPlaying={handlePlaying}
         onError={handleError}
         onEnded={handleEnded}
-        preload={currentTrackUrl ? 'auto' : 'none'}
+        preload={currentTrackUrl ? 'metadata' : 'none'}
         className="sr-only"
         aria-hidden
       />
