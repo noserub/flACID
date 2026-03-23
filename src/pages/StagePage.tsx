@@ -56,6 +56,7 @@ function StageProjectionView() {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [vizId, setVizId] = useState(initialViz);
   const [demoMode, setDemoMode] = useState(false);
+  const [projectionError, setProjectionError] = useState<string | null>(null);
   const [showTapOverlay, setShowTapOverlay] = useState(true);
   const streamRef = useRef<MediaStream | null>(null);
   streamRef.current = stream;
@@ -100,7 +101,7 @@ function StageProjectionView() {
     const init = async () => {
       try {
         const constraints: MediaStreamConstraints = {
-          audio: deviceId ? { deviceId: { exact: deviceId } } : true,
+          audio: deviceId ? { deviceId: { ideal: deviceId } } : true,
           video: false,
         };
         const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -116,7 +117,10 @@ function StageProjectionView() {
         gain.connect(a);
         setAnalyser(a);
         if (ctx.state === 'suspended') await ctx.resume();
-      } catch {
+        setProjectionError(null);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'Could not access audio';
+        setProjectionError(msg);
         setDemoMode(true);
       }
     };
@@ -134,6 +138,11 @@ function StageProjectionView() {
         currentTrack={vizId}
         visualizationId={vizId}
       />
+      {projectionError && (
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[10002] px-4 py-2 rounded-lg bg-amber-950/90 text-amber-200 text-sm border border-amber-700/50">
+          Demo mode: {projectionError}
+        </div>
+      )}
       {showTapOverlay && (
         <button
           type="button"
@@ -200,7 +209,7 @@ export function StagePage() {
 
       try {
         const constraints: MediaStreamConstraints = {
-          audio: deviceId ? { deviceId: { exact: deviceId } } : true,
+          audio: deviceId ? { deviceId: { ideal: deviceId } } : true,
           video: false,
         };
         const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -239,23 +248,33 @@ export function StagePage() {
     [stopStream]
   );
 
-  // List devices and start with default on mount
+  // List devices and start with default on mount. Re-enumerate after permission if list was empty.
+  const refreshDevices = useCallback(async () => {
+    const list = await navigator.mediaDevices.enumerateDevices();
+    return list
+      .filter((d) => d.kind === 'audioinput' && d.deviceId)
+      .map((d) => ({ deviceId: d.deviceId, label: d.label || `Microphone ${d.deviceId.slice(0, 8)}` }));
+  }, []);
+
   useEffect(() => {
     let mounted = true;
 
     const init = async () => {
       try {
-        const list = await navigator.mediaDevices.enumerateDevices();
-        const audioInputs = list
-          .filter((d) => d.kind === 'audioinput' && d.deviceId)
-          .map((d) => ({ deviceId: d.deviceId, label: d.label || `Microphone ${d.deviceId.slice(0, 8)}` }));
-        if (mounted) {
-          setDevices(audioInputs);
-          if (audioInputs.length > 0) {
+        let audioInputs = await refreshDevices();
+        if (mounted) setDevices(audioInputs);
+
+        if (audioInputs.length > 0) {
+          if (mounted) {
             setSelectedDeviceId(audioInputs[0].deviceId);
             await startLiveInput(audioInputs[0].deviceId);
-          } else {
-            await startLiveInput();
+          }
+        } else {
+          await startLiveInput();
+          if (mounted) {
+            audioInputs = await refreshDevices();
+            setDevices(audioInputs);
+            if (audioInputs.length > 0) setSelectedDeviceId(audioInputs[0].deviceId);
           }
         }
       } catch {
@@ -268,7 +287,7 @@ export function StagePage() {
       mounted = false;
       stopStream();
     };
-  }, [startLiveInput, stopStream]);
+  }, [startLiveInput, stopStream, refreshDevices]);
 
   // Broadcast vizId and deviceId for projection window sync (live updates only)
   const vizChannelRef = useRef<BroadcastChannel | null>(null);
