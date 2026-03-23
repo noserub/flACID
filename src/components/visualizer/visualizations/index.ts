@@ -47,7 +47,9 @@ export function getVisualization(id: number): DrawFn {
   return VISUALIZATIONS[id % VISUALIZATIONS.length] ?? VISUALIZATIONS[0];
 }
 
-// Placeholder - will be replaced with actual implementations from main file
+// Dampened eq response: use sqrt so small fluctuations have less impact (gentler on motion sensitivity)
+const soft = (v: number) => Math.sqrt(Math.min(255, v) / 255) * 180;
+
 function drawDepthLayers(
   ctx: CanvasRenderingContext2D,
   width: number,
@@ -61,31 +63,31 @@ function drawDepthLayers(
   const centerY = height / 2;
   const scale = Math.min(width, height) / 400;
   const layerConfigs = [
-    { freqBand: eq.subBass, hue: 190, radius: 60 * scale, count: 16 },
-    { freqBand: eq.bass, hue: 210, radius: 110 * scale, count: 24 },
-    { freqBand: eq.lowMid, hue: 230, radius: 160 * scale, count: 32 },
-    { freqBand: eq.mid, hue: 250, radius: 210 * scale, count: 40 },
-    { freqBand: eq.highMid, hue: 270, radius: 260 * scale, count: 48 },
-    { freqBand: eq.high, hue: 290, radius: 310 * scale, count: 56 },
-    { freqBand: eq.presence, hue: 310, radius: 360 * scale, count: 64 },
-    { freqBand: eq.energy, hue: 330, radius: 410 * scale, count: 72 },
+    { freqBand: soft(eq.subBass), hue: 190, radius: 60 * scale, count: 16 },
+    { freqBand: soft(eq.bass), hue: 210, radius: 110 * scale, count: 24 },
+    { freqBand: soft(eq.lowMid), hue: 230, radius: 160 * scale, count: 32 },
+    { freqBand: soft(eq.mid), hue: 250, radius: 210 * scale, count: 40 },
+    { freqBand: soft(eq.highMid), hue: 270, radius: 260 * scale, count: 48 },
+    { freqBand: soft(eq.high), hue: 290, radius: 310 * scale, count: 56 },
+    { freqBand: soft(eq.presence), hue: 310, radius: 360 * scale, count: 64 },
+    { freqBand: soft(eq.energy), hue: 330, radius: 410 * scale, count: 72 },
   ];
   layerConfigs.forEach((layer, layerIndex) => {
     const depth = layerIndex / layerConfigs.length;
-    const parallax = (1 - depth) * Math.sin(time * 0.002 + layerIndex) * (40 + eq.presence / 6);
-    const layerRadius = layer.radius + layer.freqBand * 0.6;
+    const parallax = (1 - depth) * Math.sin(time * 0.0012 + layerIndex) * (28 + layer.freqBand / 25);
+    const layerRadius = layer.radius + layer.freqBand * 0.25;
     const segments = layer.count;
-    const rotationSpeed = 0.002 * (layerIndex % 2 === 0 ? 1 : -1) * (1 + eq.energy / 150);
+    const rotationSpeed = 0.0015 * (layerIndex % 2 === 0 ? 1 : -1) * (1 + layer.freqBand / 400);
     for (let i = 0; i <= segments; i++) {
       const angle = (i / segments) * Math.PI * 2 + time * rotationSpeed;
       const dataIdx = Math.floor((i / segments) * bufferLength);
       const value = dataArray[dataIdx] || 0;
-      const noise = Math.sin(i * 0.6 + time * 0.025 + layerIndex * 0.4) * (8 + layer.freqBand / 30);
-      const r = layerRadius + noise + (value * depth) / 20;
+      const noise = Math.sin(i * 0.6 + time * 0.012 + layerIndex * 0.4) * (6 + layer.freqBand / 80);
+      const r = layerRadius + noise + (value * depth) / 55;
       const x = centerX + parallax + Math.cos(angle) * r;
       const y = centerY + Math.sin(angle) * r;
-      const alpha = 0.25 * (1 - depth) + (layer.freqBand / 700) * depth;
-      const size = 3 + depth * 6 + layer.freqBand / 60;
+      const alpha = 0.25 * (1 - depth) + (layer.freqBand / 1100) * depth;
+      const size = 3 + depth * 6 + layer.freqBand / 120;
       ctx.fillStyle = `hsla(${layer.hue}, 75%, ${45 + depth * 25}%, ${alpha})`;
       ctx.beginPath();
       ctx.arc(x, y, size, 0, Math.PI * 2);
@@ -97,22 +99,23 @@ function drawDepthLayers(
       ctx.fill();
     }
   });
-  const shapeCount = Math.floor(12 + eq.high / 20);
+  const shapeCount = Math.floor(12 + soft(eq.high) / 55);
   for (let s = 0; s < shapeCount; s++) {
-    const angle = (s / shapeCount) * Math.PI * 2 + time * 0.003;
-    const distance = 180 * scale + Math.sin(time * 0.004 + s) * (50 + eq.presence / 6);
+    const angle = (s / shapeCount) * Math.PI * 2 + time * 0.002;
+    const distAmp = 35 + soft(eq.presence) / 25;
+    const distance = 180 * scale + Math.sin(time * 0.0025 + s) * distAmp;
     const x = centerX + Math.cos(angle) * distance;
     const y = centerY + Math.sin(angle) * distance;
     const dataIdx = Math.floor((s / shapeCount) * bufferLength);
     const value = dataArray[dataIdx] || 0;
-    const size = 25 + value / 10 + eq.highMid / 12;
+    const size = 25 + value / 28 + soft(eq.highMid) / 35;
     ctx.save();
     ctx.translate(x, y);
-    ctx.rotate(time * 0.015 * (1 + eq.energy / 150) + s);
+    ctx.rotate(time * 0.008 * (1 + soft(eq.energy) / 400) + s);
     for (let n = 0; n < 3; n++) {
       const nSize = size * (1 - n * 0.25);
-      ctx.strokeStyle = `hsla(${250 + s * 15 + n * 30}, 80%, 65%, ${0.35 + value / 600 + eq.high / 800 - n * 0.1})`;
-      ctx.lineWidth = 2 + eq.bass / 100 - n * 0.5;
+      ctx.strokeStyle = `hsla(${250 + s * 15 + n * 30}, 80%, 65%, ${0.35 + value / 800 + soft(eq.high) / 1200 - n * 0.1})`;
+      ctx.lineWidth = 2 + soft(eq.bass) / 250 - n * 0.5;
       ctx.strokeRect(-nSize / 2, -nSize / 2, nSize, nSize);
       ctx.beginPath();
       for (let t = 0; t < 3; t++) {
