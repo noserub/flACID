@@ -63,12 +63,6 @@ export function SiteHeader() {
       setExitConfirmOpen(true);
       return;
     }
-    if (isEditMode && !isDraft) {
-      const confirmed = window.confirm(
-        'Exiting edit mode will clear uploaded audio from memory. Continue?'
-      );
-      if (!confirmed) return;
-    }
     toggleEditMode();
   };
 
@@ -378,10 +372,7 @@ export function SiteHeader() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmDiscard}
-              className="bg-red-600 hover:bg-red-700"
-            >
+            <AlertDialogAction onClick={handleConfirmDiscard}>
               Discard
             </AlertDialogAction>
           </AlertDialogFooter>
