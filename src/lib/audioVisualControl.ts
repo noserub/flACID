@@ -75,6 +75,28 @@ export class VisualAudioSmoother {
   process(rawEq: EQBands, rawSpectrum: Uint8Array, nowMs: number): VisualAudioSmootherResult {
     const mean = meanBandEnergy(rawEq);
 
+    // Rolling history for adaptive normalization (must run first)
+    this.energyHistory.push(mean);
+    if (this.energyHistory.length > this.historyMax) this.energyHistory.shift();
+    const sorted = [...this.energyHistory].sort((a, b) => a - b);
+    const low = sorted[Math.floor(sorted.length * 0.1)] ?? mean;
+    const high = sorted[Math.floor(sorted.length * 0.9)] ?? mean;
+    const spread = Math.max(16, high - low);
+
+    // Always-on volume normalization: map (low, high) to consistent 0–255 range
+    // So visuals react to music dynamics, not device volume
+    const normScale = 220 / spread;
+    const normEq: EQBands = { ...rawEq };
+    for (const k of BAND_KEYS) {
+      normEq[k] = clamp255((rawEq[k] - low) * normScale);
+    }
+    normEq.energy = clamp255((mean - low) * normScale);
+
+    const normSpectrum = new Uint8Array(rawSpectrum.length);
+    for (let i = 0; i < rawSpectrum.length; i++) {
+      normSpectrum[i] = clamp255((rawSpectrum[i] - low) * normScale);
+    }
+
     // Spectral flux: change in spectrum (detects transients even at low volume)
     let flux = 0;
     if (this.prevSpectrum && this.prevSpectrum.length === rawSpectrum.length) {
@@ -98,70 +120,54 @@ export class VisualAudioSmoother {
     const fluxSpread = Math.max(4, fluxHigh - fluxLow);
     const fluxNorm = Math.min(1, (flux - fluxLow) / fluxSpread);
 
-    // Rolling history for adaptive floor / "loudness context"
-    this.energyHistory.push(mean);
-    if (this.energyHistory.length > this.historyMax) {
-      this.energyHistory.shift();
-    }
-    const sorted = [...this.energyHistory].sort((a, b) => a - b);
-    const low = sorted[Math.floor(sorted.length * 0.15)] ?? mean;
-    const high = sorted[Math.floor(sorted.length * 0.85)] ?? mean;
-    const spread = Math.max(12, high - low);
-
-    // Auto-normalize: when dynamics are compressed (quiet), stretch to use more range
-    const isQuiet = mean < 50 || spread < 25;
-    const stretch = isQuiet ? 1 + (1 - spread / 30) * 0.4 : 1;
-
-    // Soft-signal lift: map current mean into a gentler 0–1 curve
-    const normalized = clamp255(((mean - low) / spread) * 255 * Math.min(1.3, stretch));
-    const softLift = 0.55 + 0.45 * Math.pow(normalized / 255, 0.65);
+    const normMean = meanBandEnergy(normEq);
+    const softLift = 0.6 + 0.4 * Math.pow(normMean / 255, 0.6);
 
     // Per-band relative change (pattern-based: band vs its own baseline)
     const relativeBoost: Partial<Record<keyof EQBands, number>> = {};
     for (const k of BAND_KEYS) {
-      const v = rawEq[k];
+      const v = normEq[k];
       const base = this.bandBaselines[k] ?? v;
       this.bandBaselines[k] = base * 0.92 + v * 0.08;
-      const rel = base > 4 ? Math.max(0, (v - base) / (base + 4)) : 0;
-      relativeBoost[k] = Math.min(1, rel * 0.5);
+      const rel = base > 8 ? Math.max(0, (v - base) / (base + 8)) : 0;
+      relativeBoost[k] = Math.min(1, rel * 0.6);
     }
 
-    // Two time-scale energies (0–255 scale)
-    this.slowEnergy = this.slowEnergy * 0.94 + mean * 0.06;
-    this.fastEnergy = this.fastEnergy * 0.78 + mean * 0.22;
+    // Two time-scale energies (now on normalized 0–255, so volume-independent)
+    this.slowEnergy = this.slowEnergy * 0.94 + normMean * 0.06;
+    this.fastEnergy = this.fastEnergy * 0.78 + normMean * 0.22;
 
     const delta = Math.max(0, this.fastEnergy - this.slowEnergy);
-    const adaptiveThresh = 6 + this.slowEnergy * 0.12;
-    const minGapMs = 110 + (255 - this.slowEnergy) * 0.35;
+    const adaptiveThresh = 8 + this.slowEnergy * 0.08;
+    const minGapMs = 100;
 
-    // Onset: blend energy delta with spectral flux (flux works at any volume)
-    const fluxThresh = 3 + this.slowEnergy * 0.02;
-    const fluxOnset = fluxNorm > 0.4 && flux > fluxThresh;
-    const energyOnset = delta > adaptiveThresh * 1.35;
+    // Onset: energy delta + spectral flux (both work at any volume after normalization)
+    const fluxOnset = fluxNorm > 0.35 && fluxSpread > 2;
+    const energyOnset = delta > adaptiveThresh * 1.2;
 
-    if ((energyOnset || (fluxOnset && isQuiet)) && nowMs - this.lastOnsetMs > minGapMs) {
+    if ((energyOnset || fluxOnset) && nowMs - this.lastOnsetMs > minGapMs) {
       const energyStrength = energyOnset
-        ? Math.min(1, (delta - adaptiveThresh) / (40 + adaptiveThresh))
+        ? Math.min(1, (delta - adaptiveThresh) / (30 + adaptiveThresh))
         : 0;
-      const fluxStrength = fluxOnset ? Math.min(0.6, fluxNorm * 0.8) : 0;
-      const strength = Math.max(energyStrength, fluxStrength * (isQuiet ? 1.2 : 0.5));
-      this.pulse = Math.min(1, this.pulse + 0.35 + strength * 0.45);
+      const fluxStrength = fluxOnset ? Math.min(0.7, fluxNorm * 0.9) : 0;
+      const strength = Math.max(energyStrength, fluxStrength);
+      this.pulse = Math.min(1, this.pulse + 0.38 + strength * 0.45);
       this.lastOnsetMs = nowMs;
     }
 
-    this.pulse *= 0.9;
+    this.pulse *= 0.91;
 
-    const bandAlpha = 0.14 + this.pulse * 0.1;
-    const nextEq: EQBands = { ...rawEq };
+    const bandAlpha = 0.15 + this.pulse * 0.1;
+    const nextEq: EQBands = { ...normEq };
 
     if (!this.prevEq) {
-      this.prevEq = { ...rawEq };
+      this.prevEq = { ...normEq };
     }
 
     for (const k of BAND_KEYS) {
-      let v = rawEq[k] * softLift;
-      if (isQuiet && (relativeBoost[k] ?? 0) > 0.1) {
-        v *= 1 + (relativeBoost[k] ?? 0) * 0.5;
+      let v = normEq[k] * softLift;
+      if ((relativeBoost[k] ?? 0) > 0.12) {
+        v *= 1 + (relativeBoost[k] ?? 0) * 0.4;
       }
       this.prevEq[k] = this.prevEq[k]! * (1 - bandAlpha) + v * bandAlpha;
       nextEq[k] = clamp255(this.prevEq[k]!);
@@ -177,19 +183,19 @@ export class VisualAudioSmoother {
       BAND_KEYS.reduce((s, k) => s + nextEq[k], 0) / BAND_KEYS.length;
     nextEq.energy = clamp255(avgSmoothed * (1 + this.pulse * 0.22));
 
-    // Smooth spectrum bins (same path for real FFT and simulator-filled buffer)
-    const len = rawSpectrum.length;
+    // Smooth spectrum bins (use normalized spectrum for volume independence)
+    const len = normSpectrum.length;
     if (!this.spectrumFloat || this.spectrumFloat.length !== len) {
       this.spectrumFloat = new Float32Array(len);
       for (let i = 0; i < len; i++) {
-        this.spectrumFloat[i] = rawSpectrum[i];
+        this.spectrumFloat[i] = normSpectrum[i];
       }
     } else {
       const specAlpha = 0.16 + this.pulse * 0.08;
       for (let i = 0; i < len; i++) {
-        let target = rawSpectrum[i] * (0.92 + softLift * 0.08);
-        if (isQuiet && fluxNorm > 0.3 && i < len * 0.15) {
-          target *= 1 + fluxNorm * 0.15;
+        let target = normSpectrum[i] * (0.92 + softLift * 0.08);
+        if (fluxNorm > 0.3 && i < len * 0.15) {
+          target *= 1 + fluxNorm * 0.12;
         }
         this.spectrumFloat[i] =
           this.spectrumFloat[i] * (1 - specAlpha) + target * specAlpha;
