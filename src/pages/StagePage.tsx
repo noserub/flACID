@@ -31,7 +31,7 @@ export function StagePage() {
   const [vizId, setVizId] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showSettings, setShowSettings] = useState(false);
+  const [showSettings, setShowSettings] = useState(true);
   const [demoMode, setDemoMode] = useState(false);
 
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -185,12 +185,9 @@ export function StagePage() {
         </div>
       )}
 
-      {/* Minimal controls — top-right, auto-hide */}
+      {/* Controls — top-right, always visible; settings open by default shows device + viz dropdowns */}
       <div
-        className={cn(
-          'absolute top-0 right-0 z-20 flex flex-col items-end gap-2 p-4 transition-opacity duration-300',
-          showSettings ? 'opacity-100' : 'opacity-0 hover:opacity-100'
-        )}
+        className="absolute top-0 right-0 z-[100] flex flex-col items-end gap-2 p-4"
         style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))', paddingRight: 'max(1rem, env(safe-area-inset-right))' }}
       >
         <div className="flex items-center gap-2">
