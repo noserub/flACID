@@ -41,6 +41,7 @@ interface PlaybackContextType {
   volume: number;
   isMuted: boolean;
   isAudioReady: boolean;
+  isBuffering: boolean;
   currentTrackData: PlayerTrack | undefined;
   /** Ref to the visualizer audio element — used by MusicPlayer to connect analyser (Web Audio) */
   audioRef: RefObject<HTMLAudioElement | null>;
@@ -101,6 +102,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   const [volume, setVolume] = useState(0.7);
   const [isMuted, setIsMuted] = useState(false);
   const [isAudioReady, setIsAudioReady] = useState(false);
+  const [isBuffering, setIsBuffering] = useState(false);
   const [shouldAutoPlay, setShouldAutoPlay] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isPageVisible, setIsPageVisible] = useState(
@@ -119,6 +121,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     setIsAudioReady(false);
+    setIsBuffering(false);
     setIsPlaying(false);
     if (!currentTrackData) return;
 
@@ -198,11 +201,15 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
 
   const handleCanPlay = useCallback(() => {
     setIsAudioReady(true);
+    setIsBuffering(false);
     if (shouldAutoPlay) {
       setIsPlaying(true);
       setShouldAutoPlay(false);
     }
   }, [shouldAutoPlay]);
+
+  const handleWaiting = useCallback(() => setIsBuffering(true), []);
+  const handlePlaying = useCallback(() => setIsBuffering(false), []);
 
   const handleError = useCallback(() => {
     setIsAudioReady(false);
@@ -398,6 +405,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       volume,
       isMuted,
       isAudioReady,
+      isBuffering,
       currentTrackData,
       audioRef,
       togglePlay,
@@ -422,6 +430,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       volume,
       isMuted,
       isAudioReady,
+      isBuffering,
       currentTrackData,
       audioRef,
       togglePlay,
@@ -444,9 +453,11 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
         onCanPlay={handleCanPlay}
+        onWaiting={handleWaiting}
+        onPlaying={handlePlaying}
         onError={handleError}
         onEnded={handleEnded}
-        preload="none"
+        preload={currentTrackUrl ? 'auto' : 'none'}
         className="sr-only"
         aria-hidden
       />
@@ -455,9 +466,11 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
         onCanPlay={handleCanPlay}
+        onWaiting={handleWaiting}
+        onPlaying={handlePlaying}
         onError={handleError}
         onEnded={handleEnded}
-        preload="none"
+        preload={currentTrackUrl ? 'auto' : 'none'}
         className="sr-only"
         aria-hidden
       />

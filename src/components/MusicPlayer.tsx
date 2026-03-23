@@ -35,6 +35,7 @@ export function MusicPlayer() {
     volume,
     isMuted,
     isAudioReady,
+    isBuffering,
     currentTrackData,
     audioRef,
     togglePlay,
@@ -342,11 +343,33 @@ export function MusicPlayer() {
               )}
             </AnimatePresence>
 
+            {/* Buffering indicator */}
+            <AnimatePresence>
+              {isBuffering && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="absolute inset-0 flex items-center justify-center z-[59] bg-black/30"
+                >
+                  <div className="text-center space-y-3">
+                    <Loader2 className="h-10 w-10 text-cyan-400 animate-spin mx-auto" />
+                    <p className="text-white/70 text-sm">Buffering...</p>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {/* Swipe indicator (visible during swipe, hidden when controls hidden) */}
-            {showFullscreenControls && touchStartY !== null && touchCurrentY !== null && (
+            <AnimatePresence>
+              {showFullscreenControls && touchStartY !== null && touchCurrentY !== null && (
               <motion.div
+                key="swipe-indicator"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: Math.min((touchCurrentY - touchStartY) / 100, 0.6) }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
                 className="absolute top-4 left-1/2 -translate-x-1/2 z-[55] pointer-events-none"
               >
                 <div className="bg-white/20 backdrop-blur-sm rounded-full px-4 py-2 text-white/90 text-sm">
@@ -354,6 +377,7 @@ export function MusicPlayer() {
                 </div>
               </motion.div>
             )}
+            </AnimatePresence>
 
             {/* Visualizer */}
             <motion.div
@@ -378,33 +402,45 @@ export function MusicPlayer() {
                 currentTrack={currentTrack}
                 visualizationId={tracks[currentTrack]?.visualizationId}
               />
-              {showFullscreenControls && (
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <AnimatePresence>
+                {showFullscreenControls && (
                   <motion.div
-                    initial={false}
-                    animate={{ y: 0, opacity: 1 }}
-                    transition={{ delay: 0.15, duration: 0.35 }}
-                    className="text-center"
+                    key="fullscreen-track-info"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.25 }}
+                    className="absolute inset-0 flex items-center justify-center pointer-events-none"
                   >
-                    <h3 className="text-white/90 mb-2 text-4xl md:text-5xl">{tracks[currentTrack].title}</h3>
-                    <p className="text-white/60 text-2xl md:text-3xl">{tracks[currentTrack].artist}</p>
-                    {tracks[currentTrack].album && (
-                      <p className="text-white/50 mt-1 text-xl md:text-2xl">{tracks[currentTrack].album}</p>
-                    )}
+                    <motion.div
+                      initial={{ y: 8 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      transition={{ delay: 0.05, duration: 0.3 }}
+                      className="text-center"
+                    >
+                      <h3 className="text-white/90 mb-2 text-4xl md:text-5xl">{tracks[currentTrack].title}</h3>
+                      <p className="text-white/60 text-2xl md:text-3xl">{tracks[currentTrack].artist}</p>
+                      {tracks[currentTrack].album && (
+                        <p className="text-white/50 mt-1 text-xl md:text-2xl">{tracks[currentTrack].album}</p>
+                      )}
+                    </motion.div>
                   </motion.div>
-                </div>
-              )}
+                )}
+              </AnimatePresence>
             </motion.div>
 
             {/* Fullscreen controls overlay — tap/click elsewhere to hide for recording */}
-            {showFullscreenControls && (
-            <motion.div
-              initial={false}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.15, duration: 0.35, ease: 'easeOut' }}
-              className="absolute bottom-0 left-0 right-0 pointer-events-auto z-50 bg-gradient-to-t from-black/80 via-black/50 to-transparent p-8 pt-24"
-              onClick={(e) => e.stopPropagation()}
-            >
+            <AnimatePresence>
+              {showFullscreenControls && (
+              <motion.div
+                key="fullscreen-bottom-controls"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.25 }}
+                className="absolute bottom-0 left-0 right-0 pointer-events-auto z-50 bg-gradient-to-t from-black/80 via-black/50 to-transparent p-8 pt-24"
+                onClick={(e) => e.stopPropagation()}
+              >
               <div className="max-w-4xl mx-auto space-y-4">
                 {/* Progress Bar */}
                 <div className="space-y-2">
@@ -507,8 +543,9 @@ export function MusicPlayer() {
                   <div className="w-32"></div>
                 </div>
               </div>
-            </motion.div>
-            )}
+              </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
             )}
           </AnimatePresence>,
@@ -518,23 +555,32 @@ export function MusicPlayer() {
         })()}
 
         {/* Ascend + X portaled to document.body so they sit above Descend (9990+) and any stacking context */}
-      {typeof document !== 'undefined' && isFullscreen && showFullscreenControls &&
+      {typeof document !== 'undefined' && isFullscreen &&
         createPortal(
-          <div
-            className="fixed top-0 right-0 z-[10100] flex items-center gap-3 pointer-events-auto p-4 sm:p-6 bg-black/60 backdrop-blur-md rounded-bl-xl"
-            style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))', paddingRight: 'max(1rem, env(safe-area-inset-right))' }}
-          >
-            <DescentToggleButton isDescentMode={isDescentMode} onClick={toggleDescentMode} />
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={toggleFullscreen}
-              className="h-10 w-10 bg-background/80 text-cyan-400 border border-cyan-400/30 hover:border-fuchsia-400/50 hover:text-fuchsia-400 hover:bg-transparent hover:shadow-lg hover:shadow-fuchsia-500/20 transition-all duration-300"
-              aria-label="Exit fullscreen"
-            >
-              <X className="h-5 w-5" />
-            </Button>
-          </div>,
+          <AnimatePresence>
+            {showFullscreenControls && (
+              <motion.div
+                key="fullscreen-ascend-x"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.25 }}
+                className="fixed top-0 right-0 z-[10100] flex items-center gap-3 pointer-events-auto p-4 sm:p-6 bg-black/60 backdrop-blur-md rounded-bl-xl"
+                style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))', paddingRight: 'max(1rem, env(safe-area-inset-right))' }}
+              >
+                <DescentToggleButton isDescentMode={isDescentMode} onClick={toggleDescentMode} />
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={toggleFullscreen}
+                  className="h-10 w-10 bg-background/80 text-cyan-400 border border-cyan-400/30 hover:border-fuchsia-400/50 hover:text-fuchsia-400 hover:bg-transparent hover:shadow-lg hover:shadow-fuchsia-500/20 transition-all duration-300"
+                  aria-label="Exit fullscreen"
+                >
+                  <X className="h-5 w-5" />
+                </Button>
+              </motion.div>
+            )}
+          </AnimatePresence>,
           document.body
         )}
 
@@ -543,6 +589,22 @@ export function MusicPlayer() {
       <div className="bg-card/80 backdrop-blur-md border-2 border-border rounded-lg overflow-hidden shadow-2xl shadow-cyan-500/10">
         {/* Visualizer */}
         <div className="relative h-64 md:h-96 bg-gradient-to-br from-cyan-900/20 to-fuchsia-900/20">
+          <AnimatePresence>
+            {isBuffering && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="absolute inset-0 flex items-center justify-center z-10 bg-black/20"
+              >
+                <div className="text-center space-y-2">
+                  <Loader2 className="h-8 w-8 text-cyan-400 animate-spin mx-auto" />
+                  <p className="text-white/70 text-sm">Buffering...</p>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
           <PsychedelicVisualizer 
             key={`normal-viz-${currentTrack}-${tracks[currentTrack]?.visualizationId ?? 0}`}
             analyser={analyserForViz} 
