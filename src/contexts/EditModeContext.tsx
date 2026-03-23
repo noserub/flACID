@@ -389,8 +389,9 @@ export function EditModeProvider({ children }: { children: ReactNode }) {
     setIsEditMode(newEditMode);
     
     if (!newEditMode) {
-      // Apply draft to preview so edits (e.g. visualization) persist when exiting edit mode
-      setPublishedContent(draftContent);
+      // Don't apply draft — unpublished changes stay in draft only.
+      // User can test in edit mode, then Publish when ready. Exiting without
+      // publish shows the last published (Supabase) state.
       setAudioCache({});
       console.log('Audio cache cleared for performance');
     }
