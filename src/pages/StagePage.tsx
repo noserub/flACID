@@ -524,10 +524,17 @@ export function StagePage() {
                   const id = vizIdRef.current;
                   if (typeof localStorage !== 'undefined') localStorage.setItem(STAGE_VIZ_STORAGE_KEY, String(id));
                   const url = `${window.location.origin}/stage?projection=1&viz=${id}`;
-                  const existing = projectionWindowRef.current;
+                  // Try to get existing projection window by name (works across tabs)
+                  const existingByName = window.open('', 'stage-projection');
+                  const existing = (existingByName && !existingByName.closed)
+                    ? existingByName
+                    : projectionWindowRef.current && !projectionWindowRef.current.closed
+                      ? projectionWindowRef.current
+                      : null;
                   if (existing && !existing.closed) {
                     existing.location.replace(url);
                     existing.focus();
+                    projectionWindowRef.current = existing;
                   } else {
                     const win = window.open(url, 'stage-projection', 'noopener,width=1920,height=1080');
                     if (win) projectionWindowRef.current = win;

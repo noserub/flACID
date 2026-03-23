@@ -322,9 +322,9 @@ export function SiteHeader() {
 
             {isDraft && isEditMode && (
               <div className="mt-2 flex justify-end md:mt-0 md:absolute md:right-full md:top-1/2 md:mr-3 md:-translate-y-1/2 md:justify-end z-10">
-                <div className="flex items-center gap-2 bg-orange-600/90 backdrop-blur-sm border border-orange-400/50 rounded-lg px-3 py-2 shadow-lg whitespace-nowrap">
-                  <div className="w-2 h-2 bg-orange-300 rounded-full animate-pulse shrink-0" />
-                  <span className="text-sm text-orange-100 font-medium">Unsaved Changes</span>
+                <div className="flex items-center gap-2 bg-cyan-600/90 backdrop-blur-sm border border-cyan-400/50 rounded-lg px-3 py-2 shadow-lg whitespace-nowrap">
+                  <div className="w-2 h-2 bg-cyan-300 rounded-full animate-pulse shrink-0" />
+                  <span className="text-sm text-cyan-100 font-medium">Unsaved Changes</span>
                 </div>
               </div>
             )}

@@ -433,11 +433,11 @@ export function ComponentLibrary({ onClose }: ComponentLibraryProps) {
           <div className="max-w-7xl mx-auto px-6 py-4">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-orange-500 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-fuchsia-500 flex items-center justify-center">
                   <Package className="h-6 w-6 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-2xl bg-gradient-to-r from-purple-400 to-orange-400 bg-clip-text text-transparent">
+                  <h1 className="text-2xl bg-gradient-to-r from-purple-400 to-fuchsia-400 bg-clip-text text-transparent">
                     UI Component Library
                   </h1>
                   <p className="text-sm text-muted-foreground">
@@ -480,7 +480,7 @@ export function ComponentLibrary({ onClose }: ComponentLibraryProps) {
 
               return (
                 <div key={category} className="mb-12">
-                  <h2 className="text-3xl mb-6 bg-gradient-to-r from-purple-400 to-orange-400 bg-clip-text text-transparent">
+                  <h2 className="text-3xl mb-6 bg-gradient-to-r from-purple-400 to-fuchsia-400 bg-clip-text text-transparent">
                     {category}
                   </h2>
                   <div className="grid gap-6">

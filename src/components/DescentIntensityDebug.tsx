@@ -85,11 +85,11 @@ export function DescentIntensityDebug() {
           <div className="border-t border-gray-700 pt-2">
             <div className="flex justify-between">
               <span className="text-gray-400">Energy:</span>
-              <span className="text-orange-300">{(intensity.energy * 100).toFixed(0)}%</span>
+              <span className="text-cyan-300">{(intensity.energy * 100).toFixed(0)}%</span>
             </div>
             <div className="w-full bg-gray-700 h-2 rounded-full overflow-hidden">
               <div 
-                className="h-full bg-orange-500 transition-all duration-100"
+                className="h-full bg-cyan-500 transition-all duration-100"
                 style={{ width: `${intensity.energy * 100}%` }}
               />
             </div>

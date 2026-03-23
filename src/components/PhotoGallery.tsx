@@ -88,7 +88,7 @@ export function PhotoGallery() {
             transition={{ duration: 0.8 }}
             className="text-center mb-12"
           >
-            <h2 className="text-5xl md:text-6xl mb-4 bg-gradient-to-r from-purple-400 to-orange-400 bg-clip-text text-transparent">
+            <h2 className="text-5xl md:text-6xl mb-4 bg-gradient-to-r from-purple-400 to-fuchsia-400 bg-clip-text text-transparent">
               {content.gallery.title}
             </h2>
             {content.gallery.subtitle && (
@@ -146,7 +146,7 @@ export function PhotoGallery() {
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-purple-900/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                     <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                      <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 via-pink-500/20 to-orange-500/20 animate-pulse" />
+                      <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 via-pink-500/20 to-fuchsia-500/20 animate-pulse" />
                     </div>
                     {photo.caption && (
                       <div className="absolute bottom-0 left-0 right-0 p-4 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
@@ -226,7 +226,7 @@ export function PhotoGallery() {
                   />
                   
                   {/* Psychedelic Glow */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-pink-500/10 to-orange-500/10 rounded-lg pointer-events-none" />
+                  <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-pink-500/10 to-fuchsia-500/10 rounded-lg pointer-events-none" />
                 </div>
 
                 {/* Caption */}
