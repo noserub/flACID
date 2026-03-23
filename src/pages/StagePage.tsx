@@ -6,8 +6,9 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { PsychedelicVisualizer } from '../components/PsychedelicVisualizer';
-import { Mic, Home, Loader2, Settings2 } from 'lucide-react';
+import { Mic, Home, Loader2, Settings2, SkipBack, SkipForward, Timer } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import {
   Select,
@@ -16,7 +17,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../components/ui/select';
+import { Switch } from '../components/ui/switch';
 import { cn } from '../components/ui/utils';
+
+const VIZ_NAMES = [
+  'Organic Flow',
+  'Depth Layers',
+  'Waveform Interference',
+  'Minimal Geometric',
+  'Atmospheric Noise',
+  'Kaleidoscope Fractals',
+  'Liquid Plasma',
+  'Neon Grid',
+  'Spiral Galaxy',
+  'Crystal Lattice',
+];
+
+const AUTO_CYCLE_DURATIONS = [5, 6, 8, 10, 12, 16] as const;
 
 interface AudioDevice {
   deviceId: string;
@@ -32,7 +49,11 @@ export function StagePage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showSettings, setShowSettings] = useState(true);
+  const [showControls, setShowControls] = useState(true);
   const [demoMode, setDemoMode] = useState(false);
+  const [autoCycleEnabled, setAutoCycleEnabled] = useState(false);
+  const [autoCycleMinutes, setAutoCycleMinutes] = useState(8);
+  const justShowedRef = useRef(0);
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -124,14 +145,40 @@ export function StagePage() {
     };
   }, [startLiveInput, stopStream]);
 
+  // Auto-cycle: advance viz every N minutes when enabled
+  useEffect(() => {
+    if (!autoCycleEnabled) return;
+    const ms = autoCycleMinutes * 60 * 1000;
+    const id = window.setInterval(() => {
+      setVizId((v) => (v + 1) % VIZ_NAMES.length);
+    }, ms);
+    return () => window.clearInterval(id);
+  }, [autoCycleEnabled, autoCycleMinutes]);
+
+  const handleNextViz = () => {
+    setVizId((v) => (v + 1) % VIZ_NAMES.length);
+  };
+
+  const handlePrevViz = () => {
+    setVizId((v) => (v - 1 + VIZ_NAMES.length) % VIZ_NAMES.length);
+  };
+
   // Restart when device changes
   const handleDeviceChange = (deviceId: string) => {
     setSelectedDeviceId(deviceId);
     startLiveInput(deviceId);
   };
 
+  const handleBackgroundClick = () => {
+    if (Date.now() - justShowedRef.current < 300) return;
+    setShowControls((v) => !v);
+  };
+
   return (
-    <div className="fixed inset-0 z-[9999] bg-black flex flex-col">
+    <div
+      className="fixed inset-0 z-[9999] bg-black flex flex-col cursor-pointer"
+      onClick={handleBackgroundClick}
+    >
       {/* Fullscreen visualizer */}
       <div className="absolute inset-0">
         <PsychedelicVisualizer
@@ -144,7 +191,7 @@ export function StagePage() {
 
       {/* Loading overlay */}
       {loading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/70 z-10">
+        <div className="absolute inset-0 flex items-center justify-center bg-black/70 z-10" onClick={(e) => e.stopPropagation()}>
           <div className="text-center space-y-4">
             <Loader2 className="h-12 w-12 text-cyan-400 animate-spin mx-auto" />
             <p className="text-white/80">Requesting microphone access…</p>
@@ -154,7 +201,7 @@ export function StagePage() {
 
       {/* Error overlay */}
       {error && !loading && !demoMode && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-10 p-6">
+        <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-10 p-6" onClick={(e) => e.stopPropagation()}>
           <div className="text-center space-y-5 max-w-md">
             <Mic className="h-16 w-16 text-amber-500/80 mx-auto" />
             <p className="text-white/90 text-lg font-medium">{error}</p>
@@ -185,12 +232,43 @@ export function StagePage() {
         </div>
       )}
 
-      {/* Controls — top-right, always visible; settings open by default shows device + viz dropdowns */}
-      <div
-        className="absolute top-0 right-0 z-[100] flex flex-col items-end gap-2 p-4"
-        style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))', paddingRight: 'max(1rem, env(safe-area-inset-right))' }}
-      >
+      {/* Controls — tap to show/hide (like fullscreen player) */}
+      <AnimatePresence>
+        {showControls && (
+          <motion.div
+            key="stage-controls"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className="absolute top-0 right-0 z-[100] flex flex-col items-end gap-2 p-4 pointer-events-auto"
+            style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))', paddingRight: 'max(1rem, env(safe-area-inset-right))' }}
+            onClick={(e) => {
+              e.stopPropagation();
+              justShowedRef.current = Date.now();
+            }}
+          >
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={handlePrevViz}
+            className="h-10 w-10 bg-black/50 text-white border-white/30 hover:bg-white/20"
+            aria-label="Previous visualization"
+            title="Previous visualization"
+          >
+            <SkipBack className="h-5 w-5" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={handleNextViz}
+            className="h-10 w-10 bg-black/50 text-white border-white/30 hover:bg-white/20"
+            aria-label="Next visualization"
+            title="Next visualization"
+          >
+            <SkipForward className="h-5 w-5" />
+          </Button>
           <Button
             variant="outline"
             size="icon"
@@ -259,27 +337,49 @@ export function StagePage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="z-[10050] bg-black/90 border-white/20 text-white">
-                {[
-                  'Organic Flow',
-                  'Depth Layers',
-                  'Waveform Interference',
-                  'Minimal Geometric',
-                  'Atmospheric Noise',
-                  'Kaleidoscope Fractals',
-                  'Liquid Plasma',
-                  'Neon Grid',
-                  'Spiral Galaxy',
-                  'Crystal Lattice',
-                ].map((name, i) => (
+                {VIZ_NAMES.map((name, i) => (
                   <SelectItem key={i} value={String(i)}>
                     {name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+
+            <div className="pt-2 border-t border-white/20 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-white/80 text-sm flex items-center gap-1.5" htmlFor="auto-cycle">
+                  <Timer className="h-3.5 w-3.5" />
+                  Auto-cycle
+                </label>
+                <Switch
+                  id="auto-cycle"
+                  checked={autoCycleEnabled}
+                  onCheckedChange={setAutoCycleEnabled}
+                />
+              </div>
+              {autoCycleEnabled && (
+                <Select
+                  value={String(autoCycleMinutes)}
+                  onValueChange={(v) => setAutoCycleMinutes(Number(v))}
+                >
+                  <SelectTrigger className="bg-white/10 border-white/20 text-white h-8 text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="z-[10050] bg-black/90 border-white/20 text-white">
+                    {AUTO_CYCLE_DURATIONS.map((m) => (
+                      <SelectItem key={m} value={String(m)}>
+                        {m} min
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
           </div>
         )}
-      </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
