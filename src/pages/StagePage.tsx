@@ -8,7 +8,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { PsychedelicVisualizer } from '../components/PsychedelicVisualizer';
-import { Mic, Home, Loader2, Monitor, Settings2, SkipBack, SkipForward, Timer } from 'lucide-react';
+import { Mic, Loader2, Monitor, Settings2, SkipBack, SkipForward, Timer } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import {
   Select,
@@ -224,17 +224,29 @@ export function StagePage() {
     if (!autoCycleEnabled) return;
     const ms = autoCycleMinutes * 60 * 1000;
     const id = window.setInterval(() => {
-      setVizId((v) => (v + 1) % VIZ_NAMES.length);
+      setVizId((v) => {
+        const next = (v + 1) % VIZ_NAMES.length;
+        vizIdRef.current = next;
+        return next;
+      });
     }, ms);
     return () => window.clearInterval(id);
   }, [autoCycleEnabled, autoCycleMinutes]);
 
   const handleNextViz = () => {
-    setVizId((v) => (v + 1) % VIZ_NAMES.length);
+    setVizId((v) => {
+      const next = (v + 1) % VIZ_NAMES.length;
+      vizIdRef.current = next;
+      return next;
+    });
   };
 
   const handlePrevViz = () => {
-    setVizId((v) => (v - 1 + VIZ_NAMES.length) % VIZ_NAMES.length);
+    setVizId((v) => {
+      const next = (v - 1 + VIZ_NAMES.length) % VIZ_NAMES.length;
+      vizIdRef.current = next;
+      return next;
+    });
   };
 
   // Restart when device changes
@@ -357,17 +369,6 @@ export function StagePage() {
           >
             <Settings2 className="h-5 w-5" />
           </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            asChild
-            className="h-10 w-10 bg-black/50 text-white border-white/30 hover:bg-white/20"
-            aria-label="Back to site"
-          >
-            <a href="/">
-              <Home className="h-5 w-5" />
-            </a>
-          </Button>
         </div>
 
         {showSettings && (
@@ -411,7 +412,11 @@ export function StagePage() {
             )}
 
             <label className="text-white/80 text-sm block">Visualization</label>
-            <Select value={String(vizId)} onValueChange={(v) => setVizId(Number(v))}>
+            <Select value={String(vizId)} onValueChange={(v) => {
+                const n = Number(v);
+                vizIdRef.current = n;
+                setVizId(n);
+              }}>
               <SelectTrigger className="bg-white/10 border-white/20 text-white">
                 <SelectValue />
               </SelectTrigger>
