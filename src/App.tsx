@@ -107,23 +107,13 @@ function AppContent() {
   );
 }
 
-const STAGE_MODE_AVAILABLE =
-  import.meta.env.VITE_STAGE_MODE_AVAILABLE === 'true' ||
-  import.meta.env.VITE_STAGE_MODE_AVAILABLE === '1';
-
 export default function App() {
   useSEO(DEFAULT_SEO);
 
   const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
 
   if (pathname === '/stage') {
-    if (!STAGE_MODE_AVAILABLE) {
-      window.location.replace('/');
-      return null;
-    }
-    return (
-      <StagePage />
-    );
+    return <StagePage />;
   }
 
   return (

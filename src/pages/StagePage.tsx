@@ -2,8 +2,7 @@
  * Stage / Live mode — for projecting visualizations at venues.
  * Reacts to live audio (mic/line-in) instead of playback.
  *
- * Hidden from visitors: only accessible when VITE_STAGE_MODE_AVAILABLE=true.
- * Navigate to /stage to use. No links from main site.
+ * Link in overflow menu (signed-in only). Direct URL: /stage
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -23,10 +22,6 @@ interface AudioDevice {
   deviceId: string;
   label: string;
 }
-
-const STAGE_AVAILABLE =
-  import.meta.env.VITE_STAGE_MODE_AVAILABLE === 'true' ||
-  import.meta.env.VITE_STAGE_MODE_AVAILABLE === '1';
 
 export function StagePage() {
   const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
@@ -134,10 +129,6 @@ export function StagePage() {
     setSelectedDeviceId(deviceId);
     startLiveInput(deviceId);
   };
-
-  if (!STAGE_AVAILABLE) {
-    return null; // App.tsx will redirect
-  }
 
   return (
     <div className="fixed inset-0 z-[9999] bg-black flex flex-col">

@@ -35,10 +35,6 @@ import { SignInDialog } from './SignInDialog';
 import { MiniPlayer } from './MiniPlayer';
 import { requestDescentHelp } from '../lib/descentHelp';
 
-const STAGE_MODE_AVAILABLE =
-  import.meta.env.VITE_STAGE_MODE_AVAILABLE === 'true' ||
-  import.meta.env.VITE_STAGE_MODE_AVAILABLE === '1';
-
 export function SiteHeader() {
   const { isEditMode, isDraft, toggleEditMode, publishChanges, discardDraft, content } = useEditMode();
   const { isDescentMode } = useDescentMode();
@@ -281,7 +277,7 @@ export function SiteHeader() {
             )}
 
             {/* Stage / Live Mode — venue projection, signed-in only */}
-            {isAuthenticated && STAGE_MODE_AVAILABLE && (
+            {isAuthenticated && (
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuLabel className="text-xs text-muted-foreground">
