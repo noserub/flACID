@@ -13,29 +13,15 @@ Create the following storage buckets in your Supabase project dashboard:
 - Allowed MIME types: `audio/mpeg`, `audio/mp3`, `audio/ogg`, `audio/flac`
 - Cache Control: `public, max-age=31536000` (1 year)
 
-**RLS Policies:**
+**RLS Policies:** use `supabase/migrations/006_storage_admin_rls.sql` after buckets exist (replaces broad “authenticated” writes with **site admin** checks via `public.is_site_admin()` from migration 005).
+
+Legacy reference — public read:
 ```sql
--- Public read access
 CREATE POLICY "Public audio files are viewable by everyone"
   ON storage.objects FOR SELECT
   USING (bucket_id = 'audio');
-
--- Authenticated write access
-CREATE POLICY "Authenticated users can upload audio"
-  ON storage.objects FOR INSERT
-  TO authenticated
-  WITH CHECK (bucket_id = 'audio');
-
-CREATE POLICY "Authenticated users can update audio"
-  ON storage.objects FOR UPDATE
-  TO authenticated
-  USING (bucket_id = 'audio');
-
-CREATE POLICY "Authenticated users can delete audio"
-  ON storage.objects FOR DELETE
-  TO authenticated
-  USING (bucket_id = 'audio');
 ```
+Writes are defined in **006** (site admins only).
 
 ### 2. `covers` Bucket
 **Purpose:** Store album and track cover images
@@ -46,27 +32,15 @@ CREATE POLICY "Authenticated users can delete audio"
 - Allowed MIME types: `image/jpeg`, `image/png`, `image/webp`
 - Cache Control: `public, max-age=31536000` (1 year)
 
-**RLS Policies:**
+**RLS:** public read (run once in SQL Editor if missing):
+
 ```sql
 CREATE POLICY "Public covers are viewable by everyone"
   ON storage.objects FOR SELECT
   USING (bucket_id = 'covers');
-
-CREATE POLICY "Authenticated users can upload covers"
-  ON storage.objects FOR INSERT
-  TO authenticated
-  WITH CHECK (bucket_id = 'covers');
-
-CREATE POLICY "Authenticated users can update covers"
-  ON storage.objects FOR UPDATE
-  TO authenticated
-  USING (bucket_id = 'covers');
-
-CREATE POLICY "Authenticated users can delete covers"
-  ON storage.objects FOR DELETE
-  TO authenticated
-  USING (bucket_id = 'covers');
 ```
+
+INSERT/UPDATE/DELETE for covers are in **006**.
 
 ### 3. `photos` Bucket
 **Purpose:** Store photo gallery images
@@ -77,22 +51,15 @@ CREATE POLICY "Authenticated users can delete covers"
 - Allowed MIME types: `image/jpeg`, `image/png`, `image/webp`
 - Cache Control: `public, max-age=31536000` (1 year)
 
-**RLS Policies:**
+**RLS:** public read:
+
 ```sql
 CREATE POLICY "Public photos are viewable by everyone"
   ON storage.objects FOR SELECT
   USING (bucket_id = 'photos');
-
-CREATE POLICY "Authenticated users can upload photos"
-  ON storage.objects FOR INSERT
-  TO authenticated
-  WITH CHECK (bucket_id = 'photos');
-
-CREATE POLICY "Authenticated users can delete photos"
-  ON storage.objects FOR DELETE
-  TO authenticated
-  USING (bucket_id = 'photos');
 ```
+
+INSERT/DELETE for photos are in **006**.
 
 ## CORS (Music player / Web Audio API)
 
@@ -128,18 +95,22 @@ Supabase Storage uses a built-in CDN by default (no dashboard setting). To reduc
 
 ## Database migrations (SQL Editor)
 
-Run these in order from `src/supabase/migrations/`:
+Run these in order from `supabase/migrations/` (repo root):
 
 1. `001_initial_schema.sql`
-2. `002_profiles_and_rls.sql` (if present)
+2. `002_profiles_and_rls.sql`
 3. `003_site_settings_and_schema_updates.sql`
-4. `004_tour_gallery_subtitles_newsletter.sql` — tour/gallery subtitles, `selling_fast` tour status, `newsletter_subscribers` table + RLS
+4. `004_tour_gallery_subtitles_newsletter.sql`
+5. `005_site_admins_rls.sql` — admin-only CMS writes
+6. `006_storage_admin_rls.sql` — after storage buckets exist
+
+Paths are relative to the project root: e.g. `supabase/migrations/005_site_admins_rls.sql`.
 
 ## Setup Steps in Cursor
 
 1. Create Supabase project at https://supabase.com
 2. Go to Storage section
 3. Create each bucket with the settings above
-4. Copy and run the RLS policies in SQL Editor
+4. Run DB migrations through `005`, then run `006_storage_admin_rls.sql` after buckets exist (and add public SELECT policies above if needed)
 5. Add your Supabase credentials to `.env.local`
 6. Test uploads using the admin panel

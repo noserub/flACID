@@ -49,7 +49,7 @@ export function SiteHeader() {
   const { isEditMode, isDraft, toggleEditMode, publishChanges, discardDraft, content } = useEditMode();
   const { isDescentMode } = useDescentMode();
   const { isFullscreen } = usePlayback();
-  const { isAuthenticated, signOut } = useAuth();
+  const { isAuthenticated, isAdmin, signOut } = useAuth();
   const [signInOpen, setSignInOpen] = useState(false);
   const [exportSuccess, setExportSuccess] = useState(false);
   const [showComponentLibrary, setShowComponentLibrary] = useState(false);
@@ -216,28 +216,29 @@ export function SiteHeader() {
 
             <DropdownMenuSeparator />
             
-            {/* Edit Mode Toggle - requires auth */}
-            {isAuthenticated ? (
-              <>
-                <DropdownMenuItem onClick={handleToggleEditMode}>
-                  {isEditMode ? (
-                    <>
-                      <Eye className="mr-2 h-4 w-4" />
-                      <span>Preview Mode</span>
-                    </>
-                  ) : (
-                    <>
-                      <Edit3 className="mr-2 h-4 w-4" />
-                      <span>Edit Mode</span>
-                    </>
-                  )}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={signOut}>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>Sign Out</span>
-                </DropdownMenuItem>
-              </>
-            ) : (
+            {/* Edit Mode Toggle - site admins only (see site_admins table) */}
+            {isAuthenticated && isAdmin && (
+              <DropdownMenuItem onClick={handleToggleEditMode}>
+                {isEditMode ? (
+                  <>
+                    <Eye className="mr-2 h-4 w-4" />
+                    <span>Preview Mode</span>
+                  </>
+                ) : (
+                  <>
+                    <Edit3 className="mr-2 h-4 w-4" />
+                    <span>Edit Mode</span>
+                  </>
+                )}
+              </DropdownMenuItem>
+            )}
+            {isAuthenticated && (
+              <DropdownMenuItem onClick={signOut}>
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Sign Out</span>
+              </DropdownMenuItem>
+            )}
+            {!isAuthenticated && (
               <DropdownMenuItem onClick={() => setSignInOpen(true)}>
                 <LogIn className="mr-2 h-4 w-4" />
                 <span>Admin Sign In</span>
@@ -270,7 +271,7 @@ export function SiteHeader() {
               </>
             )}
 
-            {isAuthenticated && (
+            {isAuthenticated && isAdmin && (
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuLabel className="text-xs text-muted-foreground">

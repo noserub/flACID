@@ -13,6 +13,8 @@ interface AnalyticsPayload {
   properties?: Record<string, unknown>;
 }
 
+const MAX_BODY_BYTES = 16_384;
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
@@ -20,6 +22,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    const raw = typeof req.body === 'string' ? req.body : JSON.stringify(req.body ?? {});
+    if (raw.length > MAX_BODY_BYTES) {
+      return res.status(413).json({ error: 'Payload too large' });
+    }
+
     const body = req.body as AnalyticsPayload | undefined;
     if (!body?.event) {
       return res.status(400).json({ error: 'Missing event name' });

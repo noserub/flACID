@@ -135,6 +135,17 @@ export interface Database {
         };
         Update: Partial<Database['public']['Tables']['newsletter_subscribers']['Insert']>;
       };
+      site_admins: {
+        Row: {
+          user_id: string;
+          created_at: string;
+        };
+        Insert: {
+          user_id: string;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['site_admins']['Insert']>;
+      };
       photos: {
         Row: {
           id: string;
@@ -187,3 +198,5 @@ export type ProfileUpdate = Database['public']['Tables']['profiles']['Update'];
 
 export type NewsletterSubscriber = Database['public']['Tables']['newsletter_subscribers']['Row'];
 export type NewsletterSubscriberInsert = Database['public']['Tables']['newsletter_subscribers']['Insert'];
+
+export type SiteAdmin = Database['public']['Tables']['site_admins']['Row'];

@@ -12,7 +12,7 @@ export function setContentSecurityPolicy(): void {
     style-src 'self' 'unsafe-inline';
     img-src 'self' data: https: blob:;
     media-src 'self' blob: https://*.supabase.co;
-    connect-src 'self' https://*.supabase.co wss://*.supabase.co https://www.google-analytics.com;
+    connect-src 'self' https://*.supabase.co wss://*.supabase.co https://www.google-analytics.com https://www.googletagmanager.com https://region1.google-analytics.com https://vitals.vercel-insights.com;
   `
     .replace(/\s+/g, ' ')
     .trim();

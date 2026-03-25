@@ -31,51 +31,43 @@ For newsletter signup and other Supabase features to work on Vercel deployments:
 4. Apply to **Preview** and **Production**
 5. Redeploy
 
+Production builds require both variables (enforced in `vite.config.ts`).
+
 ---
 
 ## 2. Run Migrations
 
-Run these SQL scripts in the **Supabase SQL Editor** (Dashboard → SQL Editor).
+Run these SQL scripts in order in the **Supabase SQL Editor** (Dashboard → SQL Editor).
 
-### Step 1: Initial Schema
+| Order | File | Purpose |
+|------|------|---------|
+| 1 | `supabase/migrations/001_initial_schema.sql` | Tracks, albums, tour_dates, photos, RLS |
+| 2 | `supabase/migrations/002_profiles_and_rls.sql` | Profiles |
+| 3 | `supabase/migrations/003_site_settings_and_schema_updates.sql` | `site_settings`, schema tweaks |
+| 4 | `supabase/migrations/004_tour_gallery_subtitles_newsletter.sql` | Newsletter table, tour status, subtitles |
+| 5 | `supabase/migrations/005_site_admins_rls.sql` | **Site admins** + replace broad authenticated writes with admin-only policies |
+| 6 | `supabase/migrations/006_storage_admin_rls.sql` | Storage write policies (run **after** buckets exist; see below) |
 
-Run `src/supabase/migrations/001_initial_schema.sql` first. This creates:
+### Site admins (required for Edit mode / Publish)
 
-- `tracks` – music tracks
-- `albums` – discography
-- `tour_dates` – tour dates
-- `photos` – gallery images
-- Indexes and RLS policies
+Migration **005** creates `site_admins` and restricts CMS + DB writes to users listed there. **Authenticated users who are not in this table cannot publish or upload.**
 
-### Step 2: Profiles & Auth
+After migration 005, add your user id once (from **Authentication → Users** in the dashboard, or query `auth.users`):
 
-Run `src/supabase/migrations/002_profiles_and_rls.sql`. This creates:
-
-- `profiles` – user profiles for auth
-- RLS policies for profile access
-
----
-
-## 3. Storage Buckets (Optional)
-
-For image and audio uploads, create these storage buckets in Supabase:
-
-- `images` – general images
-- `audio` – music tracks
-- `covers` – album art
-- `photos` – gallery photos
-
-Configure each bucket with appropriate public/private access.
-
----
-
-## 4. Auth Bypass (Development)
-
-For local development without Supabase Auth, use the bypass:
-
-```javascript
-// In browser console or a dev component:
-localStorage.setItem('auth_bypass', 'true');
+```sql
+INSERT INTO public.site_admins (user_id)
+VALUES ('xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx')
+ON CONFLICT DO NOTHING;
 ```
 
-Reload the page. Edit mode will work without signing in. Remove or set to `'false'` for production.
+---
+
+## 3. Storage Buckets
+
+Create buckets `audio`, `covers`, and `photos` as described in `src/supabase/storage-setup.md`, then run migration **006** to apply admin-only storage policies.
+
+---
+
+## 4. Legacy note (auth bypass)
+
+The app does **not** implement `localStorage.auth_bypass`. Edit mode requires a signed-in user who appears in `site_admins`.
