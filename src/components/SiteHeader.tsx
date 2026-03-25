@@ -188,7 +188,7 @@ export function SiteHeader() {
                 </div>
               )}
 
-              <DropdownMenu>
+              <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
             <Button
               size="icon"
