@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { loadContentFromSupabase, publishContentToSupabase } from '../services/contentSync.service';
+import { TRACKS_QUERY_KEY } from '../hooks/useTracks';
 import { uploadImage as storageUploadImage, uploadAudio as storageUploadAudio } from '../services/storage.service';
 import { isSupabaseConfigured } from '../lib/supabase';
 
@@ -359,7 +360,8 @@ export function EditModeProvider({ children }: { children: ReactNode }) {
     async function load() {
       setLoading(true);
       try {
-        const content = await loadContentFromSupabase(defaultContent);
+        const { content, tracksForCache } = await loadContentFromSupabase(defaultContent);
+        queryClient.setQueryData(TRACKS_QUERY_KEY, tracksForCache);
         if (!cancelled) {
           setPublishedContent(migrateContent(content));
           setDraftContent(migrateContent(content));
@@ -434,11 +436,10 @@ export function EditModeProvider({ children }: { children: ReactNode }) {
     setPublishLoading(true);
     try {
       await publishContentToSupabase(draftContent);
-      // Invalidate tracks cache so visitor view (useTracks) refetches with new visualization_type
-      await queryClient.invalidateQueries({ queryKey: ['tracks'] });
       // Reload from DB so client ids (e.g. tour UUIDs) match server and all tables are consistent
       const refreshed = await loadContentFromSupabase(defaultContent);
-      const migrated = migrateContent(refreshed);
+      queryClient.setQueryData(TRACKS_QUERY_KEY, refreshed.tracksForCache);
+      const migrated = migrateContent(refreshed.content);
       setPublishedContent(migrated);
       setDraftContent(migrated);
       setIsDraft(false);

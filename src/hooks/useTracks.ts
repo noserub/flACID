@@ -9,7 +9,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabaseClient';
 import type { Track, TrackInsert, TrackUpdate } from '../types/database';
 
-const QUERY_KEY = ['tracks'] as const;
+/** Shared with EditModeContext — hydrate after bulk load to avoid duplicate tracks requests */
+export const TRACKS_QUERY_KEY = ['tracks'] as const;
 
 async function fetchTracks(): Promise<Track[]> {
   const { data, error } = await supabase
@@ -35,7 +36,7 @@ export function useTracks(): UseTracksReturn {
   const queryClient = useQueryClient();
 
   const { data: tracks = [], isLoading, error, refetch } = useQuery({
-    queryKey: QUERY_KEY,
+    queryKey: TRACKS_QUERY_KEY,
     queryFn: fetchTracks,
   });
 
@@ -49,7 +50,7 @@ export function useTracks(): UseTracksReturn {
       if (insertError) throw insertError;
       return data;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEY }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: TRACKS_QUERY_KEY }),
   });
 
   const updateMutation = useMutation({
@@ -63,7 +64,7 @@ export function useTracks(): UseTracksReturn {
       if (updateError) throw updateError;
       return data;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEY }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: TRACKS_QUERY_KEY }),
   });
 
   const deleteMutation = useMutation({
@@ -71,7 +72,7 @@ export function useTracks(): UseTracksReturn {
       const { error } = await supabase.from('tracks').delete().eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEY }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: TRACKS_QUERY_KEY }),
   });
 
   return {

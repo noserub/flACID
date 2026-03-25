@@ -5,7 +5,7 @@
 export { useAuth } from './useAuth';
 export { useAppSettings } from './useAppSettings';
 export type { AppSettings } from './useAppSettings';
-export { useTracks } from './useTracks';
+export { useTracks, TRACKS_QUERY_KEY } from './useTracks';
 export type { UseTracksReturn } from './useTracks';
 export { useAlbums } from './useAlbums';
 export type { UseAlbumsReturn } from './useAlbums';

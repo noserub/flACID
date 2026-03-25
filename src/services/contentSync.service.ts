@@ -8,6 +8,23 @@ import { supabase } from '../lib/supabaseClient';
 import { isSupabaseConfigured } from '../lib/supabase';
 import type { SiteContent } from '../contexts/EditModeContext';
 import { dbToSiteContent, siteContentToDb, type DbSnapshot } from '../lib/contentMappers';
+import type { Track } from '../types/database';
+
+/** Matches `useTracks` / list views — avoids `select('*')` payload bloat */
+const TRACKS_LIST_SELECT =
+  'id,title,artist,album,duration,audio_url,cover_image_url,visualization_type,order_index,created_at,updated_at';
+const ALBUMS_LIST_SELECT =
+  'id,title,artist,year,cover_image_url,description,spotify_url,apple_music_url,bandcamp_url,track_names,order_index,created_at,updated_at';
+const TOUR_DATES_LIST_SELECT =
+  'id,date,venue,city,country,ticket_url,status,created_at,updated_at';
+const PHOTOS_LIST_SELECT =
+  'id,url,thumbnail_url,alt_text,photographer,tab_id,caption,order_index,created_at';
+
+export interface LoadContentResult {
+  content: SiteContent;
+  /** Same rows as `useTracks` — hydrate React Query to avoid a duplicate tracks request */
+  tracksForCache: Track[];
+}
 
 /** Postgres UUID (avoids treating legacy numeric string ids like "1" as UUIDs). */
 function isDatabaseUuid(id: string): boolean {
@@ -129,21 +146,24 @@ function isMissingColumnSiteSettingsError(error: {
 
 export async function loadContentFromSupabase(
   defaultContent: SiteContent
-): Promise<SiteContent> {
-  if (!isSupabaseConfigured) return defaultContent;
+): Promise<LoadContentResult> {
+  if (!isSupabaseConfigured) {
+    return { content: defaultContent, tracksForCache: [] };
+  }
 
   try {
     const [settingsRes, tracksRes, albumsRes, tourRes, photosRes] = await Promise.all([
+      // Single row — `*` keeps compatibility if optional columns are added in migrations
       supabase.from('site_settings').select('*').eq('id', 'default').single(),
-      supabase.from('tracks').select('*').order('order_index'),
-      supabase.from('albums').select('*').order('order_index'),
-      supabase.from('tour_dates').select('*').order('date'),
-      supabase.from('photos').select('*').order('order_index'),
+      supabase.from('tracks').select(TRACKS_LIST_SELECT).order('order_index', { ascending: true }),
+      supabase.from('albums').select(ALBUMS_LIST_SELECT).order('order_index', { ascending: true }),
+      supabase.from('tour_dates').select(TOUR_DATES_LIST_SELECT).order('date', { ascending: true }),
+      supabase.from('photos').select(PHOTOS_LIST_SELECT).order('order_index', { ascending: true }),
     ]);
 
     if (settingsRes.error && settingsRes.error.code !== 'PGRST116') {
       console.error('[contentSync] Failed to load site_settings:', settingsRes.error);
-      return defaultContent;
+      return { content: defaultContent, tracksForCache: [] };
     }
 
     const siteSettings = settingsRes.data || {
@@ -161,18 +181,23 @@ export async function loadContentFromSupabase(
       gallery_tabs: [],
     };
 
+    const tracksRows = (tracksRes.data ?? []) as Track[];
+
     const db: DbSnapshot = {
       siteSettings: siteSettings as DbSnapshot['siteSettings'],
-      tracks: tracksRes.data || [],
-      albums: albumsRes.data || [],
-      tourDates: tourRes.data || [],
-      photos: photosRes.data || [],
+      tracks: tracksRows,
+      albums: (albumsRes.data || []) as DbSnapshot['albums'],
+      tourDates: (tourRes.data || []) as DbSnapshot['tourDates'],
+      photos: (photosRes.data || []) as DbSnapshot['photos'],
     };
 
-    return dbToSiteContent(db, defaultContent);
+    return {
+      content: dbToSiteContent(db, defaultContent),
+      tracksForCache: tracksRows,
+    };
   } catch (err) {
     console.error('[contentSync] Load failed:', err);
-    return defaultContent;
+    return { content: defaultContent, tracksForCache: [] };
   }
 }
 

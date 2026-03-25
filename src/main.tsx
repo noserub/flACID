@@ -7,6 +7,7 @@ import { validateEnvironmentWarn } from "./utils/envValidation";
 import { setContentSecurityPolicy } from "./utils/csp";
 import { loadAnalytics } from "./utils/analyticsLoader";
 import { queryClient } from "./lib/queryClient";
+import { AuthProvider } from "./contexts/AuthContext";
 import "./index.css";
 
 validateEnvironmentWarn();
@@ -31,7 +32,9 @@ PerformanceMonitor.measurePageLoad();
 createRoot(document.getElementById("root")!).render(
   <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
-      <App />
+      <AuthProvider>
+        <App />
+      </AuthProvider>
     </QueryClientProvider>
   </ErrorBoundary>
 );
