@@ -2,6 +2,7 @@ import { ReactNode, useState } from 'react';
 import { Edit2, Eye, EyeOff, Upload, Trash2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { useEditMode } from '../contexts/EditModeContext';
+import { validateAudioFile } from '../lib/audioOptimization';
 import {
   Dialog,
   DialogContent,
@@ -223,9 +224,10 @@ export function AudioUpload({ label, currentUrl, onUpload }: AudioUploadProps) {
     // Clear previous errors
     setError(null);
 
-    // Check file type
-    if (!file.type.startsWith('audio/')) {
-      setError('Please upload an audio file (MP3, WAV, OGG, etc.)');
+    const validation = validateAudioFile(file);
+    if (!validation.valid) {
+      setError(validation.error ?? 'Invalid audio file.');
+      e.target.value = '';
       return;
     }
 
@@ -246,7 +248,23 @@ export function AudioUpload({ label, currentUrl, onUpload }: AudioUploadProps) {
       setError(null);
     } catch (error) {
       console.error('Upload failed:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to upload audio';
+      let errorMessage = error instanceof Error ? error.message : 'Failed to upload audio';
+      if (error && typeof error === 'object' && 'status' in error) {
+        const e = error as { status?: number; statusCode?: string };
+        if (e.status != null || e.statusCode) {
+          errorMessage += ` (HTTP ${e.status ?? '?'}${e.statusCode ? `, code ${e.statusCode}` : ''})`;
+        }
+      }
+      const msg = errorMessage.toLowerCase();
+      if (
+        msg.includes('row-level security') ||
+        msg.includes('policy') ||
+        msg.includes('permission denied') ||
+        msg.includes('not authorized')
+      ) {
+        errorMessage +=
+          ' Sign in as a site admin — storage uploads require an authenticated admin session.';
+      }
       setError(errorMessage);
     } finally {
       setUploading(false);
@@ -273,7 +291,9 @@ export function AudioUpload({ label, currentUrl, onUpload }: AudioUploadProps) {
       {!currentUrl && !error && (
         <div className="rounded-lg bg-blue-500/10 border border-blue-500/30 p-3">
           <p className="text-xs text-blue-300">
-            ℹ️ Maximum file size: 50MB. Supported formats: MP3, WAV, OGG, FLAC, M4A
+            ℹ️ Max 50MB. Formats: MP3, WAV, FLAC, OGG, AAC, M4A (M4A uploads as{' '}
+            <code className="text-blue-200">audio/mp4</code>). Bucket:{' '}
+            <code className="text-blue-200">audio/*</code> or leave types unrestricted.
           </p>
         </div>
       )}

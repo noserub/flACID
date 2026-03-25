@@ -67,9 +67,12 @@ export function MusicPlayerEditDialog() {
   };
 
   const handleAudioUpload = async (id: number, url: string) => {
-    // Validate URL before processing
     if (!url || url.trim() === '') {
-      console.error('Empty audio URL provided');
+      const nextTracks = tracksRef.current.map((track) =>
+        track.id === id ? { ...track, url: '', duration: '0:00' } : track
+      );
+      setTracks(nextTracks);
+      pushTracksToContext(nextTracks);
       return;
     }
     
@@ -128,7 +131,8 @@ export function MusicPlayerEditDialog() {
               errorMsg = 'Audio file is corrupted or format not supported.';
               break;
             case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
-              errorMsg = 'Audio format not supported. Please use MP3, WAV, or OGG.';
+              errorMsg =
+                'Audio format not supported in this browser. Try MP3, WAV, FLAC, OGG, AAC, or M4A.';
               break;
           }
           console.error('Audio error:', {
@@ -250,6 +254,7 @@ export function MusicPlayerEditDialog() {
                 <div className="space-y-4 pt-2">
                   <div className="flex justify-between items-center">
                     <Button
+                      type="button"
                       variant="outline"
                       size="sm"
                       onClick={() => handleRemoveTrack(track.id)}

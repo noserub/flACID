@@ -30,7 +30,17 @@ export const APP_CONFIG = {
   /** Max file size for image uploads (10MB) */
   maxImageSizeBytes: 10 * 1024 * 1024,
   /** Supported audio MIME types */
-  allowedAudioTypes: ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/flac', 'audio/ogg'] as const,
+  allowedAudioTypes: [
+    'audio/mpeg',
+    'audio/mp3',
+    'audio/wav',
+    'audio/flac',
+    'audio/ogg',
+    'audio/mp4',
+    'audio/aac',
+    'audio/x-m4a',
+    'audio/m4a',
+  ] as const,
   /** Supported image MIME types */
   allowedImageTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'] as const,
   /** Default image optimization */

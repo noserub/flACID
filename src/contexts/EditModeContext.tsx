@@ -426,15 +426,22 @@ export function EditModeProvider({ children }: { children: ReactNode }) {
     
     // If updating music player tracks, cache the audio URLs
     if (section === 'musicPlayer' && 'tracks' in data && Array.isArray(data.tracks)) {
-      const newCache: Record<number, string> = {};
-      data.tracks.forEach((track: SiteContent['musicPlayer']['tracks'][number]) => {
-        if (track.url && track.url.startsWith('data:')) {
-          newCache[track.id] = track.url;
-          console.log(`Cached audio for track ${track.id}: ${track.title}`);
+      setAudioCache((prev) => {
+        const next = { ...prev };
+        const keptIds = new Set(data.tracks.map((t: SiteContent['musicPlayer']['tracks'][number]) => t.id));
+        for (const key of Object.keys(next)) {
+          const tid = Number(key);
+          if (!keptIds.has(tid)) delete next[tid];
         }
+        data.tracks.forEach((track: SiteContent['musicPlayer']['tracks'][number]) => {
+          if (track.url && track.url.startsWith('data:')) {
+            next[track.id] = track.url;
+          } else {
+            delete next[track.id];
+          }
+        });
+        return next;
       });
-      setAudioCache(prev => ({ ...prev, ...newCache }));
-      console.log('Audio cache updated:', Object.keys(newCache).length, 'tracks');
     }
   };
 
