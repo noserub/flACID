@@ -173,6 +173,7 @@ export function DescentModeToggle() {
         align="end"
         sideOffset={10}
         collisionPadding={16}
+        aria-labelledby="descent-onboarding-title"
         className={cn(
           DESCENT_MENU_PORTAL_LIFT,
           'relative w-[min(20rem,calc(100vw-2rem))] sm:w-80 rounded-lg border border-cyan-500/30',
@@ -186,7 +187,9 @@ export function DescentModeToggle() {
         />
         <div className="space-y-3 pt-0.5">
           <div>
-            <p className="font-semibold text-cyan-100 tracking-tight">Turn the site into the show</p>
+            <p id="descent-onboarding-title" className="font-semibold text-cyan-100 tracking-tight">
+              Turn the site into the show
+            </p>
             <p className="mt-2 text-muted-foreground leading-relaxed text-[13px] sm:text-sm">
               <span className="text-cyan-400/90">Descend</span> turns the page into the stage—full-screen visuals
               and motion that move with the music.{' '}
