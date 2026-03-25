@@ -162,7 +162,7 @@ export function DescentModeToggle() {
   }, [toggleDescentMode, onboardingOpen, markOnboardingSeen]);
 
   return (
-    <Popover modal open={onboardingOpen} onOpenChange={handleOpenChange}>
+    <Popover modal={false} open={onboardingOpen} onOpenChange={handleOpenChange}>
       <PopoverAnchor asChild>
         <div className="inline-flex">
           <DescentToggleButton isDescentMode={isDescentMode} onClick={handleToggleClick} />
