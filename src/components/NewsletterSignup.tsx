@@ -148,7 +148,7 @@ export function NewsletterSignup({
                       onChange={(e) => setEmail(e.target.value)}
                       disabled={phase === 'submitting'}
                       className="border-border/80 bg-background/80 focus-visible:ring-cyan-500/40"
-                      aria-invalid={phase === 'error' && !!errorMessage}
+                      aria-invalid={phase === 'error' && errorMessage ? true : undefined}
                       aria-describedby={errorMessage ? 'newsletter-error' : undefined}
                     />
                   </div>

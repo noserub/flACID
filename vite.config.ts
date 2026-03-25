@@ -81,14 +81,17 @@
       minify: mode === 'production' ? 'esbuild' : false,
       rollupOptions: {
         output: {
-          manualChunks: {
-            vendor: ['react', 'react-dom'],
-            supabase: ['@supabase/supabase-js'],
-            ui: [
-              '@radix-ui/react-dialog',
-              '@radix-ui/react-dropdown-menu',
-              '@radix-ui/react-accordion',
-            ],
+          /** Split heavy deps for parallel download + smaller parse units (Lighthouse unused-JS / long tasks) */
+          manualChunks(id) {
+            if (!id.includes('node_modules')) return;
+            if (id.includes('node_modules/react-dom') || id.includes('node_modules/react/')) {
+              return 'react-vendor';
+            }
+            if (id.includes('motion')) return 'motion';
+            if (id.includes('@supabase')) return 'supabase';
+            if (id.includes('@radix-ui')) return 'radix-ui';
+            if (id.includes('lucide-react')) return 'lucide';
+            if (id.includes('@tanstack/react-query')) return 'react-query';
           },
         },
       },

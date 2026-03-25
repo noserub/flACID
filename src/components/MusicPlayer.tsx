@@ -465,8 +465,9 @@ export function MusicPlayer() {
                       size="icon"
                       onClick={toggleMute}
                       className="text-white hover:text-white hover:bg-white/20"
+                      aria-label={isMuted ? 'Unmute' : 'Mute'}
                     >
-                      {isMuted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+                      {isMuted ? <VolumeX className="h-5 w-5" aria-hidden /> : <Volume2 className="h-5 w-5" aria-hidden />}
                     </Button>
                     <Slider
                       value={[isMuted ? 0 : volume]}
@@ -484,8 +485,9 @@ export function MusicPlayer() {
                       onClick={skipBack}
                       disabled={currentTrack === 0}
                       className="text-white hover:text-white hover:bg-white/20 h-12 w-12 disabled:opacity-30"
+                      aria-label="Previous track"
                     >
-                      <SkipBack className="h-7 w-7" />
+                      <SkipBack className="h-7 w-7" aria-hidden />
                     </Button>
                     <Popover
                       open={showPlayHint && !isPlaying}
@@ -500,8 +502,9 @@ export function MusicPlayer() {
                           }}
                           disabled={!tracks[currentTrack]?.url || (!isAudioReady && !isPlaying)}
                           className="h-16 w-16 rounded-full bg-white hover:bg-white/90 text-black disabled:opacity-50 disabled:cursor-not-allowed"
+                          aria-label={isPlaying ? 'Pause' : 'Play'}
                         >
-                          {isPlaying ? <Pause className="h-8 w-8" /> : <Play className="h-8 w-8 ml-0.5" />}
+                          {isPlaying ? <Pause className="h-8 w-8" aria-hidden /> : <Play className="h-8 w-8 ml-0.5" aria-hidden />}
                         </Button>
                       </PopoverAnchor>
                       <PopoverContent
@@ -535,8 +538,9 @@ export function MusicPlayer() {
                       onClick={skipForward}
                       disabled={currentTrack === tracks.length - 1}
                       className="text-white hover:text-white hover:bg-white/20 h-12 w-12 disabled:opacity-30"
+                      aria-label="Next track"
                     >
-                      <SkipForward className="h-7 w-7" />
+                      <SkipForward className="h-7 w-7" aria-hidden />
                     </Button>
                   </div>
 
@@ -649,8 +653,9 @@ export function MusicPlayer() {
                 size="icon"
                 onClick={toggleMute}
                 className="text-cyan-400 hover:text-fuchsia-400 hover:bg-transparent hover:shadow-lg hover:shadow-fuchsia-500/20 transition-all duration-300"
+                aria-label={isMuted ? 'Unmute' : 'Mute'}
               >
-                {isMuted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+                {isMuted ? <VolumeX className="h-5 w-5" aria-hidden /> : <Volume2 className="h-5 w-5" aria-hidden />}
               </Button>
               <Slider
                 value={[isMuted ? 0 : volume]}
@@ -669,16 +674,18 @@ export function MusicPlayer() {
                 onClick={skipBack}
                 disabled={currentTrack === 0}
                 className="text-cyan-400 hover:text-fuchsia-400 hover:bg-transparent hover:shadow-lg hover:shadow-fuchsia-500/20 disabled:text-muted-foreground transition-all duration-300"
+                aria-label="Previous track"
               >
-                <SkipBack className="h-6 w-6" />
+                <SkipBack className="h-6 w-6" aria-hidden />
               </Button>
               <Button
                 size="icon"
                 onClick={handleTogglePlay}
                 disabled={!tracks[currentTrack].url || (!isAudioReady && !isPlaying)}
                 className="h-12 w-12 rounded-full bg-fuchsia-600 hover:bg-fuchsia-500 text-white shadow-lg shadow-fuchsia-900/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
+                aria-label={isPlaying ? 'Pause' : 'Play'}
               >
-                {isPlaying ? <Pause className="h-6 w-6" /> : <Play className="h-6 w-6 ml-0.5" />}
+                {isPlaying ? <Pause className="h-6 w-6" aria-hidden /> : <Play className="h-6 w-6 ml-0.5" aria-hidden />}
               </Button>
               <Button
                 variant="ghost"
@@ -686,8 +693,9 @@ export function MusicPlayer() {
                 onClick={skipForward}
                 disabled={currentTrack === tracks.length - 1}
                 className="text-cyan-400 hover:text-fuchsia-400 hover:bg-transparent hover:shadow-lg hover:shadow-fuchsia-500/20 disabled:text-muted-foreground transition-all duration-300"
+                aria-label="Next track"
               >
-                <SkipForward className="h-6 w-6" />
+                <SkipForward className="h-6 w-6" aria-hidden />
               </Button>
             </div>
 
@@ -699,16 +707,18 @@ export function MusicPlayer() {
                 onClick={toggleFullscreen}
                 className="text-cyan-400 hover:text-fuchsia-400 hover:bg-transparent hover:shadow-lg hover:shadow-fuchsia-500/20 transition-all duration-300"
                 title="Enter fullscreen mode"
+                aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
               >
-                {isFullscreen ? <Minimize className="h-5 w-5" /> : <Maximize className="h-5 w-5" />}
+                {isFullscreen ? <Minimize className="h-5 w-5" aria-hidden /> : <Maximize className="h-5 w-5" aria-hidden />}
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => setShowPlaylist(!showPlaylist)}
                 className="text-cyan-400 hover:text-fuchsia-400 hover:bg-transparent hover:shadow-lg hover:shadow-fuchsia-500/20 transition-all duration-300"
+                aria-label={showPlaylist ? 'Hide playlist' : 'Show playlist'}
               >
-                <List className="h-5 w-5" />
+                <List className="h-5 w-5" aria-hidden />
               </Button>
             </div>
           </div>

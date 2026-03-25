@@ -1,7 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { Analytics as VercelAnalytics } from '@vercel/analytics/react';
 import { HeroSection } from './components/HeroSection';
-import { AboutSection } from './components/AboutSection';
 import { useSEO } from './hooks/useSEO';
 import { Analytics } from './components/Analytics';
 import { EditModeProvider, useEditMode } from './contexts/EditModeContext';
@@ -11,10 +9,12 @@ import { PlaybackProvider } from './contexts/PlaybackContext';
 import { DescentModeWrapper } from './components/DescentModeEffects';
 import { SiteHeader } from './components/SiteHeader';
 import { StagePage } from './pages/StagePage';
-import heroBackground from 'figma:asset/39f8e6db34bf477fef67b4d63027e0f5debf29fb.png';
-import logoImage from 'figma:asset/64ba7001cc82a53524d3d0f758edddb6dafba520.png';
 
 // Lazy load below-the-fold sections
+const VercelAnalytics = lazy(() =>
+  import('@vercel/analytics/react').then((m) => ({ default: m.Analytics }))
+);
+const AboutSection = lazy(() => import('./components/AboutSection').then(m => ({ default: m.AboutSection })));
 const ListenNowSection = lazy(() => import('./components/ListenNowSection').then(m => ({ default: m.ListenNowSection })));
 const AlbumsSection = lazy(() => import('./components/AlbumsSection').then(m => ({ default: m.AlbumsSection })));
 const PhotoGallery = lazy(() => import('./components/PhotoGallery').then(m => ({ default: m.PhotoGallery })));
@@ -48,6 +48,18 @@ const DEFAULT_SEO = {
   keywords: 'flACID, band, music',
 };
 
+function AboutSectionFallback() {
+  return (
+    <div className="py-20 px-4" aria-hidden>
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div className="h-10 w-48 bg-muted/40 animate-pulse rounded-lg mx-auto md:mx-0" />
+        <div className="h-32 w-full bg-muted/25 animate-pulse rounded-lg" />
+        <div className="h-24 w-full bg-muted/20 animate-pulse rounded-lg" />
+      </div>
+    </div>
+  );
+}
+
 function AppContent() {
   const { loading } = useEditMode();
 
@@ -75,8 +87,9 @@ function AppContent() {
             {/* Hero Section */}
             <HeroSection />
 
-            {/* About Section */}
-            <AboutSection />
+            <Suspense fallback={<AboutSectionFallback />}>
+              <AboutSection />
+            </Suspense>
 
             {/* Listen Now Section - Lazy Loaded */}
             <Suspense fallback={<SectionLoader />}>
@@ -125,7 +138,9 @@ export default function App() {
           </DescentIntensityProvider>
         </DescentModeProvider>
       </EditModeProvider>
-      <VercelAnalytics />
+      <Suspense fallback={null}>
+        <VercelAnalytics />
+      </Suspense>
     </>
   );
 }

@@ -30,6 +30,10 @@ export const ImageWithFallback = memo(ImageWithFallbackComponent, (prevProps, ne
   return (
     prevProps.src === nextProps.src &&
     prevProps.alt === nextProps.alt &&
-    prevProps.className === nextProps.className
+    prevProps.className === nextProps.className &&
+    prevProps.width === nextProps.width &&
+    prevProps.height === nextProps.height &&
+    prevProps.loading === nextProps.loading &&
+    prevProps.fetchPriority === nextProps.fetchPriority
   )
 })

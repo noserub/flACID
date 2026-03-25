@@ -242,9 +242,11 @@ export function HeroSection() {
       </div>
 
       {/* Scroll Indicator */}
-      <motion.div
+      <motion.button
+        type="button"
+        aria-label="Scroll to about section"
         className={cn(
-          'absolute bottom-8 left-1/2 -translate-x-1/2 cursor-pointer',
+          'absolute bottom-8 left-1/2 -translate-x-1/2 cursor-pointer border-0 bg-transparent p-0',
           scrollHintZ
         )}
         animate={{ y: [0, 10, 0] }}
@@ -257,9 +259,9 @@ export function HeroSection() {
         }}
       >
         <div className="w-12 h-16 border-2 border-cyan-400/50 rounded-full flex items-center justify-center hover:border-fuchsia-400/70 hover:shadow-lg hover:shadow-fuchsia-500/20 transition-all duration-300">
-          <ChevronDown className="w-6 h-6 text-cyan-400/70" />
+          <ChevronDown className="w-6 h-6 text-cyan-400/70" aria-hidden />
         </div>
-      </motion.div>
+      </motion.button>
       </div>
     </EditableSection>
   );
