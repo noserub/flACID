@@ -8,7 +8,8 @@
   --card-foreground: #e8e8f0;
   --popover: #1a1a24;
   --popover-foreground: #e8e8f0;
-  --primary: #d946ef;
+  /* Darkened from fuchsia-500 for WCAG AA text contrast (4.5:1) with white foreground */
+  --primary: #a21caf;
   --primary-foreground: #ffffff;
   --secondary: #8b5cf6;
   --secondary-foreground: #e8e8f0;
