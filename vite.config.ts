@@ -12,6 +12,12 @@
     const supabaseUrl = env.VITE_SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? '';
     const supabaseAnonKey = env.VITE_SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY ?? '';
 
+    if (mode === 'production' && (!supabaseUrl.trim() || !supabaseAnonKey.trim())) {
+      throw new Error(
+        'Production build requires VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY (set in Vercel or .env.production).'
+      );
+    }
+
     return {
     plugins: [
       react(),

@@ -8,6 +8,8 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
+const MAX_BODY_BYTES = 32_768;
+
 interface ErrorPayload {
   message: string;
   stack?: string;
@@ -24,6 +26,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    const raw = typeof req.body === 'string' ? req.body : JSON.stringify(req.body ?? {});
+    if (raw.length > MAX_BODY_BYTES) {
+      return res.status(413).json({ error: 'Payload too large' });
+    }
+
     const body = req.body as ErrorPayload | undefined;
     if (!body?.message) {
       return res.status(400).json({ error: 'Missing error message' });

@@ -58,10 +58,12 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
           >
             Reload Page
           </button>
-          <details className="w-full max-w-2xl text-xs text-muted-foreground bg-muted/50 p-4 rounded overflow-auto max-h-40 mt-4">
-            <summary className="cursor-pointer font-medium mb-2">Error details</summary>
-            <pre className="whitespace-pre-wrap break-words">{this.state.error.stack}</pre>
-          </details>
+          {import.meta.env.DEV && (
+            <details className="w-full max-w-2xl text-xs text-muted-foreground bg-muted/50 p-4 rounded overflow-auto max-h-40 mt-4">
+              <summary className="cursor-pointer font-medium mb-2">Error details</summary>
+              <pre className="whitespace-pre-wrap break-words">{this.state.error.stack}</pre>
+            </details>
+          )}
         </div>
       );
     }

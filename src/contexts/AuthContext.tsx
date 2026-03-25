@@ -16,6 +16,8 @@ import { supabase } from '../lib/supabaseClient';
 
 export interface AuthContextValue {
   isAuthenticated: boolean;
+  /** True when this user is in `site_admins` (CMS publish, storage uploads). */
+  isAdmin: boolean;
   user: User | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<unknown>;
@@ -27,8 +29,31 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const refreshAdminFlag = useCallback(async (currentUser: User | null) => {
+    if (!currentUser) {
+      setIsAdmin(false);
+      return;
+    }
+    try {
+      const { data, error } = await supabase
+        .from('site_admins')
+        .select('user_id')
+        .eq('user_id', currentUser.id)
+        .maybeSingle();
+      if (error) {
+        console.warn('[Auth] site_admins check failed (run migration 005?):', error.message);
+        setIsAdmin(false);
+        return;
+      }
+      setIsAdmin(!!data);
+    } catch {
+      setIsAdmin(false);
+    }
+  }, []);
 
   const checkAuthState = useCallback(async () => {
     try {
@@ -37,14 +62,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } = await supabase.auth.getUser();
       setIsAuthenticated(!!currentUser);
       setUser(currentUser ?? null);
+      await refreshAdminFlag(currentUser ?? null);
     } catch (error) {
       console.error('[Auth] Error checking auth state:', error);
       setIsAuthenticated(false);
       setUser(null);
+      setIsAdmin(false);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [refreshAdminFlag]);
 
   useEffect(() => {
     void checkAuthState();
@@ -52,8 +79,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsAuthenticated(!!session?.user);
-      setUser(session?.user ?? null);
+      const u = session?.user ?? null;
+      setIsAuthenticated(!!u);
+      setUser(u);
+      void refreshAdminFlag(u);
     });
 
     return () => subscription.unsubscribe();
@@ -68,11 +97,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
     setIsAuthenticated(false);
+    setIsAdmin(false);
     setUser(null);
   }, []);
 
   const value: AuthContextValue = {
     isAuthenticated,
+    isAdmin,
     user,
     loading,
     signIn,

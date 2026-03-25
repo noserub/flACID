@@ -4,6 +4,7 @@ import { loadContentFromSupabase, publishContentToSupabase } from '../services/c
 import { TRACKS_QUERY_KEY } from '../hooks/useTracks';
 import { uploadImage as storageUploadImage, uploadAudio as storageUploadAudio } from '../services/storage.service';
 import { isSupabaseConfigured } from '../lib/supabase';
+import { useAuth } from '../hooks/useAuth';
 
 // Content structure for the entire site
 export interface SiteContent {
@@ -258,6 +259,7 @@ function generatePath(prefix: string, ext = 'webp'): string {
 
 export function EditModeProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
+  const { isAdmin, loading: authLoading } = useAuth();
   const [isEditMode, setIsEditMode] = useState(false);
   const [isDraft, setIsDraft] = useState(false);
   const [publishedContent, setPublishedContent] = useState<SiteContent>(defaultContent);
@@ -384,9 +386,18 @@ export function EditModeProvider({ children }: { children: ReactNode }) {
     return () => { cancelled = true; };
   }, [migrateContent]);
 
+  // Exit edit mode if user is not a site admin (e.g. signed out or role changed)
+  useEffect(() => {
+    if (authLoading) return;
+    if (!isAdmin && isEditMode) {
+      setIsEditMode(false);
+    }
+  }, [authLoading, isAdmin, isEditMode]);
+
   // No localStorage persistence - all data lives in Supabase
 
   const toggleEditMode = () => {
+    if (authLoading || !isAdmin) return;
     const newEditMode = !isEditMode;
     setIsEditMode(newEditMode);
     
@@ -428,6 +439,10 @@ export function EditModeProvider({ children }: { children: ReactNode }) {
   };
 
   const publishChanges = useCallback(async () => {
+    if (!isAdmin) {
+      console.warn('[EditMode] Publish blocked: user is not a site admin');
+      return;
+    }
     if (!isSupabaseConfigured) {
       setPublishedContent(draftContent);
       setIsDraft(false);
@@ -449,7 +464,7 @@ export function EditModeProvider({ children }: { children: ReactNode }) {
     } finally {
       setPublishLoading(false);
     }
-  }, [draftContent, migrateContent, queryClient]);
+  }, [isAdmin, draftContent, migrateContent, queryClient]);
 
   const discardDraft = useCallback(() => {
     setDraftContent(publishedContent);

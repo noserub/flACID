@@ -67,10 +67,13 @@ A high-performance, psychedelic band website optimized for minimal bandwidth and
 │   │
 │   └── App.tsx                 # Main entry point
 │
-├── supabase/                   # Database & Storage Config
-│   ├── migrations/
-│   │   └── 001_initial_schema.sql     # Database schema
-│   └── storage-setup.md                # Storage bucket configuration
+├── supabase/                   # SQL migrations (run in Supabase Dashboard)
+│   ├── README.md
+│   └── migrations/
+│       ├── 001_initial_schema.sql … 006_storage_admin_rls.sql
+│
+├── src/supabase/
+│   └── storage-setup.md        # Storage bucket + RLS notes
 │
 ├── Documentation/
 │   ├── README.md                       # Project overview
