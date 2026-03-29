@@ -71,6 +71,8 @@ export function MusicPlayer() {
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const sourceRef = useRef<AudioNode | null>(null);
+  /** When using captureStream, audible output goes through this gain (element may not play default in Chrome). */
+  const captureOutGainRef = useRef<GainNode | null>(null);
   const [analyserForViz, setAnalyserForViz] = useState<AnalyserNode | null>(null);
 
   // AudioContext/analyser for visualizer + DescentIntensity (shared so source stays valid)
@@ -116,7 +118,7 @@ export function MusicPlayer() {
 
     let stream: MediaStream | null = null;
     let streamSource: MediaStreamAudioSourceNode | null = null;
-    let silentGain: GainNode | null = null;
+    let outGain: GainNode | null = null;
     let elementSource: MediaElementAudioSourceNode | null = null;
 
     const cleanup = (): void => {
@@ -131,7 +133,7 @@ export function MusicPlayer() {
         /* ignore */
       }
       try {
-        silentGain?.disconnect();
+        outGain?.disconnect();
       } catch {
         /* ignore */
       }
@@ -146,17 +148,19 @@ export function MusicPlayer() {
         /* ignore */
       }
       sourceRef.current = null;
+      captureOutGainRef.current = null;
     };
 
     try {
       if (typeof audio.captureStream === 'function') {
         stream = audio.captureStream();
         streamSource = ctx.createMediaStreamSource(stream);
-        silentGain = ctx.createGain();
-        silentGain.gain.value = 0;
+        outGain = ctx.createGain();
+        outGain.gain.value = isMuted ? 0 : volume;
         streamSource.connect(analyser);
-        analyser.connect(silentGain);
-        silentGain.connect(ctx.destination);
+        analyser.connect(outGain);
+        outGain.connect(ctx.destination);
+        captureOutGainRef.current = outGain;
         sourceRef.current = streamSource;
         setAnalyserForViz(analyser);
         return () => {
@@ -166,6 +170,8 @@ export function MusicPlayer() {
     } catch {
       cleanup();
     }
+
+    captureOutGainRef.current = null;
 
     // Fallback: hijacks element output to Web Audio only (no parallel element output).
     try {
@@ -196,6 +202,12 @@ export function MusicPlayer() {
       return undefined;
     }
   }, [audioRef, currentTrackData?.url, isAudioReady]);
+
+  // Keep captureStream path loudness in sync without rebuilding the graph (volume slider / mute).
+  useEffect(() => {
+    const g = captureOutGainRef.current;
+    if (g) g.gain.value = isMuted ? 0 : volume;
+  }, [volume, isMuted]);
 
   // Resume AudioContext on first play (browser autoplay policy)
   useEffect(() => {
