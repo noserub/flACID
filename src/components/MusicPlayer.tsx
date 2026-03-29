@@ -20,6 +20,9 @@ import { motion, AnimatePresence } from 'motion/react';
 /** Shared AudioContext so analyser stays valid across StrictMode remounts */
 let sharedAudioContext: AudioContext | null = null;
 
+/** createMediaElementSource may only be called once per element — fallback when captureStream fails */
+const mediaElementSourceByAudio = new WeakMap<HTMLMediaElement, MediaElementAudioSourceNode>();
+
 export function MusicPlayer() {
   const { isEditMode } = useEditMode();
   const { isDescentMode, toggleDescentMode } = useDescentMode();
@@ -89,13 +92,18 @@ export function MusicPlayer() {
     return () => {
       try {
         if (analyserRef.current) analyserRef.current.disconnect();
-      } catch (_) {}
+      } catch {
+        /* ignore */
+      }
       registerAudioContext(null);
+      // StrictMode remount: must clear refs or the next mount skips creating a fresh analyser and
+      // captureStream reconnects to a disconnected node (throws / broken graph).
+      audioContextRef.current = null;
+      analyserRef.current = null;
     };
   }, []);
 
-  // Analysis via captureStream so <audio> keeps default output. createMediaElementSource hijacks
-  // the element to Web Audio only — that required a second <audio> for tab background and caused Chrome handoff stutter.
+  // Prefer captureStream so <audio> keeps default output. Fallback: MediaElementSource (one graph only).
   useEffect(() => {
     const audio = audioRef?.current;
     const url = currentTrackData?.url?.trim();
@@ -106,50 +114,87 @@ export function MusicPlayer() {
     const ctx = audioContextRef.current;
     const analyser = analyserRef.current;
 
-    if (typeof audio.captureStream !== 'function') {
-      setAnalyserForViz(null);
-      return;
-    }
+    let stream: MediaStream | null = null;
+    let streamSource: MediaStreamAudioSourceNode | null = null;
+    let silentGain: GainNode | null = null;
+    let elementSource: MediaElementAudioSourceNode | null = null;
 
-    let stream: MediaStream;
-    try {
-      stream = audio.captureStream();
-    } catch {
-      setAnalyserForViz(null);
-      return;
-    }
-
-    const source = ctx.createMediaStreamSource(stream);
-    const silentGain = ctx.createGain();
-    silentGain.gain.value = 0;
-    try {
-      source.connect(analyser);
-      analyser.connect(silentGain);
-      silentGain.connect(ctx.destination);
-    } catch {
-      stream.getTracks().forEach((t) => t.stop());
+    const cleanup = (): void => {
       try {
-        source.disconnect();
+        if (stream) stream.getTracks().forEach((t) => t.stop());
       } catch {
         /* ignore */
       }
-      setAnalyserForViz(null);
-      return;
-    }
-    sourceRef.current = source;
-    setAnalyserForViz(analyser);
-
-    return () => {
       try {
-        stream.getTracks().forEach((t) => t.stop());
-        source.disconnect();
-        silentGain.disconnect();
+        streamSource?.disconnect();
+      } catch {
+        /* ignore */
+      }
+      try {
+        silentGain?.disconnect();
+      } catch {
+        /* ignore */
+      }
+      try {
+        elementSource?.disconnect();
+      } catch {
+        /* ignore */
+      }
+      try {
         analyser.disconnect();
       } catch {
         /* ignore */
       }
       sourceRef.current = null;
     };
+
+    try {
+      if (typeof audio.captureStream === 'function') {
+        stream = audio.captureStream();
+        streamSource = ctx.createMediaStreamSource(stream);
+        silentGain = ctx.createGain();
+        silentGain.gain.value = 0;
+        streamSource.connect(analyser);
+        analyser.connect(silentGain);
+        silentGain.connect(ctx.destination);
+        sourceRef.current = streamSource;
+        setAnalyserForViz(analyser);
+        return () => {
+          cleanup();
+        };
+      }
+    } catch {
+      cleanup();
+    }
+
+    // Fallback: hijacks element output to Web Audio only (no parallel element output).
+    try {
+      elementSource = mediaElementSourceByAudio.get(audio) ?? null;
+      if (!elementSource) {
+        elementSource = ctx.createMediaElementSource(audio);
+        mediaElementSourceByAudio.set(audio, elementSource);
+      }
+      elementSource.connect(analyser);
+      analyser.connect(ctx.destination);
+      sourceRef.current = elementSource;
+      setAnalyserForViz(analyser);
+      return () => {
+        try {
+          elementSource?.disconnect();
+        } catch {
+          /* ignore */
+        }
+        try {
+          analyser.disconnect();
+        } catch {
+          /* ignore */
+        }
+        sourceRef.current = null;
+      };
+    } catch {
+      setAnalyserForViz(null);
+      return undefined;
+    }
   }, [audioRef, currentTrackData?.url, isAudioReady]);
 
   // Resume AudioContext on first play (browser autoplay policy)
