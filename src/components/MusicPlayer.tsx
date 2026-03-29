@@ -17,9 +17,7 @@ import { TRY_DESCENT_CLICKED_EVENT } from '../lib/descentHelp';
 import { registerAudioContext } from '../lib/audioContextManager';
 import { motion, AnimatePresence } from 'motion/react';
 
-/** One MediaElementSourceNode per HTMLMediaElement — persists across StrictMode remounts */
-const audioSourceByElement = new WeakMap<HTMLMediaElement, MediaElementAudioSourceNode>();
-/** Shared AudioContext so source stays valid across StrictMode remounts */
+/** Shared AudioContext so analyser stays valid across StrictMode remounts */
 let sharedAudioContext: AudioContext | null = null;
 
 export function MusicPlayer() {
@@ -69,7 +67,7 @@ export function MusicPlayer() {
   const [touchCurrentY, setTouchCurrentY] = useState<number | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
-  const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
+  const sourceRef = useRef<AudioNode | null>(null);
   const [analyserForViz, setAnalyserForViz] = useState<AnalyserNode | null>(null);
 
   // AudioContext/analyser for visualizer + DescentIntensity (shared so source stays valid)
@@ -96,8 +94,8 @@ export function MusicPlayer() {
     };
   }, []);
 
-  // Connect analyser to audio element for real music reactivity (Descend + visualizer).
-  // createMediaElementSource can only be called ONCE per element — reuse via WeakMap.
+  // Analysis via captureStream so <audio> keeps default output. createMediaElementSource hijacks
+  // the element to Web Audio only — that required a second <audio> for tab background and caused Chrome handoff stutter.
   useEffect(() => {
     const audio = audioRef?.current;
     const url = currentTrackData?.url?.trim();
@@ -107,28 +105,51 @@ export function MusicPlayer() {
     }
     const ctx = audioContextRef.current;
     const analyser = analyserRef.current;
-    let source = audioSourceByElement.get(audio);
-    const isNewSource = !source;
-    if (!source) {
-      try {
-        source = ctx.createMediaElementSource(audio);
-        audioSourceByElement.set(audio, source);
-      } catch {
-        setAnalyserForViz(analyser);
-        return;
-      }
+
+    if (typeof audio.captureStream !== 'function') {
+      setAnalyserForViz(null);
+      return;
     }
-    if (isNewSource || !sourceRef.current) {
+
+    let stream: MediaStream;
+    try {
+      stream = audio.captureStream();
+    } catch {
+      setAnalyserForViz(null);
+      return;
+    }
+
+    const source = ctx.createMediaStreamSource(stream);
+    const silentGain = ctx.createGain();
+    silentGain.gain.value = 0;
+    try {
+      source.connect(analyser);
+      analyser.connect(silentGain);
+      silentGain.connect(ctx.destination);
+    } catch {
+      stream.getTracks().forEach((t) => t.stop());
       try {
-        source.connect(analyser);
-        analyser.connect(ctx.destination);
+        source.disconnect();
       } catch {
-        setAnalyserForViz(analyser);
-        return;
+        /* ignore */
       }
+      setAnalyserForViz(null);
+      return;
     }
     sourceRef.current = source;
     setAnalyserForViz(analyser);
+
+    return () => {
+      try {
+        stream.getTracks().forEach((t) => t.stop());
+        source.disconnect();
+        silentGain.disconnect();
+        analyser.disconnect();
+      } catch {
+        /* ignore */
+      }
+      sourceRef.current = null;
+    };
   }, [audioRef, currentTrackData?.url, isAudioReady]);
 
   // Resume AudioContext on first play (browser autoplay policy)

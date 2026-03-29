@@ -28,31 +28,6 @@ export interface PlayerTrack {
   artworkUrl?: string;
 }
 
-/** Compare media URL to element.src (absolute) */
-function audioSrcMatchesElement(url: string, elementSrc: string): boolean {
-  if (!url || !elementSrc) return false;
-  try {
-    return new URL(url, window.location.href).href === new URL(elementSrc).href;
-  } catch {
-    return elementSrc.includes(url);
-  }
-}
-
-/** One play() after seek settles — avoids repeating a slice when handoff seeks the inactive element */
-function playWhenSeekSettled(el: HTMLAudioElement): Promise<void> {
-  const run = () => el.play().then(() => undefined);
-  if (el.seeking) {
-    return new Promise((resolve, reject) => {
-      const onSeeked = () => {
-        el.removeEventListener('seeked', onSeeked);
-        run().then(resolve).catch(reject);
-      };
-      el.addEventListener('seeked', onSeeked, { once: true });
-    });
-  }
-  return run();
-}
-
 const parseDurationStr = (durationStr: string): number => {
   const [minutes, seconds] = durationStr.split(':').map(Number);
   return minutes * 60 + seconds;
@@ -134,149 +109,57 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   const [isBuffering, setIsBuffering] = useState(false);
   const [shouldAutoPlay, setShouldAutoPlay] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [isPageVisible, setIsPageVisible] = useState(
-    () => (typeof document !== 'undefined' ? document.visibilityState === 'visible' : true)
-  );
-
   const visualizerAudioRef = useRef<HTMLAudioElement>(null);
-  const backgroundAudioRef = useRef<HTMLAudioElement>(null);
-  /** Throttle inactive-element time mirroring (keeps Chrome from cold-seeking on first tab hide) */
-  const lastInactiveMirrorTsRef = useRef(0);
   const audioRef = visualizerAudioRef; // alias for MusicPlayer
 
   const currentTrackUrl = tracks[currentTrack]?.url?.trim() ?? '';
   const currentTrackData = tracks[currentTrack];
 
-  // Use background (direct) audio when hidden so playback continues with screen off
-  const useBackgroundAudio = !isPageVisible;
-
-  // Load / reset audio only when the track (or its URL) changes — not when switching tabs.
-  // Preload BOTH elements with the same URL so the first tab switch can hand off without play() rejecting
-  // on an empty background element (inactive used to never get a src).
+  // Load / reset audio when the track (or its URL) changes.
+  // Single element: audible output stays on the element; analyser uses captureStream in MusicPlayer (no handoff).
   useEffect(() => {
     setIsAudioReady(false);
     setIsBuffering(false);
     setIsPlaying(false);
     if (!currentTrackData) return;
 
-    const v = visualizerAudioRef.current;
-    const b = backgroundAudioRef.current;
+    const el = visualizerAudioRef.current;
+    if (!el) return;
 
     if (currentTrackUrl) {
-      for (const el of [v, b]) {
-        if (!el) continue;
-        el.pause();
-        el.currentTime = 0;
-        el.crossOrigin = 'anonymous';
-        el.src = currentTrackData.url;
-        el.load();
-      }
+      el.pause();
+      el.currentTime = 0;
+      el.crossOrigin = 'anonymous';
+      el.src = currentTrackData.url;
+      el.load();
     } else {
-      for (const el of [v, b]) {
-        if (!el) continue;
-        el.pause();
-        el.removeAttribute('src');
-        el.load();
-      }
+      el.pause();
+      el.removeAttribute('src');
+      el.load();
       setDuration(parseDurationStr(currentTrackData.duration));
       setCurrentTime(0);
     }
   }, [currentTrack, currentTrackUrl, currentTrackData]);
 
-  // Switch elements when visibility changes BEFORE sync play/pause runs.
-  // Pause outgoing first, seek incoming — do NOT call play() here; sync effect is the only play() path
-  // so we avoid double play() (stutter / repeated phrase) on tab background.
-  const visibilityRef = useRef(isPageVisible);
+  // Drive play/pause and volume on the single element
   useEffect(() => {
-    if (visibilityRef.current === isPageVisible) return;
-    visibilityRef.current = isPageVisible;
-
-    const from = isPageVisible ? backgroundAudioRef.current : visualizerAudioRef.current;
-    const to = isPageVisible ? visualizerAudioRef.current : backgroundAudioRef.current;
-    if (!from || !to || !currentTrackUrl) return;
-
-    const t = from.currentTime;
-    // Brief mute can reduce Web Audio output click when pausing the routed visualizer element (Chrome).
-    from.muted = true;
-    from.pause();
-    from.muted = false;
-
-    const wantUrl = currentTrackData?.url ?? '';
-    const needReload = Boolean(wantUrl && !audioSrcMatchesElement(wantUrl, to.src));
-    if (needReload) {
-      to.crossOrigin = 'anonymous';
-      to.src = wantUrl;
-      to.load();
-      to.currentTime = t;
-    } else if (Math.abs(to.currentTime - t) > 0.03) {
-      // Skip redundant seek when mirror kept the inactive element aligned (reduces Chrome decoder glitch).
-      to.currentTime = t;
+    const el = visualizerAudioRef.current;
+    if (!el) return;
+    el.volume = isMuted ? 0 : volume;
+    if (isPlaying) {
+      const p = el.play();
+      if (p !== undefined) p.catch(() => setIsPlaying(false));
+    } else {
+      el.pause();
     }
-    setCurrentTime(t);
-    if (!isPlaying) {
-      to.pause();
-    }
-  }, [isPageVisible, isPlaying, currentTrackUrl, currentTrackData?.url]);
+  }, [isPlaying, volume, isMuted]);
 
-  // Single place that calls play() on the active element; waits for seek after visibility handoff
-  useEffect(() => {
-    const active = useBackgroundAudio ? backgroundAudioRef.current : visualizerAudioRef.current;
-    const inactive = useBackgroundAudio ? visualizerAudioRef.current : backgroundAudioRef.current;
-    if (active) {
-      if (isPlaying) {
-        playWhenSeekSettled(active).catch(() => setIsPlaying(false));
-      } else {
-        active.pause();
-      }
-      active.volume = isMuted ? 0 : volume;
-    }
-    if (inactive) {
-      inactive.pause();
-      inactive.volume = isMuted ? 0 : volume;
-    }
-  }, [isPlaying, volume, isMuted, useBackgroundAudio]);
-
-  // Apply volume to both when it changes
-  useEffect(() => {
-    const vol = isMuted ? 0 : volume;
-    if (visualizerAudioRef.current) visualizerAudioRef.current.volume = vol;
-    if (backgroundAudioRef.current) backgroundAudioRef.current.volume = vol;
-  }, [volume, isMuted]);
-
-  const handleTimeUpdate = useCallback(
-    (e: React.SyntheticEvent<HTMLAudioElement>) => {
-      const el = e.currentTarget;
-      const t = el.currentTime;
-      setCurrentTime(t);
-
-      const vis = visualizerAudioRef.current;
-      const bg = backgroundAudioRef.current;
-      if (!vis || !bg || !currentTrackUrl || !isPlaying) return;
-
-      const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
-      if (now - lastInactiveMirrorTsRef.current < 120) return;
-
-      try {
-        if (isPageVisible && el === vis && bg.paused) {
-          if (Math.abs(bg.currentTime - vis.currentTime) > 0.05) {
-            bg.currentTime = vis.currentTime;
-            lastInactiveMirrorTsRef.current = now;
-          }
-        } else if (!isPageVisible && el === bg && vis.paused) {
-          if (Math.abs(vis.currentTime - bg.currentTime) > 0.05) {
-            vis.currentTime = bg.currentTime;
-            lastInactiveMirrorTsRef.current = now;
-          }
-        }
-      } catch {
-        /* ignore */
-      }
-    },
-    [currentTrackUrl, isPlaying, isPageVisible]
-  );
+  const handleTimeUpdate = useCallback((e: React.SyntheticEvent<HTMLAudioElement>) => {
+    setCurrentTime(e.currentTarget.currentTime);
+  }, []);
 
   const handleLoadedMetadata = useCallback(() => {
-    const el = visualizerAudioRef.current ?? backgroundAudioRef.current;
+    const el = visualizerAudioRef.current;
     if (el) setDuration(el.duration);
   }, []);
 
@@ -357,7 +240,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     }
 
     const update = () => {
-      const active = useBackgroundAudio ? backgroundAudioRef.current : visualizerAudioRef.current;
+      const active = visualizerAudioRef.current;
       const dur =
         active && Number.isFinite(active.duration) && active.duration > 0 ? active.duration : duration;
       const pos = active && Number.isFinite(active.currentTime) ? active.currentTime : currentTime;
@@ -378,7 +261,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       window.clearInterval(id);
       clearPosition();
     };
-  }, [isPlaying, duration, currentTime, useBackgroundAudio]);
+  }, [isPlaying, duration, currentTime]);
 
   // Media Session playbackState — helps iOS treat us as active media (lock screen, Control Center)
   useEffect(() => {
@@ -421,7 +304,6 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       if (typeof t === 'number' && Number.isFinite(t)) {
         setCurrentTime(t);
         if (visualizerAudioRef.current) visualizerAudioRef.current.currentTime = t;
-        if (backgroundAudioRef.current) backgroundAudioRef.current.currentTime = t;
       }
     });
 
@@ -442,14 +324,11 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     return () => registerOnSuspend(null);
   }, []);
 
-  // Track visibility and switch audio; resume context when visible
+  // Resume AudioContext when tab is foregrounded (analyser path; element audio is independent).
   useEffect(() => {
     const handler = () => {
-      const visible = document.visibilityState === 'visible';
-      setIsPageVisible(visible);
-      if (visible) resumeAudioContext();
+      if (document.visibilityState === 'visible') resumeAudioContext();
     };
-    handler(); // sync initial state
     document.addEventListener('visibilitychange', handler);
     return () => document.removeEventListener('visibilitychange', handler);
   }, []);
@@ -461,14 +340,14 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   const togglePlay = useCallback(() => {
     const track = tracks[currentTrack];
     if (!track?.url) return;
-    const activeEl = useBackgroundAudio ? backgroundAudioRef.current : visualizerAudioRef.current;
-    if (!isAudioReady && activeEl) {
-      activeEl.load();
+    const el = visualizerAudioRef.current;
+    if (!isAudioReady && el) {
+      el.load();
       return;
     }
     resumeAudioContextIfNeeded();
     setIsPlaying((p) => !p);
-  }, [tracks, currentTrack, isAudioReady, useBackgroundAudio, resumeAudioContextIfNeeded]);
+  }, [tracks, currentTrack, isAudioReady, resumeAudioContextIfNeeded]);
 
   const skipForward = useCallback(() => {
     if (currentTrack >= tracks.length - 1) return;
@@ -492,7 +371,6 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     const t = value[0];
     setCurrentTime(t);
     if (visualizerAudioRef.current) visualizerAudioRef.current.currentTime = t;
-    if (backgroundAudioRef.current) backgroundAudioRef.current.currentTime = t;
   }, []);
 
   const handleVolumeChange = useCallback((value: number[]) => {
@@ -587,19 +465,6 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       {children}
       <audio
         ref={visualizerAudioRef}
-        onTimeUpdate={handleTimeUpdate}
-        onLoadedMetadata={handleLoadedMetadata}
-        onCanPlay={handleCanPlay}
-        onWaiting={handleWaiting}
-        onPlaying={handlePlaying}
-        onError={handleError}
-        onEnded={handleEnded}
-        preload={currentTrackUrl ? 'metadata' : 'none'}
-        className="sr-only"
-        aria-hidden
-      />
-      <audio
-        ref={backgroundAudioRef}
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
         onCanPlay={handleCanPlay}
