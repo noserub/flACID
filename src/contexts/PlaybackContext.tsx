@@ -38,6 +38,21 @@ function audioSrcMatchesElement(url: string, elementSrc: string): boolean {
   }
 }
 
+/** One play() after seek settles — avoids repeating a slice when handoff seeks the inactive element */
+function playWhenSeekSettled(el: HTMLAudioElement): Promise<void> {
+  const run = () => el.play().then(() => undefined);
+  if (el.seeking) {
+    return new Promise((resolve, reject) => {
+      const onSeeked = () => {
+        el.removeEventListener('seeked', onSeeked);
+        run().then(resolve).catch(reject);
+      };
+      el.addEventListener('seeked', onSeeked, { once: true });
+    });
+  }
+  return run();
+}
+
 const parseDurationStr = (durationStr: string): number => {
   const [minutes, seconds] = durationStr.split(':').map(Number);
   return minutes * 60 + seconds;
@@ -167,7 +182,8 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   }, [currentTrack, currentTrackUrl, currentTrackData]);
 
   // Switch elements when visibility changes BEFORE sync play/pause runs.
-  // Order matters: sync would otherwise call play() on background with no src / wrong time on first hide.
+  // Pause outgoing first, seek incoming — do NOT call play() here; sync effect is the only play() path
+  // so we avoid double play() (stutter / repeated phrase) on tab background.
   const visibilityRef = useRef(isPageVisible);
   useEffect(() => {
     if (visibilityRef.current === isPageVisible) return;
@@ -178,6 +194,8 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     if (!from || !to || !currentTrackUrl) return;
 
     const t = from.currentTime;
+    from.pause();
+
     const wantUrl = currentTrackData?.url ?? '';
     if (!wantUrl || !audioSrcMatchesElement(wantUrl, to.src)) {
       to.crossOrigin = 'anonymous';
@@ -186,22 +204,21 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     }
     to.currentTime = t;
     setCurrentTime(t);
-    if (isPlaying) {
-      from.pause();
-      to.play().catch(() => setIsPlaying(false));
-    } else {
-      from.pause();
+    if (!isPlaying) {
       to.pause();
     }
   }, [isPageVisible, isPlaying, currentTrackUrl, currentTrackData?.url]);
 
-  // Sync play/pause and volume to the active element (runs after visibility handoff)
+  // Single place that calls play() on the active element; waits for seek after visibility handoff
   useEffect(() => {
     const active = useBackgroundAudio ? backgroundAudioRef.current : visualizerAudioRef.current;
     const inactive = useBackgroundAudio ? visualizerAudioRef.current : backgroundAudioRef.current;
     if (active) {
-      if (isPlaying) active.play().catch(() => setIsPlaying(false));
-      else active.pause();
+      if (isPlaying) {
+        playWhenSeekSettled(active).catch(() => setIsPlaying(false));
+      } else {
+        active.pause();
+      }
       active.volume = isMuted ? 0 : volume;
     }
     if (inactive) {
