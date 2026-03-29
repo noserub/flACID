@@ -140,6 +140,8 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
 
   const visualizerAudioRef = useRef<HTMLAudioElement>(null);
   const backgroundAudioRef = useRef<HTMLAudioElement>(null);
+  /** Throttle inactive-element time mirroring (keeps Chrome from cold-seeking on first tab hide) */
+  const lastInactiveMirrorTsRef = useRef(0);
   const audioRef = visualizerAudioRef; // alias for MusicPlayer
 
   const currentTrackUrl = tracks[currentTrack]?.url?.trim() ?? '';
@@ -194,15 +196,22 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     if (!from || !to || !currentTrackUrl) return;
 
     const t = from.currentTime;
+    // Brief mute can reduce Web Audio output click when pausing the routed visualizer element (Chrome).
+    from.muted = true;
     from.pause();
+    from.muted = false;
 
     const wantUrl = currentTrackData?.url ?? '';
-    if (!wantUrl || !audioSrcMatchesElement(wantUrl, to.src)) {
+    const needReload = Boolean(wantUrl && !audioSrcMatchesElement(wantUrl, to.src));
+    if (needReload) {
       to.crossOrigin = 'anonymous';
       to.src = wantUrl;
       to.load();
+      to.currentTime = t;
+    } else if (Math.abs(to.currentTime - t) > 0.03) {
+      // Skip redundant seek when mirror kept the inactive element aligned (reduces Chrome decoder glitch).
+      to.currentTime = t;
     }
-    to.currentTime = t;
     setCurrentTime(t);
     if (!isPlaying) {
       to.pause();
@@ -234,9 +243,37 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     if (backgroundAudioRef.current) backgroundAudioRef.current.volume = vol;
   }, [volume, isMuted]);
 
-  const handleTimeUpdate = useCallback((e: React.SyntheticEvent<HTMLAudioElement>) => {
-    setCurrentTime(e.currentTarget.currentTime);
-  }, []);
+  const handleTimeUpdate = useCallback(
+    (e: React.SyntheticEvent<HTMLAudioElement>) => {
+      const el = e.currentTarget;
+      const t = el.currentTime;
+      setCurrentTime(t);
+
+      const vis = visualizerAudioRef.current;
+      const bg = backgroundAudioRef.current;
+      if (!vis || !bg || !currentTrackUrl || !isPlaying) return;
+
+      const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      if (now - lastInactiveMirrorTsRef.current < 120) return;
+
+      try {
+        if (isPageVisible && el === vis && bg.paused) {
+          if (Math.abs(bg.currentTime - vis.currentTime) > 0.05) {
+            bg.currentTime = vis.currentTime;
+            lastInactiveMirrorTsRef.current = now;
+          }
+        } else if (!isPageVisible && el === bg && vis.paused) {
+          if (Math.abs(vis.currentTime - bg.currentTime) > 0.05) {
+            vis.currentTime = bg.currentTime;
+            lastInactiveMirrorTsRef.current = now;
+          }
+        }
+      } catch {
+        /* ignore */
+      }
+    },
+    [currentTrackUrl, isPlaying, isPageVisible]
+  );
 
   const handleLoadedMetadata = useCallback(() => {
     const el = visualizerAudioRef.current ?? backgroundAudioRef.current;
