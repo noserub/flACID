@@ -20,7 +20,7 @@ import { motion, AnimatePresence } from 'motion/react';
 /** Shared AudioContext so analyser stays valid across StrictMode remounts */
 let sharedAudioContext: AudioContext | null = null;
 
-/** createMediaElementSource may only be called once per element — fallback when captureStream fails */
+/** createMediaElementSource may only be called once per HTMLMediaElement */
 const mediaElementSourceByAudio = new WeakMap<HTMLMediaElement, MediaElementAudioSourceNode>();
 
 export function MusicPlayer() {
@@ -70,9 +70,7 @@ export function MusicPlayer() {
   const [touchCurrentY, setTouchCurrentY] = useState<number | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
-  const sourceRef = useRef<AudioNode | null>(null);
-  /** When using captureStream, audible output goes through this gain (element may not play default in Chrome). */
-  const captureOutGainRef = useRef<GainNode | null>(null);
+  const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
   const [analyserForViz, setAnalyserForViz] = useState<AnalyserNode | null>(null);
 
   // AudioContext/analyser for visualizer + DescentIntensity (shared so source stays valid)
@@ -98,14 +96,14 @@ export function MusicPlayer() {
         /* ignore */
       }
       registerAudioContext(null);
-      // StrictMode remount: must clear refs or the next mount skips creating a fresh analyser and
-      // captureStream reconnects to a disconnected node (throws / broken graph).
+      // StrictMode remount: clear refs so a fresh analyser is created on the next mount.
       audioContextRef.current = null;
       analyserRef.current = null;
     };
   }, []);
 
-  // Prefer captureStream so <audio> keeps default output. Fallback: MediaElementSource (one graph only).
+  // Route playback through Web Audio (analyser → destination). Volume uses element.volume from PlaybackContext.
+  // captureStream was unreliable for audible output in Chrome; MediaElementSource is the standard path.
   useEffect(() => {
     const audio = audioRef?.current;
     const url = currentTrackData?.url?.trim();
@@ -116,29 +114,30 @@ export function MusicPlayer() {
     const ctx = audioContextRef.current;
     const analyser = analyserRef.current;
 
-    let stream: MediaStream | null = null;
-    let streamSource: MediaStreamAudioSourceNode | null = null;
-    let outGain: GainNode | null = null;
-    let elementSource: MediaElementAudioSourceNode | null = null;
+    let source = mediaElementSourceByAudio.get(audio) ?? null;
+    if (!source) {
+      try {
+        source = ctx.createMediaElementSource(audio);
+        mediaElementSourceByAudio.set(audio, source);
+      } catch {
+        setAnalyserForViz(null);
+        return;
+      }
+    }
 
-    const cleanup = (): void => {
+    try {
+      source.connect(analyser);
+      analyser.connect(ctx.destination);
+    } catch {
+      setAnalyserForViz(null);
+      return;
+    }
+    sourceRef.current = source;
+    setAnalyserForViz(analyser);
+
+    return () => {
       try {
-        if (stream) stream.getTracks().forEach((t) => t.stop());
-      } catch {
-        /* ignore */
-      }
-      try {
-        streamSource?.disconnect();
-      } catch {
-        /* ignore */
-      }
-      try {
-        outGain?.disconnect();
-      } catch {
-        /* ignore */
-      }
-      try {
-        elementSource?.disconnect();
+        source?.disconnect();
       } catch {
         /* ignore */
       }
@@ -148,66 +147,8 @@ export function MusicPlayer() {
         /* ignore */
       }
       sourceRef.current = null;
-      captureOutGainRef.current = null;
     };
-
-    try {
-      if (typeof audio.captureStream === 'function') {
-        stream = audio.captureStream();
-        streamSource = ctx.createMediaStreamSource(stream);
-        outGain = ctx.createGain();
-        outGain.gain.value = isMuted ? 0 : volume;
-        streamSource.connect(analyser);
-        analyser.connect(outGain);
-        outGain.connect(ctx.destination);
-        captureOutGainRef.current = outGain;
-        sourceRef.current = streamSource;
-        setAnalyserForViz(analyser);
-        return () => {
-          cleanup();
-        };
-      }
-    } catch {
-      cleanup();
-    }
-
-    captureOutGainRef.current = null;
-
-    // Fallback: hijacks element output to Web Audio only (no parallel element output).
-    try {
-      elementSource = mediaElementSourceByAudio.get(audio) ?? null;
-      if (!elementSource) {
-        elementSource = ctx.createMediaElementSource(audio);
-        mediaElementSourceByAudio.set(audio, elementSource);
-      }
-      elementSource.connect(analyser);
-      analyser.connect(ctx.destination);
-      sourceRef.current = elementSource;
-      setAnalyserForViz(analyser);
-      return () => {
-        try {
-          elementSource?.disconnect();
-        } catch {
-          /* ignore */
-        }
-        try {
-          analyser.disconnect();
-        } catch {
-          /* ignore */
-        }
-        sourceRef.current = null;
-      };
-    } catch {
-      setAnalyserForViz(null);
-      return undefined;
-    }
   }, [audioRef, currentTrackData?.url, isAudioReady]);
-
-  // Keep captureStream path loudness in sync without rebuilding the graph (volume slider / mute).
-  useEffect(() => {
-    const g = captureOutGainRef.current;
-    if (g) g.gain.value = isMuted ? 0 : volume;
-  }, [volume, isMuted]);
 
   // Resume AudioContext on first play (browser autoplay policy)
   useEffect(() => {
