@@ -134,63 +134,40 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   const useBackgroundAudio = !isPageVisible;
 
   // Load / reset audio only when the track (or its URL) changes — not when switching tabs.
-  // Including useBackgroundAudio in deps previously re-ran this and set isPlaying false, stopping background audio.
-  // useBackgroundAudio is read here only to pick which element receives the new load when the track changes.
+  // Preload BOTH elements with the same URL so the first tab switch can hand off without play() rejecting
+  // on an empty background element (inactive used to never get a src).
   useEffect(() => {
     setIsAudioReady(false);
     setIsBuffering(false);
     setIsPlaying(false);
     if (!currentTrackData) return;
 
-    const activeEl = useBackgroundAudio ? backgroundAudioRef.current : visualizerAudioRef.current;
-    const inactiveEl = useBackgroundAudio ? visualizerAudioRef.current : backgroundAudioRef.current;
+    const v = visualizerAudioRef.current;
+    const b = backgroundAudioRef.current;
 
-    const setupElement = (el: HTMLAudioElement | null, shouldLoad: boolean) => {
-      if (!el) return;
-      if (currentTrackUrl) {
-        if (shouldLoad) {
-          el.pause();
-          el.currentTime = 0;
-          el.crossOrigin = 'anonymous';
-          el.src = currentTrackData.url;
-          el.load();
-        }
-      } else {
+    if (currentTrackUrl) {
+      for (const el of [v, b]) {
+        if (!el) continue;
+        el.pause();
+        el.currentTime = 0;
+        el.crossOrigin = 'anonymous';
+        el.src = currentTrackData.url;
+        el.load();
+      }
+    } else {
+      for (const el of [v, b]) {
+        if (!el) continue;
         el.pause();
         el.removeAttribute('src');
         el.load();
-        setDuration(parseDurationStr(currentTrackData.duration));
-        setCurrentTime(0);
       }
-    };
-
-    setupElement(activeEl, true);
-    setupElement(inactiveEl, false);
+      setDuration(parseDurationStr(currentTrackData.duration));
+      setCurrentTime(0);
+    }
   }, [currentTrack, currentTrackUrl, currentTrackData]);
 
-  // Sync play/pause and volume to the active element
-  useEffect(() => {
-    const active = useBackgroundAudio ? backgroundAudioRef.current : visualizerAudioRef.current;
-    const inactive = useBackgroundAudio ? visualizerAudioRef.current : backgroundAudioRef.current;
-    if (active) {
-      if (isPlaying) active.play().catch(() => setIsPlaying(false));
-      else active.pause();
-      active.volume = isMuted ? 0 : volume;
-    }
-    if (inactive) {
-      inactive.pause();
-      inactive.volume = isMuted ? 0 : volume;
-    }
-  }, [isPlaying, volume, isMuted, useBackgroundAudio]);
-
-  // Apply volume to both when it changes
-  useEffect(() => {
-    const vol = isMuted ? 0 : volume;
-    if (visualizerAudioRef.current) visualizerAudioRef.current.volume = vol;
-    if (backgroundAudioRef.current) backgroundAudioRef.current.volume = vol;
-  }, [volume, isMuted]);
-
-  // Switch audio elements when visibility changes (background = direct output, continues when screen off)
+  // Switch elements when visibility changes BEFORE sync play/pause runs.
+  // Order matters: sync would otherwise call play() on background with no src / wrong time on first hide.
   const visibilityRef = useRef(isPageVisible);
   useEffect(() => {
     if (visibilityRef.current === isPageVisible) return;
@@ -217,6 +194,28 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       to.pause();
     }
   }, [isPageVisible, isPlaying, currentTrackUrl, currentTrackData?.url]);
+
+  // Sync play/pause and volume to the active element (runs after visibility handoff)
+  useEffect(() => {
+    const active = useBackgroundAudio ? backgroundAudioRef.current : visualizerAudioRef.current;
+    const inactive = useBackgroundAudio ? visualizerAudioRef.current : backgroundAudioRef.current;
+    if (active) {
+      if (isPlaying) active.play().catch(() => setIsPlaying(false));
+      else active.pause();
+      active.volume = isMuted ? 0 : volume;
+    }
+    if (inactive) {
+      inactive.pause();
+      inactive.volume = isMuted ? 0 : volume;
+    }
+  }, [isPlaying, volume, isMuted, useBackgroundAudio]);
+
+  // Apply volume to both when it changes
+  useEffect(() => {
+    const vol = isMuted ? 0 : volume;
+    if (visualizerAudioRef.current) visualizerAudioRef.current.volume = vol;
+    if (backgroundAudioRef.current) backgroundAudioRef.current.volume = vol;
+  }, [volume, isMuted]);
 
   const handleTimeUpdate = useCallback((e: React.SyntheticEvent<HTMLAudioElement>) => {
     setCurrentTime(e.currentTarget.currentTime);
