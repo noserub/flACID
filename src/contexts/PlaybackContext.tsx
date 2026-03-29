@@ -24,6 +24,18 @@ export interface PlayerTrack {
   duration: string;
   url: string;
   visualizationId: number;
+  /** HTTPS URL for lock screen / notification artwork */
+  artworkUrl?: string;
+}
+
+/** Compare media URL to element.src (absolute) */
+function audioSrcMatchesElement(url: string, elementSrc: string): boolean {
+  if (!url || !elementSrc) return false;
+  try {
+    return new URL(url, window.location.href).href === new URL(elementSrc).href;
+  } catch {
+    return elementSrc.includes(url);
+  }
 }
 
 const parseDurationStr = (durationStr: string): number => {
@@ -65,18 +77,22 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   const { tracks: supabaseTracks, loading: tracksLoading } = useTracks();
 
   const tracks: PlayerTrack[] = useMemo(() => {
-    if (isEditMode) {
-      return content.musicPlayer.tracks.map((t) => ({
+    const mapContentTrack = (t: (typeof content.musicPlayer.tracks)[number]) => {
+      const cover = 'coverImage' in t && typeof (t as { coverImage?: string }).coverImage === 'string'
+        ? (t as { coverImage?: string }).coverImage?.trim()
+        : '';
+      return {
         ...t,
         visualizationId: t.visualizationId ?? 0,
-      }));
+        artworkUrl: cover || undefined,
+      };
+    };
+    if (isEditMode) {
+      return content.musicPlayer.tracks.map(mapContentTrack);
     }
     // When we have a draft (e.g. just exited edit mode), use content so visualization and other edits persist
     if (isDraft) {
-      return content.musicPlayer.tracks.map((t) => ({
-        ...t,
-        visualizationId: t.visualizationId ?? 0,
-      }));
+      return content.musicPlayer.tracks.map(mapContentTrack);
     }
     if (isSupabaseConfigured && !tracksLoading && supabaseTracks.length > 0) {
       return supabaseTracks.map((t, i) => ({
@@ -87,12 +103,10 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
         duration: formatDuration(t.duration),
         url: t.audio_url,
         visualizationId: parseVisualizationId(t.visualization_type),
+        artworkUrl: t.cover_image_url?.trim() || undefined,
       }));
     }
-    return content.musicPlayer.tracks.map((t) => ({
-      ...t,
-      visualizationId: t.visualizationId ?? 0,
-    }));
+    return content.musicPlayer.tracks.map(mapContentTrack);
   }, [isEditMode, isDraft, isSupabaseConfigured, tracksLoading, supabaseTracks, content.musicPlayer.tracks, draftRevision]);
 
   const [currentTrack, setCurrentTrackState] = useState(0);
@@ -119,6 +133,9 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   // Use background (direct) audio when hidden so playback continues with screen off
   const useBackgroundAudio = !isPageVisible;
 
+  // Load / reset audio only when the track (or its URL) changes — not when switching tabs.
+  // Including useBackgroundAudio in deps previously re-ran this and set isPlaying false, stopping background audio.
+  // useBackgroundAudio is read here only to pick which element receives the new load when the track changes.
   useEffect(() => {
     setIsAudioReady(false);
     setIsBuffering(false);
@@ -149,7 +166,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
 
     setupElement(activeEl, true);
     setupElement(inactiveEl, false);
-  }, [currentTrack, currentTrackUrl, currentTrackData, useBackgroundAudio]);
+  }, [currentTrack, currentTrackUrl, currentTrackData]);
 
   // Sync play/pause and volume to the active element
   useEffect(() => {
@@ -184,8 +201,10 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     if (!from || !to || !currentTrackUrl) return;
 
     const t = from.currentTime;
-    if (!to.src || to.src !== currentTrackData?.url) {
-      to.src = currentTrackData?.url ?? '';
+    const wantUrl = currentTrackData?.url ?? '';
+    if (!wantUrl || !audioSrcMatchesElement(wantUrl, to.src)) {
+      to.crossOrigin = 'anonymous';
+      to.src = wantUrl;
       to.load();
     }
     to.currentTime = t;
@@ -236,7 +255,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     }
   }, [currentTrack, tracks]);
 
-  // Media Session API: metadata for lock screen, car display, etc.
+  // Media Session API: metadata for lock screen, car display, notification shade, etc.
   useEffect(() => {
     if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
     const track = currentTrackData;
@@ -244,13 +263,69 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       navigator.mediaSession.metadata = null;
       return;
     }
+    const artwork: MediaImage[] = [];
+    const art = track.artworkUrl?.trim();
+    if (art) {
+      artwork.push({ src: art, sizes: '512x512' });
+      artwork.push({ src: art, sizes: '256x256' });
+    } else {
+      try {
+        const fallback = new URL('/android-chrome-192x192.png', window.location.origin).href;
+        artwork.push({ src: fallback, sizes: '192x192', type: 'image/png' });
+      } catch {
+        /* ignore */
+      }
+    }
     navigator.mediaSession.metadata = new MediaMetadata({
       title: track.title,
       artist: track.artist,
       album: track.album || undefined,
-      // artwork: add when album art URLs available
+      artwork: artwork.length > 0 ? artwork : undefined,
     });
   }, [currentTrackData]);
+
+  // Lock screen / OS scrubber: position state (throttled via interval)
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
+    const ms = navigator.mediaSession;
+    if (typeof ms.setPositionState !== 'function') return;
+
+    const clearPosition = () => {
+      try {
+        ms.setPositionState(null);
+      } catch {
+        /* ignore */
+      }
+    };
+
+    if (!isPlaying || !Number.isFinite(duration) || duration <= 0) {
+      clearPosition();
+      return;
+    }
+
+    const update = () => {
+      const active = useBackgroundAudio ? backgroundAudioRef.current : visualizerAudioRef.current;
+      const dur =
+        active && Number.isFinite(active.duration) && active.duration > 0 ? active.duration : duration;
+      const pos = active && Number.isFinite(active.currentTime) ? active.currentTime : currentTime;
+      try {
+        ms.setPositionState({
+          duration: dur,
+          playbackRate: active?.playbackRate ?? 1,
+          position: Math.min(Math.max(0, pos), dur),
+        });
+      } catch {
+        /* Safari may throw until playback started */
+      }
+    };
+
+    update();
+    const id = window.setInterval(update, 1000);
+    return () => {
+      window.clearInterval(id);
+      clearPosition();
+    };
+  }, [isPlaying, duration, currentTime, useBackgroundAudio]);
 
   // Media Session playbackState — helps iOS treat us as active media (lock screen, Control Center)
   useEffect(() => {
