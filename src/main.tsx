@@ -12,6 +12,14 @@ import "./index.css";
 
 validateEnvironmentWarn();
 
+if (import.meta.env.PROD && typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {
+      /* installability best-effort; ignore registration failures */
+    });
+  });
+}
+
 // Preconnect to Supabase for faster audio/image loading
 const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL ?? '').trim();
 if (supabaseUrl && supabaseUrl.startsWith('https://')) {

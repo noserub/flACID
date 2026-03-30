@@ -13,6 +13,7 @@ import {
   LogOut,
   CircleHelp,
   Mic,
+  Smartphone,
 } from 'lucide-react';
 import {
   AlertDialog,
@@ -37,7 +38,7 @@ import {
 import { useEditMode } from '../contexts/EditModeContext';
 import { useDescentMode } from '../contexts/DescentModeContext';
 import { usePlayback } from '../contexts/PlaybackContext';
-import { useAuth } from '../hooks';
+import { useAuth, useInstallPwa } from '../hooks';
 import { DESCENT_CHROME_LIFT, DESCENT_MENU_PORTAL_LIFT } from '../lib/descentContentLayer';
 import { cn } from './ui/utils';
 import { DescentModeToggle } from './DescentModeToggle';
@@ -55,6 +56,8 @@ export function SiteHeader() {
   const [showComponentLibrary, setShowComponentLibrary] = useState(false);
   const [exitConfirmOpen, setExitConfirmOpen] = useState(false);
   const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
+  const [installIosOpen, setInstallIosOpen] = useState(false);
+  const { isStandalone, canUseBrowserInstall, showIosAddToHome, promptInstall } = useInstallPwa();
 
   if (isFullscreen) return null;
 
@@ -213,6 +216,32 @@ export function SiteHeader() {
               <CircleHelp className="mr-2 h-4 w-4 shrink-0" />
               <span>What is Descend?</span>
             </DropdownMenuItem>
+
+            {!isStandalone && (canUseBrowserInstall || showIosAddToHome) && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="text-xs text-muted-foreground">App</DropdownMenuLabel>
+                {canUseBrowserInstall ? (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      void promptInstall();
+                    }}
+                    className="text-cyan-400/95 focus:text-cyan-300 focus:bg-cyan-500/10"
+                  >
+                    <Smartphone className="mr-2 h-4 w-4 shrink-0" />
+                    <span>Install app</span>
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem
+                    onClick={() => setInstallIosOpen(true)}
+                    className="text-cyan-400/95 focus:text-cyan-300 focus:bg-cyan-500/10"
+                  >
+                    <Smartphone className="mr-2 h-4 w-4 shrink-0" />
+                    <span>Add to Home Screen</span>
+                  </DropdownMenuItem>
+                )}
+              </>
+            )}
 
             <DropdownMenuSeparator />
             
@@ -376,6 +405,37 @@ export function SiteHeader() {
             <AlertDialogAction onClick={handleConfirmDiscard}>
               Discard
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={installIosOpen} onOpenChange={setInstallIosOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Add flACID to your Home Screen</AlertDialogTitle>
+            <AlertDialogDescription className="text-left space-y-3">
+              <span className="block">
+                On iPhone and iPad, every browser uses Apple&apos;s WebKit. There is no &quot;Download&quot; or
+                Play Store–style install like on Android. You add the site manually:
+              </span>
+              <span className="block">
+                <strong className="text-foreground">Safari:</strong> tap{' '}
+                <strong className="text-foreground">Share</strong> (square with arrow), then{' '}
+                <strong className="text-foreground">Add to Home Screen</strong>.
+              </span>
+              <span className="block">
+                <strong className="text-foreground">Chrome:</strong> tap <strong className="text-foreground">Share</strong>{' '}
+                in the toolbar, then <strong className="text-foreground">Add to Home Screen</strong> (you may need to scroll
+                the actions list). If it doesn&apos;t appear, open this page in Safari and use Share there—Apple is stricter
+                in third-party browsers.
+              </span>
+              <span className="block text-muted-foreground">
+                The home screen icon opens full screen without the browser chrome—best for mirroring to a TV.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setInstallIosOpen(false)}>Got it</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
