@@ -342,7 +342,7 @@ export function MusicPlayer() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.35, ease: 'easeInOut' }}
-            className="fixed inset-0 z-[9980] bg-black cursor-pointer"
+            className="fixed top-0 left-0 right-0 z-[9980] h-[100dvh] min-h-[100dvh] w-full bg-black cursor-pointer"
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}

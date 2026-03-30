@@ -58,20 +58,47 @@ export function PsychedelicVisualizer({
 
     const getPixelRatio = () => Math.min(window.devicePixelRatio || 1, 1.5);
 
-    /** Keep backing-store size in sync with layout every frame — avoids split/tear when orientation changes mid-layout. */
-    const syncCanvasSize = (): boolean => {
+    /** Quantize layout dims so iOS PWA / subpixel layout churn does not resize the canvas every frame. */
+    const LAYOUT_QUANT = 4;
+    const quantizeLayoutDim = (n: number) =>
+      Math.max(LAYOUT_QUANT, Math.round(n / LAYOUT_QUANT) * LAYOUT_QUANT);
+
+    const readLayoutSize = (el: HTMLCanvasElement) => {
+      const r = el.getBoundingClientRect();
+      return { w: quantizeLayoutDim(r.width), h: quantizeLayoutDim(r.height) };
+    };
+
+    let lastQuantW = 0;
+    let lastQuantH = 0;
+
+    type CanvasSync = { drawW: number; drawH: number; didResetViz: boolean };
+
+    /** Backing-store + CSS layout sync; reset viz only on real size / DPR changes. */
+    const syncCanvasSize = (): CanvasSync => {
       const pr = getPixelRatio();
-      const w = canvas.clientWidth;
-      const h = canvas.clientHeight;
-      if (w < 2 || h < 2) return false;
+      const { w, h } = readLayoutSize(canvas);
+      if (w < LAYOUT_QUANT || h < LAYOUT_QUANT) {
+        return { drawW: Math.max(1, w), drawH: Math.max(1, h), didResetViz: false };
+      }
       const bw = Math.max(1, Math.round(w * pr));
       const bh = Math.max(1, Math.round(h * pr));
-      if (canvas.width === bw && canvas.height === bh) return false;
-      canvas.width = bw;
-      canvas.height = bh;
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.scale(pr, pr);
-      return true;
+
+      let didResetViz = false;
+      if (lastQuantW !== 0 && (w !== lastQuantW || h !== lastQuantH)) {
+        didResetViz = true;
+      }
+      lastQuantW = w;
+      lastQuantH = h;
+
+      if (canvas.width !== bw || canvas.height !== bh) {
+        canvas.width = bw;
+        canvas.height = bh;
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.scale(pr, pr);
+        didResetViz = true;
+      }
+
+      return { drawW: w, drawH: h, didResetViz };
     };
 
     let resizeRaf: number | null = null;
@@ -82,6 +109,18 @@ export function PsychedelicVisualizer({
         syncCanvasSize();
       });
     };
+
+    let roDebounceTimer: ReturnType<typeof window.setTimeout> | null = null;
+    const ro =
+      typeof ResizeObserver !== 'undefined'
+        ? new ResizeObserver(() => {
+            if (roDebounceTimer !== null) clearTimeout(roDebounceTimer);
+            roDebounceTimer = window.setTimeout(() => {
+              roDebounceTimer = null;
+              scheduleSync();
+            }, 48);
+          })
+        : null;
 
     const onOrientationChange = () => {
       scheduleSync();
@@ -96,7 +135,10 @@ export function PsychedelicVisualizer({
     syncCanvasSize();
     window.addEventListener('resize', scheduleSync);
     window.addEventListener('orientationchange', onOrientationChange);
-    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(scheduleSync) : null;
+    const vv = window.visualViewport;
+    const onVisualViewportChange = () => scheduleSync();
+    vv?.addEventListener('resize', onVisualViewportChange);
+    vv?.addEventListener('scroll', onVisualViewportChange);
     ro?.observe(canvas);
 
     const bufferLength = analyser ? analyser.frequencyBinCount : 1024;
@@ -110,8 +152,8 @@ export function PsychedelicVisualizer({
         return;
       }
 
-      const resized = syncCanvasSize();
-      if (resized) {
+      const { drawW: width, drawH: height, didResetViz } = syncCanvasSize();
+      if (didResetViz) {
         particlesRef.current = [];
         audioSmoother.reset();
       }
@@ -120,9 +162,6 @@ export function PsychedelicVisualizer({
         animationRef.current = requestAnimationFrame(draw);
         return;
       }
-
-      const width = canvas.clientWidth;
-      const height = canvas.clientHeight;
       if (width < 2 || height < 2) {
         animationRef.current = requestAnimationFrame(draw);
         return;
@@ -240,8 +279,11 @@ export function PsychedelicVisualizer({
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
       if (resizeRaf !== null) cancelAnimationFrame(resizeRaf);
+      if (roDebounceTimer !== null) clearTimeout(roDebounceTimer);
       window.removeEventListener('resize', scheduleSync);
       window.removeEventListener('orientationchange', onOrientationChange);
+      vv?.removeEventListener('resize', onVisualViewportChange);
+      vv?.removeEventListener('scroll', onVisualViewportChange);
       ro?.disconnect();
       observer.disconnect();
     };
