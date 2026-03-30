@@ -34,26 +34,28 @@ export function PsychedelicVisualizer({ analyser, isPlaying, currentTrack, visua
     let isVisible = true;
     const observer = new IntersectionObserver(
       (entries) => {
-        isVisible = entries[0].isIntersecting;
+        const e = entries[0];
+        isVisible = e?.isIntersecting ?? true;
       },
-      { threshold: 0.1 }
+      { threshold: 0, rootMargin: '0px' }
     );
     observer.observe(canvas);
 
     const getPixelRatio = () => Math.min(window.devicePixelRatio || 1, 1.5);
 
-    const syncCanvasSize = () => {
+    const syncCanvasSize = (): boolean => {
       const pr = getPixelRatio();
       const w = canvas.clientWidth;
       const h = canvas.clientHeight;
-      if (w < 2 || h < 2) return;
+      if (w < 2 || h < 2) return false;
       const bw = Math.max(1, Math.round(w * pr));
       const bh = Math.max(1, Math.round(h * pr));
-      if (canvas.width === bw && canvas.height === bh) return;
+      if (canvas.width === bw && canvas.height === bh) return false;
       canvas.width = bw;
       canvas.height = bh;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.scale(pr, pr);
+      return true;
     };
 
     let resizeRaf: number | null = null;
@@ -65,9 +67,19 @@ export function PsychedelicVisualizer({ analyser, isPlaying, currentTrack, visua
       });
     };
 
+    const onOrientationChange = () => {
+      scheduleSync();
+      requestAnimationFrame(() => {
+        syncCanvasSize();
+        requestAnimationFrame(() => {
+          syncCanvasSize();
+        });
+      });
+    };
+
     syncCanvasSize();
     window.addEventListener('resize', scheduleSync);
-    window.addEventListener('orientationchange', scheduleSync);
+    window.addEventListener('orientationchange', onOrientationChange);
     const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(scheduleSync) : null;
     ro?.observe(canvas);
 
@@ -303,13 +315,20 @@ export function PsychedelicVisualizer({ analyser, isPlaying, currentTrack, visua
     };
 
     const draw = () => {
-      // Skip drawing if not visible
-      if (!isVisible) {
+      if (document.visibilityState === 'hidden') {
         animationRef.current = requestAnimationFrame(draw);
         return;
       }
 
-      syncCanvasSize();
+      const resized = syncCanvasSize();
+      if (resized) {
+        particles.length = 0;
+      }
+
+      if (!isVisible) {
+        animationRef.current = requestAnimationFrame(draw);
+        return;
+      }
 
       const width = canvas.clientWidth;
       const height = canvas.clientHeight;
@@ -470,7 +489,7 @@ export function PsychedelicVisualizer({ analyser, isPlaying, currentTrack, visua
       }
       if (resizeRaf !== null) cancelAnimationFrame(resizeRaf);
       window.removeEventListener('resize', scheduleSync);
-      window.removeEventListener('orientationchange', scheduleSync);
+      window.removeEventListener('orientationchange', onOrientationChange);
       ro?.disconnect();
       observer.disconnect();
     };
