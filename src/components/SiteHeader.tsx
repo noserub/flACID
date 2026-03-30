@@ -180,12 +180,13 @@ export function SiteHeader() {
     >
       <div className="relative w-full min-h-[44px] md:min-h-[52px] grid grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_1fr] items-center">
         <div className="hidden md:block" />
-        <div className="col-start-1 md:col-start-2">
+        {/* Flex centers the mini player on the same vertical axis as the actions column (avoids top vs baseline misalignment). */}
+        <div className="col-start-1 md:col-start-2 flex items-center justify-center min-w-0">
           <MiniPlayer />
         </div>
-        <div className="col-start-2 md:col-start-3 justify-self-end shrink-0">
-          {/* Core strip stays fixed; draft is out-of-flow on md+ (left) or below on small screens */}
-          <div className="relative inline-block text-right">
+        <div className="col-start-2 md:col-start-3 flex items-center justify-end shrink-0 min-w-0">
+          {/* Core strip; draft is out-of-flow on md+ (left) or below on small screens */}
+          <div className="relative flex flex-col items-end text-right">
             <div className="flex items-center justify-end gap-3 sm:gap-4">
               <DescentModeToggle />
 
