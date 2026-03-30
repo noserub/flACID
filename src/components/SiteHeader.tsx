@@ -13,6 +13,7 @@ import {
   LogOut,
   CircleHelp,
   Mic,
+  Smartphone,
 } from 'lucide-react';
 import {
   AlertDialog,
@@ -37,7 +38,7 @@ import {
 import { useEditMode } from '../contexts/EditModeContext';
 import { useDescentMode } from '../contexts/DescentModeContext';
 import { usePlayback } from '../contexts/PlaybackContext';
-import { useAuth } from '../hooks';
+import { useAuth, useInstallPwa } from '../hooks';
 import { DESCENT_CHROME_LIFT, DESCENT_MENU_PORTAL_LIFT } from '../lib/descentContentLayer';
 import { cn } from './ui/utils';
 import { DescentModeToggle } from './DescentModeToggle';
@@ -55,6 +56,8 @@ export function SiteHeader() {
   const [showComponentLibrary, setShowComponentLibrary] = useState(false);
   const [exitConfirmOpen, setExitConfirmOpen] = useState(false);
   const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
+  const [installIosOpen, setInstallIosOpen] = useState(false);
+  const { isStandalone, canUseBrowserInstall, showIosAddToHome, promptInstall } = useInstallPwa();
 
   if (isFullscreen) return null;
 
@@ -213,6 +216,32 @@ export function SiteHeader() {
               <CircleHelp className="mr-2 h-4 w-4 shrink-0" />
               <span>What is Descend?</span>
             </DropdownMenuItem>
+
+            {!isStandalone && (canUseBrowserInstall || showIosAddToHome) && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="text-xs text-muted-foreground">App</DropdownMenuLabel>
+                {canUseBrowserInstall ? (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      void promptInstall();
+                    }}
+                    className="text-cyan-400/95 focus:text-cyan-300 focus:bg-cyan-500/10"
+                  >
+                    <Smartphone className="mr-2 h-4 w-4 shrink-0" />
+                    <span>Install app</span>
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem
+                    onClick={() => setInstallIosOpen(true)}
+                    className="text-cyan-400/95 focus:text-cyan-300 focus:bg-cyan-500/10"
+                  >
+                    <Smartphone className="mr-2 h-4 w-4 shrink-0" />
+                    <span>Add to Home Screen</span>
+                  </DropdownMenuItem>
+                )}
+              </>
+            )}
 
             <DropdownMenuSeparator />
             
@@ -376,6 +405,27 @@ export function SiteHeader() {
             <AlertDialogAction onClick={handleConfirmDiscard}>
               Discard
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={installIosOpen} onOpenChange={setInstallIosOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Add flACID to your Home Screen</AlertDialogTitle>
+            <AlertDialogDescription className="text-left space-y-2">
+              <span className="block">
+                Safari does not allow websites to add themselves to the home screen automatically. Use the Share
+                button, then choose <strong className="text-foreground">Add to Home Screen</strong>.
+              </span>
+              <span className="block text-muted-foreground">
+                Opening the site from that icon runs it full screen, without Safari&apos;s address bar—ideal for
+                mirroring visuals to a TV.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setInstallIosOpen(false)}>Got it</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
