@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Play, Pause, SkipForward, SkipBack, Volume2, VolumeX, List, Maximize, Minimize, X, Loader2 } from 'lucide-react';
+import { Play, Pause, SkipForward, SkipBack, Volume2, VolumeX, List, Maximize, Minimize, X, Loader2, Radio, Tv } from 'lucide-react';
 import { Button } from './ui/button';
 import { Slider } from './ui/slider';
 import { PsychedelicVisualizer } from './PsychedelicVisualizer';
@@ -49,6 +49,12 @@ export function MusicPlayer() {
     selectTrack,
     isFullscreen,
     setIsFullscreen,
+    isAirPlayAvailable,
+    isRemotePlaybackAvailable,
+    isRemotePlaybackConnected,
+    remotePlaybackDeviceName,
+    showAirPlayPicker,
+    showRemotePlaybackPicker,
   } = usePlayback();
 
   const handleTogglePlay = () => {
@@ -58,6 +64,8 @@ export function MusicPlayer() {
     }
     togglePlay();
   };
+
+  const canShowRemoteTargets = isAirPlayAvailable || isRemotePlaybackAvailable;
 
   const [showPlaylist, setShowPlaylist] = useState(true);
   const [isVisualizerLoading, setIsVisualizerLoading] = useState(false);
@@ -563,7 +571,48 @@ export function MusicPlayer() {
                     </Button>
                   </div>
 
-                  <div className="w-32"></div>
+                  <div className="w-32 flex items-center justify-end gap-2">
+                    {isAirPlayAvailable && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={showAirPlayPicker}
+                        className="text-white hover:text-white hover:bg-white/20"
+                        aria-label="Open AirPlay devices"
+                        title="AirPlay"
+                      >
+                        <Radio className="h-5 w-5" aria-hidden />
+                      </Button>
+                    )}
+                    {isRemotePlaybackAvailable && (
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => void showRemotePlaybackPicker()}
+                          className={`text-white hover:text-white hover:bg-white/20 ${isRemotePlaybackConnected ? 'bg-white/20' : ''}`}
+                          aria-label={isRemotePlaybackConnected ? 'Casting connected' : 'Open cast devices'}
+                          title={isRemotePlaybackConnected ? 'Casting connected' : 'Cast'}
+                        >
+                          <Tv className="h-5 w-5" aria-hidden />
+                        </Button>
+                        <AnimatePresence initial={false}>
+                          {isRemotePlaybackConnected && (
+                            <motion.span
+                              key="fullscreen-cast-device"
+                              initial={{ opacity: 0, x: -4 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              exit={{ opacity: 0, x: -4 }}
+                              transition={{ duration: 0.18, ease: 'easeOut' }}
+                              className="max-w-24 truncate text-[11px] text-white/70"
+                            >
+                              {remotePlaybackDeviceName ?? 'Connected'}
+                            </motion.span>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
               </motion.div>
@@ -720,6 +769,50 @@ export function MusicPlayer() {
 
             {/* View Controls Group */}
             <div className="flex w-full flex-shrink-0 basis-full items-center justify-center gap-2 sm:w-auto sm:basis-auto bg-background/40 rounded-lg px-3 py-2 backdrop-blur-sm">
+              {canShowRemoteTargets && (
+                <>
+                  {isAirPlayAvailable && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={showAirPlayPicker}
+                      className="text-cyan-400 hover:text-fuchsia-400 hover:bg-transparent hover:shadow-lg hover:shadow-fuchsia-500/20 transition-all duration-300"
+                      aria-label="Open AirPlay devices"
+                      title="AirPlay"
+                    >
+                      <Radio className="h-5 w-5" aria-hidden />
+                    </Button>
+                  )}
+                  {isRemotePlaybackAvailable && (
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => void showRemotePlaybackPicker()}
+                        className={`text-cyan-400 hover:text-fuchsia-400 hover:bg-transparent hover:shadow-lg hover:shadow-fuchsia-500/20 transition-all duration-300 ${isRemotePlaybackConnected ? 'text-fuchsia-400' : ''}`}
+                        aria-label={isRemotePlaybackConnected ? 'Casting connected' : 'Open cast devices'}
+                        title={isRemotePlaybackConnected ? 'Casting connected' : 'Cast'}
+                      >
+                        <Tv className="h-5 w-5" aria-hidden />
+                      </Button>
+                      <AnimatePresence initial={false}>
+                        {isRemotePlaybackConnected && (
+                          <motion.span
+                            key="normal-cast-device"
+                            initial={{ opacity: 0, x: -4 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -4 }}
+                            transition={{ duration: 0.18, ease: 'easeOut' }}
+                            className="max-w-28 truncate text-xs text-cyan-200/80"
+                          >
+                            {remotePlaybackDeviceName ?? 'Connected'}
+                          </motion.span>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  )}
+                </>
+              )}
               <Button
                 variant="ghost"
                 size="icon"
