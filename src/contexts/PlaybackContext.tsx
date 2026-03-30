@@ -15,6 +15,7 @@ import { resumeAudioContext, registerOnSuspend } from '../lib/audioContextManage
 import { isSupabaseConfigured } from '../lib/supabase';
 import { parseVisualizationId } from '../lib/contentMappers';
 import { formatDuration } from '../utils';
+import { releaseScreenWakeLock, requestScreenWakeLock } from '../lib/screenWakeLock';
 
 export interface PlayerTrack {
   id: number;
@@ -124,6 +125,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   const castSessionRef = useRef<any>(null);
   const castMediaSessionRef = useRef<any>(null);
   const castEnabledRef = useRef(false);
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
   const audioRef = visualizerAudioRef; // alias for MusicPlayer
 
   const currentTrackUrl = tracks[currentTrack]?.url?.trim() ?? '';
@@ -357,14 +359,58 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     return () => registerOnSuspend(null);
   }, []);
 
-  // Resume AudioContext when tab is foregrounded (analyser path; element audio is independent).
+  // Keep screen awake while playing or in fullscreen visualizer (best-effort; released when tab is hidden).
+  useEffect(() => {
+    const wantWake = isPlaying || isFullscreen;
+    if (!wantWake) {
+      void (async () => {
+        await releaseScreenWakeLock(wakeLockRef.current);
+        wakeLockRef.current = null;
+      })();
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      if (wakeLockRef.current) return;
+      const lock = await requestScreenWakeLock();
+      if (cancelled) {
+        await releaseScreenWakeLock(lock);
+        return;
+      }
+      if (!lock) return;
+      wakeLockRef.current = lock;
+      lock.addEventListener('release', () => {
+        if (wakeLockRef.current === lock) wakeLockRef.current = null;
+      });
+    })();
+    return () => {
+      cancelled = true;
+      void (async () => {
+        await releaseScreenWakeLock(wakeLockRef.current);
+        wakeLockRef.current = null;
+      })();
+    };
+  }, [isPlaying, isFullscreen]);
+
+  // Resume AudioContext when tab is foregrounded; re-acquire wake lock (browsers drop it while hidden).
   useEffect(() => {
     const handler = () => {
-      if (document.visibilityState === 'visible') resumeAudioContext();
+      if (document.visibilityState !== 'visible') return;
+      resumeAudioContext();
+      if (!isPlaying && !isFullscreen) return;
+      if (wakeLockRef.current) return;
+      void (async () => {
+        const lock = await requestScreenWakeLock();
+        if (!lock) return;
+        wakeLockRef.current = lock;
+        lock.addEventListener('release', () => {
+          if (wakeLockRef.current === lock) wakeLockRef.current = null;
+        });
+      })();
     };
     document.addEventListener('visibilitychange', handler);
     return () => document.removeEventListener('visibilitychange', handler);
-  }, []);
+  }, [isPlaying, isFullscreen]);
 
   const resumeAudioContextIfNeeded = useCallback(() => {
     // AudioContext resume is handled in MusicPlayer when isPlaying becomes true
