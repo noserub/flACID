@@ -169,11 +169,16 @@ export function SiteHeader() {
   return (
     <header
       className={cn(
-        'fixed top-0 left-0 right-0 p-4 pointer-events-none [&>*]:pointer-events-auto',
+        'fixed top-0 left-0 right-0 pointer-events-none [&>*]:pointer-events-auto',
+        /* PWA / iOS: clear notch + Dynamic Island; horizontal insets in landscape */
+        'pt-[max(1rem,env(safe-area-inset-top,0px))]',
+        'pl-[max(1rem,env(safe-area-inset-left,0px))]',
+        'pr-[max(1rem,env(safe-area-inset-right,0px))]',
+        'pb-4',
         isDescentMode ? DESCENT_CHROME_LIFT : 'z-50'
       )}
     >
-      <div className="relative w-full min-h-[52px] grid grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_1fr] items-center">
+      <div className="relative w-full min-h-[44px] md:min-h-[52px] grid grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_1fr] items-center">
         <div className="hidden md:block" />
         <div className="col-start-1 md:col-start-2">
           <MiniPlayer />
@@ -181,7 +186,7 @@ export function SiteHeader() {
         <div className="col-start-2 md:col-start-3 justify-self-end shrink-0">
           {/* Core strip stays fixed; draft is out-of-flow on md+ (left) or below on small screens */}
           <div className="relative inline-block text-right">
-            <div className="flex items-center justify-end gap-3">
+            <div className="flex items-center justify-end gap-3 sm:gap-4">
               <DescentModeToggle />
 
               {exportSuccess && (
@@ -195,9 +200,9 @@ export function SiteHeader() {
           <DropdownMenuTrigger asChild>
             <Button
               size="icon"
-              className="bg-background/80 text-cyan-400 border border-cyan-400/30 hover:border-fuchsia-400/50 hover:text-fuchsia-400 hover:bg-transparent hover:shadow-lg hover:shadow-fuchsia-500/20 transition-all duration-300"
+              className="size-11 min-h-11 min-w-11 touch-manipulation bg-background/80 text-cyan-400 border border-cyan-400/30 hover:border-fuchsia-400/50 hover:text-fuchsia-400 hover:bg-transparent hover:shadow-lg hover:shadow-fuchsia-500/20 transition-all duration-300"
             >
-              <MoreHorizontal className="h-5 w-5" />
+              <MoreHorizontal className="h-6 w-6" aria-hidden />
               <span className="sr-only">Site menu</span>
             </Button>
           </DropdownMenuTrigger>

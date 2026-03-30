@@ -12,10 +12,11 @@ import { cn } from './ui/utils';
 /** Persisted so first-run education only shows once */
 const DESCENT_ONBOARDING_KEY = 'flacid.descentOnboardingSeen';
 
+/** min-h/w 11 (44px) matches Apple HIG + WCAG 2.5.5 AAA minimum touch target. */
 export const descentToggleButtonClass = (isDescentMode: boolean) =>
   cn(
-    'relative rounded-lg font-medium transition-all duration-300',
-    'px-2.5 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm',
+    'relative rounded-lg font-medium transition-all duration-300 touch-manipulation',
+    'inline-flex items-center justify-center min-h-11 px-3 sm:px-4 text-sm',
     isDescentMode
       ? 'bg-fuchsia-600 text-white shadow-lg shadow-fuchsia-900/50 hover:bg-fuchsia-500'
       : 'bg-background/80 text-cyan-400 border border-cyan-400/30 hover:border-fuchsia-400/50 hover:text-fuchsia-400 hover:shadow-lg hover:shadow-fuchsia-500/20'
