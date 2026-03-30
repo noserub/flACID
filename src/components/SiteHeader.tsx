@@ -178,15 +178,13 @@ export function SiteHeader() {
         isDescentMode ? DESCENT_CHROME_LIFT : 'z-50'
       )}
     >
-      {/* items-center on one row; flat chrome row avoids nested column bottom-bias vs the mini bar */}
-      <div className="relative flex w-full min-h-[44px] md:min-h-[52px] flex-row items-center justify-end md:justify-start">
-        <div className="hidden min-w-0 flex-1 md:block" aria-hidden />
+      {/* lg+: mini in header with balanced flex; below lg mini stays bottom-fixed so Descend + ⋯ never wrap */}
+      <div className="relative flex w-full min-h-[44px] lg:min-h-[52px] flex-row items-center justify-end lg:justify-start">
+        <div className="hidden min-w-0 flex-1 lg:block" aria-hidden />
         <div className="flex min-w-0 shrink-0 items-center justify-center self-center">
           <MiniPlayer />
         </div>
-        <div className="relative flex min-w-0 flex-1 flex-row flex-wrap items-center justify-end gap-3 self-center pl-2 sm:gap-4 md:pl-4">
-          <DescentModeToggle />
-
+        <div className="relative flex min-w-0 flex-1 flex-row flex-nowrap items-center justify-end gap-3 self-center pl-2 sm:gap-4 lg:pl-4">
           {exportSuccess && (
             <div className="flex shrink-0 items-center gap-2 bg-green-600/90 backdrop-blur-sm border border-green-400/50 rounded-lg px-3 py-2 shadow-lg">
               <CheckCircle className="h-4 w-4 text-green-300" />
@@ -194,7 +192,9 @@ export function SiteHeader() {
             </div>
           )}
 
-          <DropdownMenu modal={false}>
+          <div className="flex shrink-0 flex-nowrap items-center gap-3 sm:gap-4">
+            <DescentModeToggle />
+            <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
             <Button
               size="icon"
@@ -352,10 +352,11 @@ export function SiteHeader() {
               </>
             )}
           </DropdownMenuContent>
-              </DropdownMenu>
+            </DropdownMenu>
+          </div>
 
           {isDraft && isEditMode && (
-            <div className="mt-2 flex basis-full justify-end md:mt-0 md:basis-auto md:absolute md:right-full md:top-1/2 md:mr-3 md:-translate-y-1/2 md:justify-end z-10">
+            <div className="absolute right-0 top-full z-10 mt-1.5 flex justify-end lg:right-full lg:top-1/2 lg:mt-0 lg:mr-3 lg:-translate-y-1/2">
               <div className="flex items-center gap-2 bg-cyan-600/90 backdrop-blur-sm border border-cyan-400/50 rounded-lg px-3 py-2 shadow-lg whitespace-nowrap">
                 <div className="w-2 h-2 bg-cyan-300 rounded-full animate-pulse shrink-0" />
                 <span className="text-sm text-cyan-100 font-medium">Unsaved Changes</span>

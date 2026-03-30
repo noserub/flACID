@@ -142,7 +142,7 @@ export function MiniPlayer() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2 }}
       className={cn(
-        'fixed md:relative md:justify-self-center left-1/2 md:left-auto bottom-2 md:bottom-auto -translate-x-1/2 md:translate-x-0 flex h-fit shrink-0 items-center gap-2 md:gap-3 px-3 md:px-4 py-2 rounded-xl bg-background/90 backdrop-blur-md border border-cyan-500/20 shadow-lg w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] md:w-auto md:min-w-[280px] md:max-w-[420px]',
+        'fixed lg:relative lg:justify-self-center left-1/2 lg:left-auto bottom-2 lg:bottom-auto -translate-x-1/2 lg:translate-x-0 flex h-fit shrink-0 items-center gap-2 lg:gap-3 px-3 lg:px-4 py-2 rounded-xl bg-background/90 backdrop-blur-md border border-cyan-500/20 shadow-lg w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] lg:w-auto lg:min-w-[280px] lg:max-w-[420px]',
         isDescentMode ? DESCENT_CHROME_LIFT : 'z-[45]'
       )}
       style={{ bottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
