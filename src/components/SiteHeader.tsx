@@ -13,6 +13,7 @@ import {
   LogOut,
   CircleHelp,
   Mic,
+  Smartphone,
 } from 'lucide-react';
 import {
   AlertDialog,
@@ -37,7 +38,7 @@ import {
 import { useEditMode } from '../contexts/EditModeContext';
 import { useDescentMode } from '../contexts/DescentModeContext';
 import { usePlayback } from '../contexts/PlaybackContext';
-import { useAuth } from '../hooks';
+import { useAuth, useInstallPwa } from '../hooks';
 import { DESCENT_CHROME_LIFT, DESCENT_MENU_PORTAL_LIFT } from '../lib/descentContentLayer';
 import { cn } from './ui/utils';
 import { DescentModeToggle } from './DescentModeToggle';
@@ -47,7 +48,7 @@ import { requestDescentHelp } from '../lib/descentHelp';
 
 export function SiteHeader() {
   const { isEditMode, isDraft, toggleEditMode, publishChanges, discardDraft, content } = useEditMode();
-  const { isDescentMode } = useDescentMode();
+  const { isDescentMode, descentSupported } = useDescentMode();
   const { isFullscreen } = usePlayback();
   const { isAuthenticated, isAdmin, signOut } = useAuth();
   const [signInOpen, setSignInOpen] = useState(false);
@@ -55,6 +56,8 @@ export function SiteHeader() {
   const [showComponentLibrary, setShowComponentLibrary] = useState(false);
   const [exitConfirmOpen, setExitConfirmOpen] = useState(false);
   const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
+  const [installIosOpen, setInstallIosOpen] = useState(false);
+  const { isStandalone, canUseBrowserInstall, showIosAddToHome, promptInstall } = useInstallPwa();
 
   if (isFullscreen) return null;
 
@@ -166,35 +169,38 @@ export function SiteHeader() {
   return (
     <header
       className={cn(
-        'fixed top-0 left-0 right-0 p-4 pointer-events-none [&>*]:pointer-events-auto',
+        'fixed top-0 left-0 right-0 pointer-events-none [&>*]:pointer-events-auto',
+        /* PWA / iOS: clear notch + Dynamic Island; horizontal insets in landscape */
+        'pt-[max(1rem,env(safe-area-inset-top,0px))]',
+        'pl-[max(1rem,env(safe-area-inset-left,0px))]',
+        'pr-[max(1rem,env(safe-area-inset-right,0px))]',
+        'pb-4',
         isDescentMode ? DESCENT_CHROME_LIFT : 'z-50'
       )}
     >
-      <div className="relative w-full min-h-[52px] grid grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_1fr] items-center">
-        <div className="hidden md:block" />
-        <div className="col-start-1 md:col-start-2">
+      {/* lg+: mini in header with balanced flex; below lg mini stays bottom-fixed so Descend + ⋯ never wrap */}
+      <div className="relative flex w-full min-h-[44px] lg:min-h-[52px] flex-row items-center justify-end lg:justify-start">
+        <div className="hidden min-w-0 flex-1 lg:block" aria-hidden />
+        <div className="flex min-w-0 shrink-0 items-center justify-center self-center">
           <MiniPlayer />
         </div>
-        <div className="col-start-2 md:col-start-3 justify-self-end shrink-0">
-          {/* Core strip stays fixed; draft is out-of-flow on md+ (left) or below on small screens */}
-          <div className="relative inline-block text-right">
-            <div className="flex items-center justify-end gap-3">
-              <DescentModeToggle />
+        <div className="relative flex min-w-0 flex-1 flex-row flex-nowrap items-center justify-end gap-3 self-center pl-2 sm:gap-4 lg:pl-4">
+          {exportSuccess && (
+            <div className="flex shrink-0 items-center gap-2 bg-green-600/90 backdrop-blur-sm border border-green-400/50 rounded-lg px-3 py-2 shadow-lg">
+              <CheckCircle className="h-4 w-4 text-green-300" />
+              <span className="text-sm text-green-100 font-medium">Exported!</span>
+            </div>
+          )}
 
-              {exportSuccess && (
-                <div className="flex items-center gap-2 bg-green-600/90 backdrop-blur-sm border border-green-400/50 rounded-lg px-3 py-2 shadow-lg">
-                  <CheckCircle className="h-4 w-4 text-green-300" />
-                  <span className="text-sm text-green-100 font-medium">Exported!</span>
-                </div>
-              )}
-
-              <DropdownMenu modal={false}>
+          <div className="flex shrink-0 flex-nowrap items-center gap-3 sm:gap-4">
+            <DescentModeToggle />
+            <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
             <Button
               size="icon"
-              className="bg-background/80 text-cyan-400 border border-cyan-400/30 hover:border-fuchsia-400/50 hover:text-fuchsia-400 hover:bg-transparent hover:shadow-lg hover:shadow-fuchsia-500/20 transition-all duration-300"
+              className="size-11 min-h-11 min-w-11 touch-manipulation bg-background/80 text-cyan-400 border border-cyan-400/30 hover:border-fuchsia-400/50 hover:text-fuchsia-400 hover:bg-transparent hover:shadow-lg hover:shadow-fuchsia-500/20 transition-all duration-300"
             >
-              <MoreHorizontal className="h-5 w-5" />
+              <MoreHorizontal className="h-6 w-6" aria-hidden />
               <span className="sr-only">Site menu</span>
             </Button>
           </DropdownMenuTrigger>
@@ -206,13 +212,41 @@ export function SiteHeader() {
             )}
             onCloseAutoFocus={(e) => e.preventDefault()}
           >
-            <DropdownMenuItem
-              onClick={() => requestDescentHelp()}
-              className="text-cyan-400/95 focus:text-cyan-300 focus:bg-cyan-500/10"
-            >
-              <CircleHelp className="mr-2 h-4 w-4 shrink-0" />
-              <span>What is Descend?</span>
-            </DropdownMenuItem>
+            {descentSupported && (
+              <DropdownMenuItem
+                onClick={() => requestDescentHelp()}
+                className="text-cyan-400/95 focus:text-cyan-300 focus:bg-cyan-500/10"
+              >
+                <CircleHelp className="mr-2 h-4 w-4 shrink-0" />
+                <span>What is Descend?</span>
+              </DropdownMenuItem>
+            )}
+
+            {!isStandalone && (canUseBrowserInstall || showIosAddToHome) && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="text-xs text-muted-foreground">App</DropdownMenuLabel>
+                {canUseBrowserInstall ? (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      void promptInstall();
+                    }}
+                    className="text-cyan-400/95 focus:text-cyan-300 focus:bg-cyan-500/10"
+                  >
+                    <Smartphone className="mr-2 h-4 w-4 shrink-0" />
+                    <span>Install app</span>
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem
+                    onClick={() => setInstallIosOpen(true)}
+                    className="text-cyan-400/95 focus:text-cyan-300 focus:bg-cyan-500/10"
+                  >
+                    <Smartphone className="mr-2 h-4 w-4 shrink-0" />
+                    <span>Add to Home Screen</span>
+                  </DropdownMenuItem>
+                )}
+              </>
+            )}
 
             <DropdownMenuSeparator />
             
@@ -318,18 +352,17 @@ export function SiteHeader() {
               </>
             )}
           </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-
-            {isDraft && isEditMode && (
-              <div className="mt-2 flex justify-end md:mt-0 md:absolute md:right-full md:top-1/2 md:mr-3 md:-translate-y-1/2 md:justify-end z-10">
-                <div className="flex items-center gap-2 bg-cyan-600/90 backdrop-blur-sm border border-cyan-400/50 rounded-lg px-3 py-2 shadow-lg whitespace-nowrap">
-                  <div className="w-2 h-2 bg-cyan-300 rounded-full animate-pulse shrink-0" />
-                  <span className="text-sm text-cyan-100 font-medium">Unsaved Changes</span>
-                </div>
-              </div>
-            )}
+            </DropdownMenu>
           </div>
+
+          {isDraft && isEditMode && (
+            <div className="absolute right-0 top-full z-10 mt-1.5 flex justify-end lg:right-full lg:top-1/2 lg:mt-0 lg:mr-3 lg:-translate-y-1/2">
+              <div className="flex items-center gap-2 bg-cyan-600/90 backdrop-blur-sm border border-cyan-400/50 rounded-lg px-3 py-2 shadow-lg whitespace-nowrap">
+                <div className="w-2 h-2 bg-cyan-300 rounded-full animate-pulse shrink-0" />
+                <span className="text-sm text-cyan-100 font-medium">Unsaved Changes</span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -376,6 +409,37 @@ export function SiteHeader() {
             <AlertDialogAction onClick={handleConfirmDiscard}>
               Discard
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={installIosOpen} onOpenChange={setInstallIosOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Add flACID to your Home Screen</AlertDialogTitle>
+            <AlertDialogDescription className="text-left space-y-3">
+              <span className="block">
+                On iPhone and iPad, every browser uses Apple&apos;s WebKit. There is no &quot;Download&quot; or
+                Play Store–style install like on Android. You add the site manually:
+              </span>
+              <span className="block">
+                <strong className="text-foreground">Safari:</strong> tap{' '}
+                <strong className="text-foreground">Share</strong> (square with arrow), then{' '}
+                <strong className="text-foreground">Add to Home Screen</strong>.
+              </span>
+              <span className="block">
+                <strong className="text-foreground">Chrome:</strong> tap <strong className="text-foreground">Share</strong>{' '}
+                in the toolbar, then <strong className="text-foreground">Add to Home Screen</strong> (you may need to scroll
+                the actions list). If it doesn&apos;t appear, open this page in Safari and use Share there—Apple is stricter
+                in third-party browsers.
+              </span>
+              <span className="block text-muted-foreground">
+                The home screen icon opens full screen without the browser chrome—best for mirroring to a TV.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setInstallIosOpen(false)}>Got it</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

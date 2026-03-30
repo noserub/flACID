@@ -41,26 +41,105 @@ export function PsychedelicVisualizer({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
+    // desynchronized:true can tear on iOS (orientation, mirroring). Prefer default compositing.
+    const ctx = canvas.getContext('2d', { alpha: false });
     if (!ctx) return;
 
     let isVisible = true;
+    // threshold 0.1 caused false "not visible" during iOS rotation → draw loop skipped → frozen frame
     const observer = new IntersectionObserver(
       (entries) => {
-        isVisible = entries[0].isIntersecting;
+        const e = entries[0];
+        isVisible = e?.isIntersecting ?? true;
       },
-      { threshold: 0.1 }
+      { threshold: 0, rootMargin: '0px' }
     );
     observer.observe(canvas);
 
-    const pixelRatio = Math.min(window.devicePixelRatio, 1.5);
-    const setCanvasSize = () => {
-      canvas.width = canvas.offsetWidth * pixelRatio;
-      canvas.height = canvas.offsetHeight * pixelRatio;
-      ctx.scale(pixelRatio, pixelRatio);
+    const getPixelRatio = () => Math.min(window.devicePixelRatio || 1, 1.5);
+
+    /** Quantize layout dims so iOS PWA / subpixel layout churn does not resize the canvas every frame. */
+    const LAYOUT_QUANT = 4;
+    const quantizeLayoutDim = (n: number) =>
+      Math.max(LAYOUT_QUANT, Math.round(n / LAYOUT_QUANT) * LAYOUT_QUANT);
+
+    const readLayoutSize = (el: HTMLCanvasElement) => {
+      const r = el.getBoundingClientRect();
+      return { w: quantizeLayoutDim(r.width), h: quantizeLayoutDim(r.height) };
     };
-    setCanvasSize();
-    window.addEventListener('resize', setCanvasSize);
+
+    let lastQuantW = 0;
+    let lastQuantH = 0;
+
+    type CanvasSync = { drawW: number; drawH: number; didResetViz: boolean };
+
+    /** Backing-store + CSS layout sync; reset viz only on real size / DPR changes. */
+    const syncCanvasSize = (): CanvasSync => {
+      const pr = getPixelRatio();
+      const { w, h } = readLayoutSize(canvas);
+      if (w < LAYOUT_QUANT || h < LAYOUT_QUANT) {
+        return { drawW: Math.max(1, w), drawH: Math.max(1, h), didResetViz: false };
+      }
+      const bw = Math.max(1, Math.round(w * pr));
+      const bh = Math.max(1, Math.round(h * pr));
+
+      let didResetViz = false;
+      if (lastQuantW !== 0 && (w !== lastQuantW || h !== lastQuantH)) {
+        didResetViz = true;
+      }
+      lastQuantW = w;
+      lastQuantH = h;
+
+      if (canvas.width !== bw || canvas.height !== bh) {
+        canvas.width = bw;
+        canvas.height = bh;
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.scale(pr, pr);
+        didResetViz = true;
+      }
+
+      return { drawW: w, drawH: h, didResetViz };
+    };
+
+    let resizeRaf: number | null = null;
+    const scheduleSync = () => {
+      if (resizeRaf !== null) return;
+      resizeRaf = requestAnimationFrame(() => {
+        resizeRaf = null;
+        syncCanvasSize();
+      });
+    };
+
+    let roDebounceTimer: ReturnType<typeof window.setTimeout> | null = null;
+    const ro =
+      typeof ResizeObserver !== 'undefined'
+        ? new ResizeObserver(() => {
+            if (roDebounceTimer !== null) clearTimeout(roDebounceTimer);
+            roDebounceTimer = window.setTimeout(() => {
+              roDebounceTimer = null;
+              scheduleSync();
+            }, 48);
+          })
+        : null;
+
+    const onOrientationChange = () => {
+      scheduleSync();
+      requestAnimationFrame(() => {
+        syncCanvasSize();
+        requestAnimationFrame(() => {
+          syncCanvasSize();
+        });
+      });
+    };
+
+    syncCanvasSize();
+    window.addEventListener('resize', scheduleSync);
+    window.addEventListener('orientationchange', onOrientationChange);
+    const vv = window.visualViewport;
+    const onVisualViewportChange = () => scheduleSync();
+    vv?.addEventListener('resize', onVisualViewportChange);
+    vv?.addEventListener('scroll', onVisualViewportChange);
+    ro?.observe(canvas);
 
     const bufferLength = analyser ? analyser.frequencyBinCount : 1024;
     const dataArray = new Uint8Array(bufferLength);
@@ -68,13 +147,25 @@ export function PsychedelicVisualizer({
     let time = 0;
 
     const draw = () => {
-      if (!isVisible) {
+      if (document.visibilityState === 'hidden') {
         animationRef.current = requestAnimationFrame(draw);
         return;
       }
 
-      const width = canvas.offsetWidth;
-      const height = canvas.offsetHeight;
+      const { drawW: width, drawH: height, didResetViz } = syncCanvasSize();
+      if (didResetViz) {
+        particlesRef.current = [];
+        audioSmoother.reset();
+      }
+
+      if (!isVisible) {
+        animationRef.current = requestAnimationFrame(draw);
+        return;
+      }
+      if (width < 2 || height < 2) {
+        animationRef.current = requestAnimationFrame(draw);
+        return;
+      }
 
       let eq: EQBands;
 
@@ -187,7 +278,13 @@ export function PsychedelicVisualizer({
 
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
-      window.removeEventListener('resize', setCanvasSize);
+      if (resizeRaf !== null) cancelAnimationFrame(resizeRaf);
+      if (roDebounceTimer !== null) clearTimeout(roDebounceTimer);
+      window.removeEventListener('resize', scheduleSync);
+      window.removeEventListener('orientationchange', onOrientationChange);
+      vv?.removeEventListener('resize', onVisualViewportChange);
+      vv?.removeEventListener('scroll', onVisualViewportChange);
+      ro?.disconnect();
       observer.disconnect();
     };
   }, [isPlaying, currentTrack, analyser, visualizationId]);

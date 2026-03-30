@@ -15,6 +15,7 @@ import { resumeAudioContext, registerOnSuspend } from '../lib/audioContextManage
 import { isSupabaseConfigured } from '../lib/supabase';
 import { parseVisualizationId } from '../lib/contentMappers';
 import { formatDuration } from '../utils';
+import { releaseScreenWakeLock, requestScreenWakeLock } from '../lib/screenWakeLock';
 
 export interface PlayerTrack {
   id: number;
@@ -24,6 +25,8 @@ export interface PlayerTrack {
   duration: string;
   url: string;
   visualizationId: number;
+  /** HTTPS URL for lock screen / notification artwork */
+  artworkUrl?: string;
 }
 
 const parseDurationStr = (durationStr: string): number => {
@@ -56,6 +59,12 @@ interface PlaybackContextType {
   setShouldAutoPlay: (value: boolean) => void;
   isFullscreen: boolean;
   setIsFullscreen: (value: boolean) => void;
+  isAirPlayAvailable: boolean;
+  isRemotePlaybackAvailable: boolean;
+  isRemotePlaybackConnected: boolean;
+  remotePlaybackDeviceName: string | null;
+  showAirPlayPicker: () => void;
+  showRemotePlaybackPicker: () => Promise<void>;
 }
 
 const PlaybackContext = createContext<PlaybackContextType | undefined>(undefined);
@@ -65,18 +74,22 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   const { tracks: supabaseTracks, loading: tracksLoading } = useTracks();
 
   const tracks: PlayerTrack[] = useMemo(() => {
-    if (isEditMode) {
-      return content.musicPlayer.tracks.map((t) => ({
+    const mapContentTrack = (t: (typeof content.musicPlayer.tracks)[number]) => {
+      const cover = 'coverImage' in t && typeof (t as { coverImage?: string }).coverImage === 'string'
+        ? (t as { coverImage?: string }).coverImage?.trim()
+        : '';
+      return {
         ...t,
         visualizationId: t.visualizationId ?? 0,
-      }));
+        artworkUrl: cover || undefined,
+      };
+    };
+    if (isEditMode) {
+      return content.musicPlayer.tracks.map(mapContentTrack);
     }
     // When we have a draft (e.g. just exited edit mode), use content so visualization and other edits persist
     if (isDraft) {
-      return content.musicPlayer.tracks.map((t) => ({
-        ...t,
-        visualizationId: t.visualizationId ?? 0,
-      }));
+      return content.musicPlayer.tracks.map(mapContentTrack);
     }
     if (isSupabaseConfigured && !tracksLoading && supabaseTracks.length > 0) {
       return supabaseTracks.map((t, i) => ({
@@ -87,12 +100,10 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
         duration: formatDuration(t.duration),
         url: t.audio_url,
         visualizationId: parseVisualizationId(t.visualization_type),
+        artworkUrl: t.cover_image_url?.trim() || undefined,
       }));
     }
-    return content.musicPlayer.tracks.map((t) => ({
-      ...t,
-      visualizationId: t.visualizationId ?? 0,
-    }));
+    return content.musicPlayer.tracks.map(mapContentTrack);
   }, [isEditMode, isDraft, isSupabaseConfigured, tracksLoading, supabaseTracks, content.musicPlayer.tracks, draftRevision]);
 
   const [currentTrack, setCurrentTrackState] = useState(0);
@@ -105,106 +116,85 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   const [isBuffering, setIsBuffering] = useState(false);
   const [shouldAutoPlay, setShouldAutoPlay] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [isPageVisible, setIsPageVisible] = useState(
-    () => (typeof document !== 'undefined' ? document.visibilityState === 'visible' : true)
-  );
-
+  const [isAirPlayAvailable, setIsAirPlayAvailable] = useState(false);
+  const [isRemotePlaybackAvailable, setIsRemotePlaybackAvailable] = useState(false);
+  const [isRemotePlaybackConnected, setIsRemotePlaybackConnected] = useState(false);
+  const [remotePlaybackDeviceName, setRemotePlaybackDeviceName] = useState<string | null>(null);
   const visualizerAudioRef = useRef<HTMLAudioElement>(null);
-  const backgroundAudioRef = useRef<HTMLAudioElement>(null);
+  const castContextRef = useRef<any>(null);
+  const castSessionRef = useRef<any>(null);
+  const castMediaSessionRef = useRef<any>(null);
+  const castEnabledRef = useRef(false);
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
   const audioRef = visualizerAudioRef; // alias for MusicPlayer
 
   const currentTrackUrl = tracks[currentTrack]?.url?.trim() ?? '';
   const currentTrackData = tracks[currentTrack];
+  const castReceiverAppId = String(import.meta.env.VITE_GOOGLE_CAST_APP_ID ?? '').trim() || 'CC1AD845';
 
-  // Use background (direct) audio when hidden so playback continues with screen off
-  const useBackgroundAudio = !isPageVisible;
-
+  // Load / reset audio when the track (or its URL) changes.
+  // Single element: audible output stays on the element; analyser uses captureStream in MusicPlayer (no handoff).
   useEffect(() => {
     setIsAudioReady(false);
     setIsBuffering(false);
     setIsPlaying(false);
     if (!currentTrackData) return;
 
-    const activeEl = useBackgroundAudio ? backgroundAudioRef.current : visualizerAudioRef.current;
-    const inactiveEl = useBackgroundAudio ? visualizerAudioRef.current : backgroundAudioRef.current;
+    const el = visualizerAudioRef.current;
+    if (!el) return;
 
-    const setupElement = (el: HTMLAudioElement | null, shouldLoad: boolean) => {
-      if (!el) return;
-      if (currentTrackUrl) {
-        if (shouldLoad) {
-          el.pause();
-          el.currentTime = 0;
-          el.crossOrigin = 'anonymous';
-          el.src = currentTrackData.url;
-          el.load();
-        }
-      } else {
-        el.pause();
-        el.removeAttribute('src');
-        el.load();
-        setDuration(parseDurationStr(currentTrackData.duration));
-        setCurrentTime(0);
-      }
-    };
-
-    setupElement(activeEl, true);
-    setupElement(inactiveEl, false);
-  }, [currentTrack, currentTrackUrl, currentTrackData, useBackgroundAudio]);
-
-  // Sync play/pause and volume to the active element
-  useEffect(() => {
-    const active = useBackgroundAudio ? backgroundAudioRef.current : visualizerAudioRef.current;
-    const inactive = useBackgroundAudio ? visualizerAudioRef.current : backgroundAudioRef.current;
-    if (active) {
-      if (isPlaying) active.play().catch(() => setIsPlaying(false));
-      else active.pause();
-      active.volume = isMuted ? 0 : volume;
-    }
-    if (inactive) {
-      inactive.pause();
-      inactive.volume = isMuted ? 0 : volume;
-    }
-  }, [isPlaying, volume, isMuted, useBackgroundAudio]);
-
-  // Apply volume to both when it changes
-  useEffect(() => {
-    const vol = isMuted ? 0 : volume;
-    if (visualizerAudioRef.current) visualizerAudioRef.current.volume = vol;
-    if (backgroundAudioRef.current) backgroundAudioRef.current.volume = vol;
-  }, [volume, isMuted]);
-
-  // Switch audio elements when visibility changes (background = direct output, continues when screen off)
-  const visibilityRef = useRef(isPageVisible);
-  useEffect(() => {
-    if (visibilityRef.current === isPageVisible) return;
-    visibilityRef.current = isPageVisible;
-
-    const from = isPageVisible ? backgroundAudioRef.current : visualizerAudioRef.current;
-    const to = isPageVisible ? visualizerAudioRef.current : backgroundAudioRef.current;
-    if (!from || !to || !currentTrackUrl) return;
-
-    const t = from.currentTime;
-    if (!to.src || to.src !== currentTrackData?.url) {
-      to.src = currentTrackData?.url ?? '';
-      to.load();
-    }
-    to.currentTime = t;
-    setCurrentTime(t);
-    if (isPlaying) {
-      from.pause();
-      to.play().catch(() => setIsPlaying(false));
+    if (currentTrackUrl) {
+      el.pause();
+      el.currentTime = 0;
+      el.crossOrigin = 'anonymous';
+      el.src = currentTrackData.url;
+      el.load();
     } else {
-      from.pause();
-      to.pause();
+      el.pause();
+      el.removeAttribute('src');
+      el.load();
+      setDuration(parseDurationStr(currentTrackData.duration));
+      setCurrentTime(0);
     }
-  }, [isPageVisible, isPlaying, currentTrackUrl, currentTrackData?.url]);
+  }, [currentTrack, currentTrackUrl, currentTrackData]);
+
+  // Drive play/pause and volume on the single element
+  useEffect(() => {
+    const el = visualizerAudioRef.current;
+    if (!el) return;
+    el.volume = isMuted ? 0 : volume;
+    if (castSessionRef.current) {
+      el.pause();
+      const mediaSession = castMediaSessionRef.current ?? castSessionRef.current.getMediaSession?.();
+      if (mediaSession) {
+        castMediaSessionRef.current = mediaSession;
+        const chromeCastNS = (window as any).chrome?.cast;
+        try {
+          if (isPlaying && chromeCastNS?.media?.PlayRequest) {
+            mediaSession.play(new chromeCastNS.media.PlayRequest());
+          } else if (!isPlaying && chromeCastNS?.media?.PauseRequest) {
+            mediaSession.pause(new chromeCastNS.media.PauseRequest());
+          }
+        } catch {
+          // Keep UI state even if cast command fails.
+        }
+      }
+      return;
+    }
+    if (isPlaying) {
+      const p = el.play();
+      if (p !== undefined) p.catch(() => setIsPlaying(false));
+    } else {
+      el.pause();
+    }
+  }, [isPlaying, volume, isMuted]);
 
   const handleTimeUpdate = useCallback((e: React.SyntheticEvent<HTMLAudioElement>) => {
     setCurrentTime(e.currentTarget.currentTime);
   }, []);
 
   const handleLoadedMetadata = useCallback(() => {
-    const el = visualizerAudioRef.current ?? backgroundAudioRef.current;
+    const el = visualizerAudioRef.current;
     if (el) setDuration(el.duration);
   }, []);
 
@@ -236,7 +226,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     }
   }, [currentTrack, tracks]);
 
-  // Media Session API: metadata for lock screen, car display, etc.
+  // Media Session API: metadata for lock screen, car display, notification shade, etc.
   useEffect(() => {
     if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
     const track = currentTrackData;
@@ -244,13 +234,69 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       navigator.mediaSession.metadata = null;
       return;
     }
+    const artwork: MediaImage[] = [];
+    const art = track.artworkUrl?.trim();
+    if (art) {
+      artwork.push({ src: art, sizes: '512x512' });
+      artwork.push({ src: art, sizes: '256x256' });
+    } else {
+      try {
+        const fallback = new URL('/android-chrome-192x192.png', window.location.origin).href;
+        artwork.push({ src: fallback, sizes: '192x192', type: 'image/png' });
+      } catch {
+        /* ignore */
+      }
+    }
     navigator.mediaSession.metadata = new MediaMetadata({
       title: track.title,
       artist: track.artist,
       album: track.album || undefined,
-      // artwork: add when album art URLs available
+      artwork: artwork.length > 0 ? artwork : undefined,
     });
   }, [currentTrackData]);
+
+  // Lock screen / OS scrubber: position state (throttled via interval)
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
+    const ms = navigator.mediaSession;
+    if (typeof ms.setPositionState !== 'function') return;
+
+    const clearPosition = () => {
+      try {
+        ms.setPositionState(null);
+      } catch {
+        /* ignore */
+      }
+    };
+
+    if (!isPlaying || !Number.isFinite(duration) || duration <= 0) {
+      clearPosition();
+      return;
+    }
+
+    const update = () => {
+      const active = visualizerAudioRef.current;
+      const dur =
+        active && Number.isFinite(active.duration) && active.duration > 0 ? active.duration : duration;
+      const pos = active && Number.isFinite(active.currentTime) ? active.currentTime : currentTime;
+      try {
+        ms.setPositionState({
+          duration: dur,
+          playbackRate: active?.playbackRate ?? 1,
+          position: Math.min(Math.max(0, pos), dur),
+        });
+      } catch {
+        /* Safari may throw until playback started */
+      }
+    };
+
+    update();
+    const id = window.setInterval(update, 1000);
+    return () => {
+      window.clearInterval(id);
+      clearPosition();
+    };
+  }, [isPlaying, duration, currentTime]);
 
   // Media Session playbackState — helps iOS treat us as active media (lock screen, Control Center)
   useEffect(() => {
@@ -293,7 +339,6 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       if (typeof t === 'number' && Number.isFinite(t)) {
         setCurrentTime(t);
         if (visualizerAudioRef.current) visualizerAudioRef.current.currentTime = t;
-        if (backgroundAudioRef.current) backgroundAudioRef.current.currentTime = t;
       }
     });
 
@@ -314,33 +359,259 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     return () => registerOnSuspend(null);
   }, []);
 
-  // Track visibility and switch audio; resume context when visible
+  // Keep screen awake while playing or in fullscreen visualizer (best-effort; released when tab is hidden).
+  useEffect(() => {
+    const wantWake = isPlaying || isFullscreen;
+    if (!wantWake) {
+      void (async () => {
+        await releaseScreenWakeLock(wakeLockRef.current);
+        wakeLockRef.current = null;
+      })();
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      if (wakeLockRef.current) return;
+      const lock = await requestScreenWakeLock();
+      if (cancelled) {
+        await releaseScreenWakeLock(lock);
+        return;
+      }
+      if (!lock) return;
+      wakeLockRef.current = lock;
+      lock.addEventListener('release', () => {
+        if (wakeLockRef.current === lock) wakeLockRef.current = null;
+      });
+    })();
+    return () => {
+      cancelled = true;
+      void (async () => {
+        await releaseScreenWakeLock(wakeLockRef.current);
+        wakeLockRef.current = null;
+      })();
+    };
+  }, [isPlaying, isFullscreen]);
+
+  // Resume AudioContext when tab is foregrounded; re-acquire wake lock (browsers drop it while hidden).
   useEffect(() => {
     const handler = () => {
-      const visible = document.visibilityState === 'visible';
-      setIsPageVisible(visible);
-      if (visible) resumeAudioContext();
+      if (document.visibilityState !== 'visible') return;
+      resumeAudioContext();
+      if (!isPlaying && !isFullscreen) return;
+      if (wakeLockRef.current) return;
+      void (async () => {
+        const lock = await requestScreenWakeLock();
+        if (!lock) return;
+        wakeLockRef.current = lock;
+        lock.addEventListener('release', () => {
+          if (wakeLockRef.current === lock) wakeLockRef.current = null;
+        });
+      })();
     };
-    handler(); // sync initial state
     document.addEventListener('visibilitychange', handler);
     return () => document.removeEventListener('visibilitychange', handler);
-  }, []);
+  }, [isPlaying, isFullscreen]);
 
   const resumeAudioContextIfNeeded = useCallback(() => {
     // AudioContext resume is handled in MusicPlayer when isPlaying becomes true
   }, []);
 
+  const loadCurrentTrackOnCast = useCallback(async (autoplay: boolean) => {
+    const track = currentTrackData;
+    const session = castSessionRef.current;
+    const castNS = (window as any).cast;
+    const chromeCastNS = (window as any).chrome?.cast;
+    if (!track?.url || !session || !castNS?.framework || !chromeCastNS?.media) return;
+
+    try {
+      const mediaInfo = new chromeCastNS.media.MediaInfo(track.url, 'audio/*');
+      mediaInfo.streamType = chromeCastNS.media.StreamType.BUFFERED;
+      const metadata = new chromeCastNS.media.MusicTrackMediaMetadata();
+      metadata.title = track.title;
+      metadata.artist = track.artist;
+      metadata.albumName = track.album || '';
+      const art = track.artworkUrl?.trim();
+      if (art) metadata.images = [{ url: art }];
+      mediaInfo.metadata = metadata;
+
+      const request = new chromeCastNS.media.LoadRequest(mediaInfo);
+      request.autoplay = autoplay;
+      request.currentTime = Math.max(0, currentTime || 0);
+      await session.loadMedia(request);
+      castMediaSessionRef.current = session.getMediaSession?.() ?? null;
+      setIsRemotePlaybackConnected(true);
+    } catch {
+      // Keep local playback when cast load fails.
+    }
+  }, [currentTrackData, currentTime]);
+
+  // Keep cast device media in sync when track changes.
+  useEffect(() => {
+    if (!castSessionRef.current || !currentTrackData?.url) return;
+    const shouldPlayOnCast = isPlaying || shouldAutoPlay;
+    void loadCurrentTrackOnCast(shouldPlayOnCast);
+    if (shouldAutoPlay) setShouldAutoPlay(false);
+  }, [currentTrack, currentTrackData?.url, isPlaying, shouldAutoPlay, loadCurrentTrackOnCast]);
+
+  // Discover remote playback capabilities (AirPlay / Remote Playback API) and Cast SDK fallback.
+  useEffect(() => {
+    const el = visualizerAudioRef.current;
+    if (!el) return;
+
+    el.setAttribute('airplay', 'allow');
+    el.setAttribute('x-webkit-airplay', 'allow');
+
+    const airPlayElement = el as HTMLAudioElement & {
+      webkitShowPlaybackTargetPicker?: () => void;
+    };
+
+    setIsAirPlayAvailable(typeof airPlayElement.webkitShowPlaybackTargetPicker === 'function');
+
+    const handleAirPlayAvailability = (event: Event) => {
+      const e = event as Event & { availability?: string };
+      setIsAirPlayAvailable(e.availability === 'available');
+    };
+
+    el.addEventListener('webkitplaybacktargetavailabilitychanged', handleAirPlayAvailability);
+
+    let remote: RemotePlayback | null = null;
+    try {
+      remote = (el as HTMLAudioElement & { remote?: RemotePlayback }).remote ?? null;
+    } catch {
+      remote = null;
+    }
+    let removeRemoteListeners: (() => void) | null = null;
+    if (remote && typeof remote.prompt === 'function') {
+      setIsRemotePlaybackAvailable(true);
+      setIsRemotePlaybackConnected(remote.state === 'connected');
+
+      const handleRemoteStateChange = () => {
+        setIsRemotePlaybackConnected(remote.state === 'connected');
+      };
+
+      remote.addEventListener('connecting', handleRemoteStateChange);
+      remote.addEventListener('connect', handleRemoteStateChange);
+      remote.addEventListener('disconnect', handleRemoteStateChange);
+
+      removeRemoteListeners = () => {
+        remote.removeEventListener('connecting', handleRemoteStateChange);
+        remote.removeEventListener('connect', handleRemoteStateChange);
+        remote.removeEventListener('disconnect', handleRemoteStateChange);
+      };
+    }
+
+    const initCastFramework = () => {
+      const win = window as any;
+      if (!win.cast?.framework || !win.chrome?.cast) return undefined;
+      try {
+        const context = win.cast.framework.CastContext.getInstance();
+        if (!context || typeof context.setOptions !== 'function') return undefined;
+        context.setOptions({
+          receiverApplicationId: castReceiverAppId,
+          autoJoinPolicy: win.chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED,
+        });
+        castContextRef.current = context;
+        castEnabledRef.current = true;
+        setIsRemotePlaybackAvailable(true);
+
+        const syncCastState = () => {
+          const session = context.getCurrentSession?.() ?? null;
+          castSessionRef.current = session;
+          castMediaSessionRef.current = session?.getMediaSession?.() ?? null;
+          const deviceName = session?.getCastDevice?.()?.friendlyName;
+          setRemotePlaybackDeviceName(typeof deviceName === 'string' && deviceName.trim() ? deviceName : null);
+          const castState = context.getCastState?.();
+          setIsRemotePlaybackConnected(Boolean(session) || castState === win.cast.framework.CastState.CONNECTED);
+          if (!session) setRemotePlaybackDeviceName(null);
+        };
+
+        syncCastState();
+        if (
+          typeof context.addEventListener === 'function' &&
+          typeof context.removeEventListener === 'function' &&
+          win.cast.framework.CastContextEventType?.CAST_STATE_CHANGED
+        ) {
+          context.addEventListener(win.cast.framework.CastContextEventType.CAST_STATE_CHANGED, syncCastState);
+          return () => context.removeEventListener(win.cast.framework.CastContextEventType.CAST_STATE_CHANGED, syncCastState);
+        }
+        return undefined;
+      } catch {
+        return undefined;
+      }
+    };
+
+    let disposeCastListeners: (() => void) | undefined;
+    const win = window as any;
+    const existingCastScript = document.getElementById('google-cast-sender');
+    const previousOnCastAvailable = win.__onGCastApiAvailable;
+    win.__onGCastApiAvailable = (available: boolean) => {
+      if (typeof previousOnCastAvailable === 'function') previousOnCastAvailable(available);
+      if (!available) return;
+      disposeCastListeners = initCastFramework();
+    };
+
+    if (win.cast?.framework && win.chrome?.cast) {
+      disposeCastListeners = initCastFramework();
+    } else if (!existingCastScript) {
+      const script = document.createElement('script');
+      script.id = 'google-cast-sender';
+      script.src = 'https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1';
+      script.async = true;
+      document.head.appendChild(script);
+    }
+
+    return () => {
+      el.removeEventListener('webkitplaybacktargetavailabilitychanged', handleAirPlayAvailability);
+      removeRemoteListeners?.();
+      if (typeof disposeCastListeners === 'function') disposeCastListeners();
+      win.__onGCastApiAvailable = previousOnCastAvailable;
+    };
+  }, [castReceiverAppId]);
+
+  const showAirPlayPicker = useCallback(() => {
+    const el = visualizerAudioRef.current as (HTMLAudioElement & {
+      webkitShowPlaybackTargetPicker?: () => void;
+    }) | null;
+    if (!el) return;
+    el.webkitShowPlaybackTargetPicker?.();
+  }, []);
+
+  const showRemotePlaybackPicker = useCallback(async () => {
+    const el = visualizerAudioRef.current;
+    if (el?.remote && typeof el.remote.prompt === 'function') {
+      try {
+        await el.remote.prompt();
+        return;
+      } catch {
+        // Fall through to Cast SDK fallback.
+      }
+    }
+
+    if (!castEnabledRef.current || !castContextRef.current) return;
+    try {
+      await castContextRef.current.requestSession();
+      castSessionRef.current = castContextRef.current.getCurrentSession?.() ?? null;
+      if (castSessionRef.current) {
+        await loadCurrentTrackOnCast(isPlaying || shouldAutoPlay);
+        const deviceName = castSessionRef.current.getCastDevice?.()?.friendlyName;
+        setRemotePlaybackDeviceName(typeof deviceName === 'string' && deviceName.trim() ? deviceName : null);
+      }
+    } catch {
+      // User canceled Cast picker or no devices available.
+    }
+  }, [isPlaying, shouldAutoPlay, loadCurrentTrackOnCast]);
+
   const togglePlay = useCallback(() => {
     const track = tracks[currentTrack];
     if (!track?.url) return;
-    const activeEl = useBackgroundAudio ? backgroundAudioRef.current : visualizerAudioRef.current;
-    if (!isAudioReady && activeEl) {
-      activeEl.load();
+    const el = visualizerAudioRef.current;
+    if (!castSessionRef.current && !isAudioReady && el) {
+      el.load();
       return;
     }
     resumeAudioContextIfNeeded();
     setIsPlaying((p) => !p);
-  }, [tracks, currentTrack, isAudioReady, useBackgroundAudio, resumeAudioContextIfNeeded]);
+  }, [tracks, currentTrack, isAudioReady, resumeAudioContextIfNeeded]);
 
   const skipForward = useCallback(() => {
     if (currentTrack >= tracks.length - 1) return;
@@ -363,8 +634,20 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   const handleSeek = useCallback((value: number[]) => {
     const t = value[0];
     setCurrentTime(t);
+    if (castSessionRef.current) {
+      const mediaSession = castMediaSessionRef.current ?? castSessionRef.current.getMediaSession?.();
+      const chromeCastNS = (window as any).chrome?.cast;
+      if (mediaSession && chromeCastNS?.media?.SeekRequest) {
+        try {
+          const seekRequest = new chromeCastNS.media.SeekRequest();
+          seekRequest.currentTime = t;
+          mediaSession.seek(seekRequest);
+        } catch {
+          // Ignore cast seek failure and keep local UI synced.
+        }
+      }
+    }
     if (visualizerAudioRef.current) visualizerAudioRef.current.currentTime = t;
-    if (backgroundAudioRef.current) backgroundAudioRef.current.currentTime = t;
   }, []);
 
   const handleVolumeChange = useCallback((value: number[]) => {
@@ -428,6 +711,12 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       setShouldAutoPlay,
       isFullscreen,
       setIsFullscreen,
+      isAirPlayAvailable,
+      isRemotePlaybackAvailable,
+      isRemotePlaybackConnected,
+      remotePlaybackDeviceName,
+      showAirPlayPicker,
+      showRemotePlaybackPicker,
     }),
     [
       tracks,
@@ -451,6 +740,12 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       formatTime,
       selectTrack,
       isFullscreen,
+      isAirPlayAvailable,
+      isRemotePlaybackAvailable,
+      isRemotePlaybackConnected,
+      remotePlaybackDeviceName,
+      showAirPlayPicker,
+      showRemotePlaybackPicker,
     ]
   );
 
@@ -467,19 +762,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
         onError={handleError}
         onEnded={handleEnded}
         preload={currentTrackUrl ? 'metadata' : 'none'}
-        className="sr-only"
-        aria-hidden
-      />
-      <audio
-        ref={backgroundAudioRef}
-        onTimeUpdate={handleTimeUpdate}
-        onLoadedMetadata={handleLoadedMetadata}
-        onCanPlay={handleCanPlay}
-        onWaiting={handleWaiting}
-        onPlaying={handlePlaying}
-        onError={handleError}
-        onEnded={handleEnded}
-        preload={currentTrackUrl ? 'metadata' : 'none'}
+        playsInline
         className="sr-only"
         aria-hidden
       />

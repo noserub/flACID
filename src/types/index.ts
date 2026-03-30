@@ -297,6 +297,7 @@ export interface EditModeContextType {
 
 export interface DescentModeContextType {
   isDescentMode: boolean;
+  descentSupported: boolean;
   toggleDescentMode: () => void;
   setDescentMode: (value: boolean) => void;
 }

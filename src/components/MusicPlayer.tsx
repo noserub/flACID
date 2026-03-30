@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Play, Pause, SkipForward, SkipBack, Volume2, VolumeX, List, Maximize, Minimize, X, Loader2 } from 'lucide-react';
+import { Play, Pause, SkipForward, SkipBack, Volume2, VolumeX, List, Maximize, Minimize, X, Loader2, Radio, Tv } from 'lucide-react';
 import { Button } from './ui/button';
 import { Slider } from './ui/slider';
 import { PsychedelicVisualizer } from './PsychedelicVisualizer';
@@ -17,14 +17,15 @@ import { TRY_DESCENT_CLICKED_EVENT } from '../lib/descentHelp';
 import { registerAudioContext } from '../lib/audioContextManager';
 import { motion, AnimatePresence } from 'motion/react';
 
-/** One MediaElementSourceNode per HTMLMediaElement — persists across StrictMode remounts */
-const audioSourceByElement = new WeakMap<HTMLMediaElement, MediaElementAudioSourceNode>();
-/** Shared AudioContext so source stays valid across StrictMode remounts */
+/** Shared AudioContext so analyser stays valid across StrictMode remounts */
 let sharedAudioContext: AudioContext | null = null;
+
+/** createMediaElementSource may only be called once per HTMLMediaElement */
+const mediaElementSourceByAudio = new WeakMap<HTMLMediaElement, MediaElementAudioSourceNode>();
 
 export function MusicPlayer() {
   const { isEditMode } = useEditMode();
-  const { isDescentMode, toggleDescentMode } = useDescentMode();
+  const { isDescentMode, descentSupported, toggleDescentMode } = useDescentMode();
   const { registerAnalyser, registerPlaybackState } = useDescentIntensity();
   const {
     tracks,
@@ -48,6 +49,12 @@ export function MusicPlayer() {
     selectTrack,
     isFullscreen,
     setIsFullscreen,
+    isAirPlayAvailable,
+    isRemotePlaybackAvailable,
+    isRemotePlaybackConnected,
+    remotePlaybackDeviceName,
+    showAirPlayPicker,
+    showRemotePlaybackPicker,
   } = usePlayback();
 
   const handleTogglePlay = () => {
@@ -57,6 +64,8 @@ export function MusicPlayer() {
     }
     togglePlay();
   };
+
+  const canShowRemoteTargets = isAirPlayAvailable || isRemotePlaybackAvailable;
 
   const [showPlaylist, setShowPlaylist] = useState(true);
   const [isVisualizerLoading, setIsVisualizerLoading] = useState(false);
@@ -91,13 +100,18 @@ export function MusicPlayer() {
     return () => {
       try {
         if (analyserRef.current) analyserRef.current.disconnect();
-      } catch (_) {}
+      } catch {
+        /* ignore */
+      }
       registerAudioContext(null);
+      // StrictMode remount: clear refs so a fresh analyser is created on the next mount.
+      audioContextRef.current = null;
+      analyserRef.current = null;
     };
   }, []);
 
-  // Connect analyser to audio element for real music reactivity (Descend + visualizer).
-  // createMediaElementSource can only be called ONCE per element — reuse via WeakMap.
+  // Route playback through Web Audio (analyser → destination). Volume uses element.volume from PlaybackContext.
+  // captureStream was unreliable for audible output in Chrome; MediaElementSource is the standard path.
   useEffect(() => {
     const audio = audioRef?.current;
     const url = currentTrackData?.url?.trim();
@@ -107,28 +121,41 @@ export function MusicPlayer() {
     }
     const ctx = audioContextRef.current;
     const analyser = analyserRef.current;
-    let source = audioSourceByElement.get(audio);
-    const isNewSource = !source;
+
+    let source = mediaElementSourceByAudio.get(audio) ?? null;
     if (!source) {
       try {
         source = ctx.createMediaElementSource(audio);
-        audioSourceByElement.set(audio, source);
+        mediaElementSourceByAudio.set(audio, source);
       } catch {
-        setAnalyserForViz(analyser);
+        setAnalyserForViz(null);
         return;
       }
     }
-    if (isNewSource || !sourceRef.current) {
-      try {
-        source.connect(analyser);
-        analyser.connect(ctx.destination);
-      } catch {
-        setAnalyserForViz(analyser);
-        return;
-      }
+
+    try {
+      source.connect(analyser);
+      analyser.connect(ctx.destination);
+    } catch {
+      setAnalyserForViz(null);
+      return;
     }
     sourceRef.current = source;
     setAnalyserForViz(analyser);
+
+    return () => {
+      try {
+        source?.disconnect();
+      } catch {
+        /* ignore */
+      }
+      try {
+        analyser.disconnect();
+      } catch {
+        /* ignore */
+      }
+      sourceRef.current = null;
+    };
   }, [audioRef, currentTrackData?.url, isAudioReady]);
 
   // Resume AudioContext on first play (browser autoplay policy)
@@ -315,7 +342,7 @@ export function MusicPlayer() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.35, ease: 'easeInOut' }}
-            className="fixed inset-0 z-[9980] bg-black cursor-pointer"
+            className="fixed top-0 left-0 right-0 z-[9980] h-[100dvh] min-h-[100dvh] w-full bg-black cursor-pointer"
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
@@ -544,7 +571,48 @@ export function MusicPlayer() {
                     </Button>
                   </div>
 
-                  <div className="w-32"></div>
+                  <div className="w-32 flex items-center justify-end gap-2">
+                    {isAirPlayAvailable && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={showAirPlayPicker}
+                        className="text-white hover:text-white hover:bg-white/20"
+                        aria-label="Open AirPlay devices"
+                        title="AirPlay"
+                      >
+                        <Radio className="h-5 w-5" aria-hidden />
+                      </Button>
+                    )}
+                    {isRemotePlaybackAvailable && (
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => void showRemotePlaybackPicker()}
+                          className={`text-white hover:text-white hover:bg-white/20 ${isRemotePlaybackConnected ? 'bg-white/20' : ''}`}
+                          aria-label={isRemotePlaybackConnected ? 'Casting connected' : 'Open cast devices'}
+                          title={isRemotePlaybackConnected ? 'Casting connected' : 'Cast'}
+                        >
+                          <Tv className="h-5 w-5" aria-hidden />
+                        </Button>
+                        <AnimatePresence initial={false}>
+                          {isRemotePlaybackConnected && (
+                            <motion.span
+                              key="fullscreen-cast-device"
+                              initial={{ opacity: 0, x: -4 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              exit={{ opacity: 0, x: -4 }}
+                              transition={{ duration: 0.18, ease: 'easeOut' }}
+                              className="max-w-24 truncate text-[11px] text-white/70"
+                            >
+                              {remotePlaybackDeviceName ?? 'Connected'}
+                            </motion.span>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
               </motion.div>
@@ -572,7 +640,9 @@ export function MusicPlayer() {
                 className="fixed top-0 right-0 z-[10100] flex items-center gap-3 pointer-events-auto p-4 sm:p-6 bg-black/60 backdrop-blur-md rounded-bl-xl"
                 style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))', paddingRight: 'max(1rem, env(safe-area-inset-right))' }}
               >
-                <DescentToggleButton isDescentMode={isDescentMode} onClick={toggleDescentMode} />
+                {descentSupported && (
+                  <DescentToggleButton isDescentMode={isDescentMode} onClick={toggleDescentMode} />
+                )}
                 <Button
                   variant="outline"
                   size="icon"
@@ -701,6 +771,50 @@ export function MusicPlayer() {
 
             {/* View Controls Group */}
             <div className="flex w-full flex-shrink-0 basis-full items-center justify-center gap-2 sm:w-auto sm:basis-auto bg-background/40 rounded-lg px-3 py-2 backdrop-blur-sm">
+              {canShowRemoteTargets && (
+                <>
+                  {isAirPlayAvailable && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={showAirPlayPicker}
+                      className="text-cyan-400 hover:text-fuchsia-400 hover:bg-transparent hover:shadow-lg hover:shadow-fuchsia-500/20 transition-all duration-300"
+                      aria-label="Open AirPlay devices"
+                      title="AirPlay"
+                    >
+                      <Radio className="h-5 w-5" aria-hidden />
+                    </Button>
+                  )}
+                  {isRemotePlaybackAvailable && (
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => void showRemotePlaybackPicker()}
+                        className={`text-cyan-400 hover:text-fuchsia-400 hover:bg-transparent hover:shadow-lg hover:shadow-fuchsia-500/20 transition-all duration-300 ${isRemotePlaybackConnected ? 'text-fuchsia-400' : ''}`}
+                        aria-label={isRemotePlaybackConnected ? 'Casting connected' : 'Open cast devices'}
+                        title={isRemotePlaybackConnected ? 'Casting connected' : 'Cast'}
+                      >
+                        <Tv className="h-5 w-5" aria-hidden />
+                      </Button>
+                      <AnimatePresence initial={false}>
+                        {isRemotePlaybackConnected && (
+                          <motion.span
+                            key="normal-cast-device"
+                            initial={{ opacity: 0, x: -4 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -4 }}
+                            transition={{ duration: 0.18, ease: 'easeOut' }}
+                            className="max-w-28 truncate text-xs text-cyan-200/80"
+                          >
+                            {remotePlaybackDeviceName ?? 'Connected'}
+                          </motion.span>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  )}
+                </>
+              )}
               <Button
                 variant="ghost"
                 size="icon"

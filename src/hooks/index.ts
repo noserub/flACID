@@ -18,3 +18,5 @@ export type { RealtimePayload } from './useRealtime';
 export { useSEO } from './useSEO';
 export type { SEOData } from './useSEO';
 export { useAnalytics } from './useAnalytics';
+export { useInstallPwa } from './useInstallPwa';
+export { useDescentSupported } from './useDescentSupported';
