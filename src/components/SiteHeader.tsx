@@ -178,23 +178,23 @@ export function SiteHeader() {
         isDescentMode ? DESCENT_CHROME_LIFT : 'z-50'
       )}
     >
-      <div className="relative w-full min-h-[44px] md:min-h-[52px] grid grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_1fr] items-center">
-        <div className="hidden md:block" />
-        {/* Single flex row keeps mini player + Descend + menu on one vertical centerline */}
-        <div className="relative col-span-2 md:col-span-1 md:col-start-2 flex flex-col items-center gap-2 min-w-0">
-          <div className="flex w-full items-center justify-end md:justify-center gap-3 sm:gap-4 shrink-0">
-            <MiniPlayer />
+      {/* items-center on one row; flat chrome row avoids nested column bottom-bias vs the mini bar */}
+      <div className="relative flex w-full min-h-[44px] md:min-h-[52px] flex-row items-center justify-end md:justify-start">
+        <div className="hidden min-w-0 flex-1 md:block" aria-hidden />
+        <div className="flex min-w-0 shrink-0 items-center justify-center self-center">
+          <MiniPlayer />
+        </div>
+        <div className="relative flex min-w-0 flex-1 flex-row flex-wrap items-center justify-end gap-3 self-center pl-2 sm:gap-4 md:pl-4">
+          <DescentModeToggle />
 
-            <DescentModeToggle />
+          {exportSuccess && (
+            <div className="flex shrink-0 items-center gap-2 bg-green-600/90 backdrop-blur-sm border border-green-400/50 rounded-lg px-3 py-2 shadow-lg">
+              <CheckCircle className="h-4 w-4 text-green-300" />
+              <span className="text-sm text-green-100 font-medium">Exported!</span>
+            </div>
+          )}
 
-            {exportSuccess && (
-              <div className="flex items-center gap-2 bg-green-600/90 backdrop-blur-sm border border-green-400/50 rounded-lg px-3 py-2 shadow-lg">
-                <CheckCircle className="h-4 w-4 text-green-300" />
-                <span className="text-sm text-green-100 font-medium">Exported!</span>
-              </div>
-            )}
-
-            <DropdownMenu modal={false}>
+          <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
             <Button
               size="icon"
@@ -353,16 +353,15 @@ export function SiteHeader() {
             )}
           </DropdownMenuContent>
               </DropdownMenu>
-          </div>
 
-            {isDraft && isEditMode && (
-              <div className="mt-2 flex justify-end md:mt-0 md:absolute md:right-full md:top-1/2 md:mr-3 md:-translate-y-1/2 md:justify-end z-10">
-                <div className="flex items-center gap-2 bg-cyan-600/90 backdrop-blur-sm border border-cyan-400/50 rounded-lg px-3 py-2 shadow-lg whitespace-nowrap">
-                  <div className="w-2 h-2 bg-cyan-300 rounded-full animate-pulse shrink-0" />
-                  <span className="text-sm text-cyan-100 font-medium">Unsaved Changes</span>
-                </div>
+          {isDraft && isEditMode && (
+            <div className="mt-2 flex basis-full justify-end md:mt-0 md:basis-auto md:absolute md:right-full md:top-1/2 md:mr-3 md:-translate-y-1/2 md:justify-end z-10">
+              <div className="flex items-center gap-2 bg-cyan-600/90 backdrop-blur-sm border border-cyan-400/50 rounded-lg px-3 py-2 shadow-lg whitespace-nowrap">
+                <div className="w-2 h-2 bg-cyan-300 rounded-full animate-pulse shrink-0" />
+                <span className="text-sm text-cyan-100 font-medium">Unsaved Changes</span>
               </div>
-            )}
+            </div>
+          )}
         </div>
       </div>
 

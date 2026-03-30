@@ -16,7 +16,7 @@ const DESCENT_ONBOARDING_KEY = 'flacid.descentOnboardingSeen';
 export const descentToggleButtonClass = (isDescentMode: boolean) =>
   cn(
     'relative rounded-lg font-medium transition-all duration-300 touch-manipulation',
-    'inline-flex items-center justify-center min-h-11 px-3 sm:px-4 text-sm',
+    'flex items-center justify-center min-h-11 px-3 sm:px-4 text-sm shrink-0',
     isDescentMode
       ? 'bg-fuchsia-600 text-white shadow-lg shadow-fuchsia-900/50 hover:bg-fuchsia-500'
       : 'bg-background/80 text-cyan-400 border border-cyan-400/30 hover:border-fuchsia-400/50 hover:text-fuchsia-400 hover:shadow-lg hover:shadow-fuchsia-500/20'
@@ -169,7 +169,7 @@ export function DescentModeToggle() {
   return (
     <Popover modal={false} open={onboardingOpen} onOpenChange={handleOpenChange}>
       <PopoverAnchor asChild>
-        <div className="inline-flex">
+        <div className="flex shrink-0 items-center">
           <DescentToggleButton isDescentMode={isDescentMode} onClick={handleToggleClick} />
         </div>
       </PopoverAnchor>
