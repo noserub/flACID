@@ -128,7 +128,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
 
   const currentTrackUrl = tracks[currentTrack]?.url?.trim() ?? '';
   const currentTrackData = tracks[currentTrack];
-  const castReceiverAppId = (import.meta.env.VITE_GOOGLE_CAST_APP_ID ?? '').trim() || 'CC1AD845';
+  const castReceiverAppId = String(import.meta.env.VITE_GOOGLE_CAST_APP_ID ?? '').trim() || 'CC1AD845';
 
   // Load / reset audio when the track (or its URL) changes.
   // Single element: audible output stays on the element; analyser uses captureStream in MusicPlayer (no handoff).
@@ -428,7 +428,12 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
 
     el.addEventListener('webkitplaybacktargetavailabilitychanged', handleAirPlayAvailability);
 
-    const remote = el.remote;
+    let remote: RemotePlayback | null = null;
+    try {
+      remote = (el as HTMLAudioElement & { remote?: RemotePlayback }).remote ?? null;
+    } catch {
+      remote = null;
+    }
     let removeRemoteListeners: (() => void) | null = null;
     if (remote && typeof remote.prompt === 'function') {
       setIsRemotePlaybackAvailable(true);
@@ -454,6 +459,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       if (!win.cast?.framework || !win.chrome?.cast) return undefined;
       try {
         const context = win.cast.framework.CastContext.getInstance();
+        if (!context || typeof context.setOptions !== 'function') return undefined;
         context.setOptions({
           receiverApplicationId: castReceiverAppId,
           autoJoinPolicy: win.chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED,
@@ -474,8 +480,15 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
         };
 
         syncCastState();
-        context.addEventListener(win.cast.framework.CastContextEventType.CAST_STATE_CHANGED, syncCastState);
-        return () => context.removeEventListener(win.cast.framework.CastContextEventType.CAST_STATE_CHANGED, syncCastState);
+        if (
+          typeof context.addEventListener === 'function' &&
+          typeof context.removeEventListener === 'function' &&
+          win.cast.framework.CastContextEventType?.CAST_STATE_CHANGED
+        ) {
+          context.addEventListener(win.cast.framework.CastContextEventType.CAST_STATE_CHANGED, syncCastState);
+          return () => context.removeEventListener(win.cast.framework.CastContextEventType.CAST_STATE_CHANGED, syncCastState);
+        }
+        return undefined;
       } catch {
         return undefined;
       }
