@@ -41,7 +41,8 @@ export function PsychedelicVisualizer({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
+    // desynchronized:true can tear on iOS (orientation, mirroring). Prefer default compositing.
+    const ctx = canvas.getContext('2d', { alpha: false });
     if (!ctx) return;
 
     let isVisible = true;
@@ -53,14 +54,37 @@ export function PsychedelicVisualizer({
     );
     observer.observe(canvas);
 
-    const pixelRatio = Math.min(window.devicePixelRatio, 1.5);
-    const setCanvasSize = () => {
-      canvas.width = canvas.offsetWidth * pixelRatio;
-      canvas.height = canvas.offsetHeight * pixelRatio;
-      ctx.scale(pixelRatio, pixelRatio);
+    const getPixelRatio = () => Math.min(window.devicePixelRatio || 1, 1.5);
+
+    /** Keep backing-store size in sync with layout every frame — avoids split/tear when orientation changes mid-layout. */
+    const syncCanvasSize = () => {
+      const pr = getPixelRatio();
+      const w = canvas.clientWidth;
+      const h = canvas.clientHeight;
+      if (w < 2 || h < 2) return;
+      const bw = Math.max(1, Math.round(w * pr));
+      const bh = Math.max(1, Math.round(h * pr));
+      if (canvas.width === bw && canvas.height === bh) return;
+      canvas.width = bw;
+      canvas.height = bh;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.scale(pr, pr);
     };
-    setCanvasSize();
-    window.addEventListener('resize', setCanvasSize);
+
+    let resizeRaf: number | null = null;
+    const scheduleSync = () => {
+      if (resizeRaf !== null) return;
+      resizeRaf = requestAnimationFrame(() => {
+        resizeRaf = null;
+        syncCanvasSize();
+      });
+    };
+
+    syncCanvasSize();
+    window.addEventListener('resize', scheduleSync);
+    window.addEventListener('orientationchange', scheduleSync);
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(scheduleSync) : null;
+    ro?.observe(canvas);
 
     const bufferLength = analyser ? analyser.frequencyBinCount : 1024;
     const dataArray = new Uint8Array(bufferLength);
@@ -73,8 +97,14 @@ export function PsychedelicVisualizer({
         return;
       }
 
-      const width = canvas.offsetWidth;
-      const height = canvas.offsetHeight;
+      syncCanvasSize();
+
+      const width = canvas.clientWidth;
+      const height = canvas.clientHeight;
+      if (width < 2 || height < 2) {
+        animationRef.current = requestAnimationFrame(draw);
+        return;
+      }
 
       let eq: EQBands;
 
@@ -187,7 +217,10 @@ export function PsychedelicVisualizer({
 
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
-      window.removeEventListener('resize', setCanvasSize);
+      if (resizeRaf !== null) cancelAnimationFrame(resizeRaf);
+      window.removeEventListener('resize', scheduleSync);
+      window.removeEventListener('orientationchange', scheduleSync);
+      ro?.disconnect();
       observer.disconnect();
     };
   }, [isPlaying, currentTrack, analyser, visualizationId]);
