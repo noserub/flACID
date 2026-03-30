@@ -349,14 +349,6 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     };
   }, [currentTrack, tracks]);
 
-  // Keep cast device media in sync when track changes.
-  useEffect(() => {
-    if (!castSessionRef.current || !currentTrackData?.url) return;
-    const shouldPlayOnCast = isPlaying || shouldAutoPlay;
-    void loadCurrentTrackOnCast(shouldPlayOnCast);
-    if (shouldAutoPlay) setShouldAutoPlay(false);
-  }, [currentTrack, currentTrackData?.url, isPlaying, shouldAutoPlay, loadCurrentTrackOnCast]);
-
   // Sync UI to paused when AudioContext suspends — only when using visualizer (visible)
   useEffect(() => {
     registerOnSuspend(() => {
@@ -406,6 +398,14 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       // Keep local playback when cast load fails.
     }
   }, [currentTrackData, currentTime]);
+
+  // Keep cast device media in sync when track changes.
+  useEffect(() => {
+    if (!castSessionRef.current || !currentTrackData?.url) return;
+    const shouldPlayOnCast = isPlaying || shouldAutoPlay;
+    void loadCurrentTrackOnCast(shouldPlayOnCast);
+    if (shouldAutoPlay) setShouldAutoPlay(false);
+  }, [currentTrack, currentTrackData?.url, isPlaying, shouldAutoPlay, loadCurrentTrackOnCast]);
 
   // Discover remote playback capabilities (AirPlay / Remote Playback API) and Cast SDK fallback.
   useEffect(() => {
