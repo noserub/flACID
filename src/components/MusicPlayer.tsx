@@ -25,7 +25,7 @@ const mediaElementSourceByAudio = new WeakMap<HTMLMediaElement, MediaElementAudi
 
 export function MusicPlayer() {
   const { isEditMode } = useEditMode();
-  const { isDescentMode, toggleDescentMode } = useDescentMode();
+  const { isDescentMode, descentSupported, toggleDescentMode } = useDescentMode();
   const { registerAnalyser, registerPlaybackState } = useDescentIntensity();
   const {
     tracks,
@@ -640,7 +640,9 @@ export function MusicPlayer() {
                 className="fixed top-0 right-0 z-[10100] flex items-center gap-3 pointer-events-auto p-4 sm:p-6 bg-black/60 backdrop-blur-md rounded-bl-xl"
                 style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))', paddingRight: 'max(1rem, env(safe-area-inset-right))' }}
               >
-                <DescentToggleButton isDescentMode={isDescentMode} onClick={toggleDescentMode} />
+                {descentSupported && (
+                  <DescentToggleButton isDescentMode={isDescentMode} onClick={toggleDescentMode} />
+                )}
                 <Button
                   variant="outline"
                   size="icon"

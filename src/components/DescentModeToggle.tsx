@@ -99,7 +99,7 @@ function readOnboardingShouldShow(): boolean {
 const MIN_MS_BEFORE_OUTSIDE_DISMISS_COUNTS = 320;
 
 export function DescentModeToggle() {
-  const { isDescentMode, toggleDescentMode, setDescentMode } = useDescentMode();
+  const { isDescentMode, descentSupported, toggleDescentMode, setDescentMode } = useDescentMode();
   const { setIsFullscreen } = usePlayback();
   const [onboardingOpen, setOnboardingOpen] = useState(readOnboardingShouldShow);
   const openedAtRef = useRef(Date.now());
@@ -161,6 +161,10 @@ export function DescentModeToggle() {
       markOnboardingSeen();
     }
   }, [toggleDescentMode, onboardingOpen, markOnboardingSeen]);
+
+  if (!descentSupported) {
+    return null;
+  }
 
   return (
     <Popover modal={false} open={onboardingOpen} onOpenChange={handleOpenChange}>

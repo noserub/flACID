@@ -48,7 +48,7 @@ import { requestDescentHelp } from '../lib/descentHelp';
 
 export function SiteHeader() {
   const { isEditMode, isDraft, toggleEditMode, publishChanges, discardDraft, content } = useEditMode();
-  const { isDescentMode } = useDescentMode();
+  const { isDescentMode, descentSupported } = useDescentMode();
   const { isFullscreen } = usePlayback();
   const { isAuthenticated, isAdmin, signOut } = useAuth();
   const [signInOpen, setSignInOpen] = useState(false);
@@ -180,24 +180,21 @@ export function SiteHeader() {
     >
       <div className="relative w-full min-h-[44px] md:min-h-[52px] grid grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_1fr] items-center">
         <div className="hidden md:block" />
-        {/* Flex centers the mini player on the same vertical axis as the actions column (avoids top vs baseline misalignment). */}
-        <div className="col-start-1 md:col-start-2 flex items-center justify-center min-w-0">
-          <MiniPlayer />
-        </div>
-        <div className="col-start-2 md:col-start-3 flex items-center justify-end shrink-0 min-w-0">
-          {/* Core strip; draft is out-of-flow on md+ (left) or below on small screens */}
-          <div className="relative flex flex-col items-end text-right">
-            <div className="flex items-center justify-end gap-3 sm:gap-4">
-              <DescentModeToggle />
+        {/* Single flex row keeps mini player + Descend + menu on one vertical centerline */}
+        <div className="relative col-span-2 md:col-span-1 md:col-start-2 flex flex-col items-center gap-2 min-w-0">
+          <div className="flex w-full items-center justify-end md:justify-center gap-3 sm:gap-4 shrink-0">
+            <MiniPlayer />
 
-              {exportSuccess && (
-                <div className="flex items-center gap-2 bg-green-600/90 backdrop-blur-sm border border-green-400/50 rounded-lg px-3 py-2 shadow-lg">
-                  <CheckCircle className="h-4 w-4 text-green-300" />
-                  <span className="text-sm text-green-100 font-medium">Exported!</span>
-                </div>
-              )}
+            <DescentModeToggle />
 
-              <DropdownMenu modal={false}>
+            {exportSuccess && (
+              <div className="flex items-center gap-2 bg-green-600/90 backdrop-blur-sm border border-green-400/50 rounded-lg px-3 py-2 shadow-lg">
+                <CheckCircle className="h-4 w-4 text-green-300" />
+                <span className="text-sm text-green-100 font-medium">Exported!</span>
+              </div>
+            )}
+
+            <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
             <Button
               size="icon"
@@ -215,13 +212,15 @@ export function SiteHeader() {
             )}
             onCloseAutoFocus={(e) => e.preventDefault()}
           >
-            <DropdownMenuItem
-              onClick={() => requestDescentHelp()}
-              className="text-cyan-400/95 focus:text-cyan-300 focus:bg-cyan-500/10"
-            >
-              <CircleHelp className="mr-2 h-4 w-4 shrink-0" />
-              <span>What is Descend?</span>
-            </DropdownMenuItem>
+            {descentSupported && (
+              <DropdownMenuItem
+                onClick={() => requestDescentHelp()}
+                className="text-cyan-400/95 focus:text-cyan-300 focus:bg-cyan-500/10"
+              >
+                <CircleHelp className="mr-2 h-4 w-4 shrink-0" />
+                <span>What is Descend?</span>
+              </DropdownMenuItem>
+            )}
 
             {!isStandalone && (canUseBrowserInstall || showIosAddToHome) && (
               <>
@@ -354,7 +353,7 @@ export function SiteHeader() {
             )}
           </DropdownMenuContent>
               </DropdownMenu>
-            </div>
+          </div>
 
             {isDraft && isEditMode && (
               <div className="mt-2 flex justify-end md:mt-0 md:absolute md:right-full md:top-1/2 md:mr-3 md:-translate-y-1/2 md:justify-end z-10">
@@ -364,7 +363,6 @@ export function SiteHeader() {
                 </div>
               </div>
             )}
-          </div>
         </div>
       </div>
 

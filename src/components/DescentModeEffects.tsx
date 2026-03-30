@@ -797,12 +797,12 @@ export function DescentBackground() {
 
 // Main descent mode wrapper
 export function DescentModeWrapper() {
-  const { isDescentMode } = useDescentMode();
+  const { isDescentMode, descentSupported } = useDescentMode();
   const mobile = isMobile();
 
   return (
     <AnimatePresence>
-      {isDescentMode && (
+      {isDescentMode && descentSupported && (
         <>
           <DescentBackground />
           <ScrollBoundaryGlow />
