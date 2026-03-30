@@ -15,7 +15,15 @@ function isStandaloneDisplay(): boolean {
 function isLikelyIOS(): boolean {
   if (typeof navigator === 'undefined') return false;
   const ua = navigator.userAgent;
-  return /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  // Standard iOS / iPadOS mobile UA
+  if (/iPad|iPhone|iPod/i.test(ua)) return true;
+  // iPadOS 13+ desktop UA, or iPhone "Request Desktop Website"
+  if (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) return true;
+  // iOS Chrome (WebKit) — mobile Chrome build
+  if (/CriOS\//.test(ua) && /Mobile\/[\w]+/i.test(ua)) return true;
+  // FxiOS (Firefox), EdgiOS, etc. on iPhone
+  if (/(CriOS|FxiOS|EdgiOS|OPiOS)/i.test(ua)) return true;
+  return false;
 }
 
 /**

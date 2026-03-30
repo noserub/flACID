@@ -413,14 +413,24 @@ export function SiteHeader() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Add flACID to your Home Screen</AlertDialogTitle>
-            <AlertDialogDescription className="text-left space-y-2">
+            <AlertDialogDescription className="text-left space-y-3">
               <span className="block">
-                Safari does not allow websites to add themselves to the home screen automatically. Use the Share
-                button, then choose <strong className="text-foreground">Add to Home Screen</strong>.
+                On iPhone and iPad, every browser uses Apple&apos;s WebKit. There is no &quot;Download&quot; or
+                Play Store–style install like on Android. You add the site manually:
+              </span>
+              <span className="block">
+                <strong className="text-foreground">Safari:</strong> tap{' '}
+                <strong className="text-foreground">Share</strong> (square with arrow), then{' '}
+                <strong className="text-foreground">Add to Home Screen</strong>.
+              </span>
+              <span className="block">
+                <strong className="text-foreground">Chrome:</strong> tap <strong className="text-foreground">Share</strong>{' '}
+                in the toolbar, then <strong className="text-foreground">Add to Home Screen</strong> (you may need to scroll
+                the actions list). If it doesn&apos;t appear, open this page in Safari and use Share there—Apple is stricter
+                in third-party browsers.
               </span>
               <span className="block text-muted-foreground">
-                Opening the site from that icon runs it full screen, without Safari&apos;s address bar—ideal for
-                mirroring visuals to a TV.
+                The home screen icon opens full screen without the browser chrome—best for mirroring to a TV.
               </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
