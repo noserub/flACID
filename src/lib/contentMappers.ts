@@ -44,7 +44,8 @@ function formatDurationFromSeconds(seconds: number): string {
 /** Parse visualization_type from DB (handles 'flowField' and non-numeric; returns 0-based viz index). */
 export function parseVisualizationId(value: string | undefined): number {
   const n = parseInt(String(value ?? ''), 10);
-  return Number.isInteger(n) && n >= 0 && n <= 10 ? n : 0;
+  if (!Number.isInteger(n) || n < 0) return 0;
+  return n;
 }
 
 /** Map database rows to SiteContent */

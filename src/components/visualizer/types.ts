@@ -22,6 +22,8 @@ export interface VisualizerDrawOptions {
   beatPulse?: number;
   /** 0–1, higher = softer moment — use for breath/calm modulation */
   calm?: number;
+  /** True when Descend mode overlays are active — heavy vizes should reduce CPU/GPU work */
+  descentOverlayActive?: boolean;
 }
 
 export type DrawVisualization = (

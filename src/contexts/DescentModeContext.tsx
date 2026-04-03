@@ -71,3 +71,8 @@ export function useDescentMode() {
   }
   return context;
 }
+
+/** Safe on routes without DescentModeProvider (e.g. /stage) — for visualizer performance tiering */
+export function useDescentOverlayForVisualizer(): boolean {
+  return useContext(DescentModeContext)?.isDescentMode ?? false;
+}

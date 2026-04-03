@@ -6,6 +6,7 @@ import { EditModeProvider, useEditMode } from './contexts/EditModeContext';
 import { DescentModeProvider } from './contexts/DescentModeContext';
 import { DescentIntensityProvider } from './contexts/DescentIntensityContext';
 import { PlaybackProvider } from './contexts/PlaybackContext';
+import { VizSensitivityProvider } from './contexts/VizSensitivityContext';
 import { DescentModeWrapper } from './components/DescentModeEffects';
 import { SiteHeader } from './components/SiteHeader';
 import { StagePage } from './pages/StagePage';
@@ -125,22 +126,24 @@ export default function App() {
 
   const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
 
-  if (pathname === '/stage') {
-    return <StagePage />;
-  }
-
   return (
-    <>
-      <EditModeProvider>
-        <DescentModeProvider>
-          <DescentIntensityProvider>
-            <AppContent />
-          </DescentIntensityProvider>
-        </DescentModeProvider>
-      </EditModeProvider>
-      <Suspense fallback={null}>
-        <VercelAnalytics />
-      </Suspense>
-    </>
+    <VizSensitivityProvider>
+      {pathname === '/stage' ? (
+        <StagePage />
+      ) : (
+        <>
+          <EditModeProvider>
+            <DescentModeProvider>
+              <DescentIntensityProvider>
+                <AppContent />
+              </DescentIntensityProvider>
+            </DescentModeProvider>
+          </EditModeProvider>
+          <Suspense fallback={null}>
+            <VercelAnalytics />
+          </Suspense>
+        </>
+      )}
+    </VizSensitivityProvider>
   );
 }

@@ -18,7 +18,14 @@ import {
   SelectValue,
 } from '../components/ui/select';
 import { Switch } from '../components/ui/switch';
+import { Slider } from '../components/ui/slider';
+import { Label } from '../components/ui/label';
 import { cn } from '../components/ui/utils';
+import {
+  useVizSensitivity,
+  VIZ_SENSITIVITY_MAX,
+  VIZ_SENSITIVITY_MIN,
+} from '../contexts/VizSensitivityContext';
 
 const VIZ_NAMES = [
   'Organic Flow',
@@ -32,6 +39,14 @@ const VIZ_NAMES = [
   'Spiral Galaxy',
   'Crystal Lattice',
   'Breathing Mandala',
+  'IFS Kaleidoscope',
+  'Prism Spectrum',
+  'Metaballs',
+  'Reaction Diffusion',
+  'Pulse Horizon',
+  'Light Speed Warp',
+  'Tron Corridor',
+  'Neon Tunnel 3D',
 ];
 
 const AUTO_CYCLE_DURATIONS = [5, 6, 8, 10, 12, 16] as const;
@@ -158,6 +173,7 @@ interface AudioDevice {
 const isProjection = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('projection') === '1';
 
 export function StagePage() {
+  const { sensitivity, setSensitivity } = useVizSensitivity();
   const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [devices, setDevices] = useState<AudioDevice[]>([]);
@@ -504,6 +520,20 @@ export function StagePage() {
                 ))}
               </SelectContent>
             </Select>
+
+            <div className="space-y-1.5">
+              <Label className="text-white/80 text-sm block">Visualizer reactivity</Label>
+              <Slider
+                value={[sensitivity]}
+                min={VIZ_SENSITIVITY_MIN}
+                max={VIZ_SENSITIVITY_MAX}
+                step={0.05}
+                onValueChange={(v) => setSensitivity(v[0] ?? 1)}
+                className="cursor-pointer"
+                aria-label="Visualizer reactivity"
+              />
+              <p className="text-[11px] text-white/50">Lower = calmer, less noise</p>
+            </div>
 
             <div className="pt-2 border-t border-white/20 space-y-2">
               <div className="flex items-center justify-between gap-2">

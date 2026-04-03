@@ -15,6 +15,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from './ui/accordion';
+import { NUM_VISUALIZATIONS } from './visualizer/visualizations';
 
 export function MusicPlayerEditDialog() {
   const { content, updateContent } = useEditMode();
@@ -245,7 +246,7 @@ export function MusicPlayerEditDialog() {
                     </Button>
                   </div>
                   <span className="text-xs bg-primary/20 text-primary px-2 py-1 rounded shrink-0">
-                    Viz {(track.visualizationId ?? index % 11) + 1}
+                    Viz {(track.visualizationId ?? index % NUM_VISUALIZATIONS) + 1}
                   </span>
                   <span className="truncate">{track.title} - {track.duration}</span>
                 </div>
@@ -343,6 +344,14 @@ export function MusicPlayerEditDialog() {
                         <SelectItem value="8">9. Spiral Galaxy</SelectItem>
                         <SelectItem value="9">10. Crystal Lattice</SelectItem>
                         <SelectItem value="10">11. Breathing Mandala</SelectItem>
+                        <SelectItem value="11">12. IFS Kaleidoscope</SelectItem>
+                        <SelectItem value="12">13. Prism Spectrum</SelectItem>
+                        <SelectItem value="13">14. Metaballs</SelectItem>
+                        <SelectItem value="14">15. Reaction Diffusion</SelectItem>
+                        <SelectItem value="15">16. Pulse Horizon</SelectItem>
+                        <SelectItem value="16">17. Light Speed Warp</SelectItem>
+                        <SelectItem value="17">18. Tron Corridor</SelectItem>
+                        <SelectItem value="18">19. Neon Tunnel 3D</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

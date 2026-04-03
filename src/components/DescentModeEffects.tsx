@@ -163,9 +163,10 @@ export function GlitchOverlay() {
           y: [aberrationAmount, -aberrationAmount, aberrationAmount],
         }}
         transition={{
-          duration: 0.1,
+          duration: 3.2,
           repeat: Infinity,
-          repeatType: 'reverse',
+          repeatType: 'mirror',
+          ease: 'easeInOut',
         }}
       />
       <motion.div
@@ -179,9 +180,10 @@ export function GlitchOverlay() {
           y: [-aberrationAmount, aberrationAmount, -aberrationAmount],
         }}
         transition={{
-          duration: 0.1,
+          duration: 3.6,
           repeat: Infinity,
-          repeatType: 'reverse',
+          repeatType: 'mirror',
+          ease: 'easeInOut',
         }}
       />
     </div>
@@ -227,7 +229,7 @@ export function ScanlineEffect() {
           y: [0, 8, 0],
         }}
         transition={{
-          duration: 0.1,
+          duration: 1.4,
           repeat: Infinity,
           ease: 'linear',
         }}
@@ -355,7 +357,7 @@ export function DescentParticles() {
 
     // Initialize particles as living organisms — fewer on mobile for smoother animation
     if (particlesRef.current.length === 0) {
-      const particleCount = mobile ? 28 : 120;
+      const particleCount = mobile ? 24 : 52;
       const behaviors: Array<'wanderer' | 'seeker' | 'avoider' | 'orbiter'> = ['wanderer', 'seeker', 'avoider', 'orbiter'];
       
       for (let i = 0; i < particleCount; i++) {
@@ -462,8 +464,8 @@ export function DescentParticles() {
             break;
         }
 
-        // Flocking behavior: interact with nearby particles — skip on mobile for performance
-        if (!mobile) {
+        // Flocking: desktop only, every other frame — keeps Descend mode lighter with viz running
+        if (!mobile && frameCount % 2 === 0) {
           let neighborCount = 0;
           let avgVx = 0;
           let avgVy = 0;

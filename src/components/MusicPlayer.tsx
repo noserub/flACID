@@ -2,12 +2,18 @@ import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Play, Pause, SkipForward, SkipBack, Volume2, VolumeX, List, Maximize, Minimize, X, Loader2, Radio, Tv } from 'lucide-react';
 import { Button } from './ui/button';
+import { Label } from './ui/label';
 import { Slider } from './ui/slider';
 import { PsychedelicVisualizer } from './PsychedelicVisualizer';
 import { useEditMode } from '../contexts/EditModeContext';
 import { useDescentMode } from '../contexts/DescentModeContext';
 import { useDescentIntensity } from '../contexts/DescentIntensityContext';
 import { usePlayback } from '../contexts/PlaybackContext';
+import {
+  useVizSensitivity,
+  VIZ_SENSITIVITY_MAX,
+  VIZ_SENSITIVITY_MIN,
+} from '../contexts/VizSensitivityContext';
 import { MusicPlayerEditDialog } from './MusicPlayerEditDialog';
 import { DescentToggleButton } from './DescentModeToggle';
 import { Popover, PopoverAnchor, PopoverContent } from './ui/popover';
@@ -56,6 +62,8 @@ export function MusicPlayer() {
     showAirPlayPicker,
     showRemotePlaybackPicker,
   } = usePlayback();
+
+  const { sensitivity, setSensitivity } = useVizSensitivity();
 
   const handleTogglePlay = () => {
     if (!currentTrackData?.url) {
@@ -465,10 +473,10 @@ export function MusicPlayer() {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.25 }}
-                className="absolute bottom-0 left-0 right-0 pointer-events-auto z-50 bg-gradient-to-t from-black/80 via-black/50 to-transparent p-8 pt-24"
+                className="absolute bottom-0 left-0 right-0 pointer-events-auto z-50 bg-gradient-to-t from-black/80 via-black/50 to-transparent px-4 pt-16 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-8 sm:pt-24 sm:pb-8"
                 onClick={(e) => e.stopPropagation()}
               >
-              <div className="max-w-4xl mx-auto space-y-4">
+              <div className="max-w-4xl mx-auto space-y-3 sm:space-y-4">
                 {/* Progress Bar */}
                 <div className="space-y-2">
                   <Slider
@@ -484,134 +492,153 @@ export function MusicPlayer() {
                   </div>
                 </div>
 
-                {/* Playback Controls */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={toggleMute}
-                      className="text-white hover:text-white hover:bg-white/20"
-                      aria-label={isMuted ? 'Unmute' : 'Mute'}
-                    >
-                      {isMuted ? <VolumeX className="h-5 w-5" aria-hidden /> : <Volume2 className="h-5 w-5" aria-hidden />}
-                    </Button>
-                    <Slider
-                      value={[isMuted ? 0 : volume]}
-                      max={1}
-                      step={0.01}
-                      onValueChange={handleVolumeChange}
-                      className="w-24 cursor-pointer"
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={skipBack}
-                      disabled={currentTrack === 0}
-                      className="text-white hover:text-white hover:bg-white/20 h-12 w-12 disabled:opacity-30"
-                      aria-label="Previous track"
-                    >
-                      <SkipBack className="h-7 w-7" aria-hidden />
-                    </Button>
-                    <Popover
-                      open={showPlayHint && !isPlaying}
-                      onOpenChange={(open) => !open && setShowPlayHint(false)}
-                    >
-                      <PopoverAnchor asChild>
-                        <Button
-                          size="icon"
-                          onClick={() => {
-                            setShowPlayHint(false);
-                            handleTogglePlay();
-                          }}
-                          disabled={!tracks[currentTrack]?.url || (!isAudioReady && !isPlaying)}
-                          className="h-16 w-16 rounded-full bg-white hover:bg-white/90 text-black disabled:opacity-50 disabled:cursor-not-allowed"
-                          aria-label={isPlaying ? 'Pause' : 'Play'}
-                        >
-                          {isPlaying ? <Pause className="h-8 w-8" aria-hidden /> : <Play className="h-8 w-8 ml-0.5" aria-hidden />}
-                        </Button>
-                      </PopoverAnchor>
-                      <PopoverContent
-                        side="top"
-                        align="center"
-                        sideOffset={12}
-                        collisionPadding={16}
-                        className={cn(
-                          DESCENT_MENU_PORTAL_LIFT,
-                          'rounded-lg border border-cyan-500/30 bg-background/95 backdrop-blur-md shadow-xl shadow-fuchsia-950/20 p-4 text-sm text-foreground'
-                        )}
-                        onOpenAutoFocus={(e) => e.preventDefault()}
+                {/* Primary: transport always centered and visible (mobile-first) */}
+                <div className="flex items-center justify-center gap-3 sm:gap-4 py-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={skipBack}
+                    disabled={currentTrack === 0}
+                    className="text-white hover:text-white hover:bg-white/20 h-12 w-12 shrink-0 disabled:opacity-30"
+                    aria-label="Previous track"
+                  >
+                    <SkipBack className="h-7 w-7" aria-hidden />
+                  </Button>
+                  <Popover
+                    open={showPlayHint && !isPlaying}
+                    onOpenChange={(open) => !open && setShowPlayHint(false)}
+                  >
+                    <PopoverAnchor asChild>
+                      <Button
+                        size="icon"
+                        onClick={() => {
+                          setShowPlayHint(false);
+                          handleTogglePlay();
+                        }}
+                        disabled={!tracks[currentTrack]?.url || (!isAudioReady && !isPlaying)}
+                        className="h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-white hover:bg-white/90 text-black disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                        aria-label={isPlaying ? 'Pause' : 'Play'}
                       >
-                        <div className="space-y-3">
-                          <p className="text-cyan-100">Play music for the full experience</p>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="border border-cyan-500/25 text-cyan-200/90 hover:bg-cyan-500/10 hover:text-cyan-100"
-                            onClick={() => setShowPlayHint(false)}
-                          >
-                            Got it
-                          </Button>
-                        </div>
-                      </PopoverContent>
-                    </Popover>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={skipForward}
-                      disabled={currentTrack === tracks.length - 1}
-                      className="text-white hover:text-white hover:bg-white/20 h-12 w-12 disabled:opacity-30"
-                      aria-label="Next track"
+                        {isPlaying ? <Pause className="h-7 w-7 sm:h-8 sm:w-8" aria-hidden /> : <Play className="h-7 w-7 sm:h-8 sm:w-8 ml-0.5" aria-hidden />}
+                      </Button>
+                    </PopoverAnchor>
+                    <PopoverContent
+                      side="top"
+                      align="center"
+                      sideOffset={12}
+                      collisionPadding={16}
+                      className={cn(
+                        DESCENT_MENU_PORTAL_LIFT,
+                        'rounded-lg border border-cyan-500/30 bg-background/95 backdrop-blur-md shadow-xl shadow-fuchsia-950/20 p-4 text-sm text-foreground'
+                      )}
+                      onOpenAutoFocus={(e) => e.preventDefault()}
                     >
-                      <SkipForward className="h-7 w-7" aria-hidden />
-                    </Button>
-                  </div>
+                      <div className="space-y-3">
+                        <p className="text-cyan-100">Play music for the full experience</p>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="border border-cyan-500/25 text-cyan-200/90 hover:bg-cyan-500/10 hover:text-cyan-100"
+                          onClick={() => setShowPlayHint(false)}
+                        >
+                          Got it
+                        </Button>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={skipForward}
+                    disabled={currentTrack === tracks.length - 1}
+                    className="text-white hover:text-white hover:bg-white/20 h-12 w-12 shrink-0 disabled:opacity-30"
+                    aria-label="Next track"
+                  >
+                    <SkipForward className="h-7 w-7" aria-hidden />
+                  </Button>
+                </div>
 
-                  <div className="w-32 flex items-center justify-end gap-2">
-                    {isAirPlayAvailable && (
+                {/* Secondary: volume, visualizer tuning, cast — below transport */}
+                <div className="pt-2 border-t border-white/10 sm:border-white/5 sm:pt-3">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
+                    <div className="flex items-center gap-2 shrink-0 sm:max-w-[200px]">
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={showAirPlayPicker}
-                        className="text-white hover:text-white hover:bg-white/20"
-                        aria-label="Open AirPlay devices"
-                        title="AirPlay"
+                        onClick={toggleMute}
+                        className="text-white hover:text-white hover:bg-white/20 shrink-0"
+                        aria-label={isMuted ? 'Unmute' : 'Mute'}
                       >
-                        <Radio className="h-5 w-5" aria-hidden />
+                        {isMuted ? <VolumeX className="h-5 w-5" aria-hidden /> : <Volume2 className="h-5 w-5" aria-hidden />}
                       </Button>
-                    )}
-                    {isRemotePlaybackAvailable && (
-                      <div className="flex items-center gap-2">
+                      <Slider
+                        value={[isMuted ? 0 : volume]}
+                        max={1}
+                        step={0.01}
+                        onValueChange={handleVolumeChange}
+                        className="flex-1 min-w-0 max-w-[10rem] sm:max-w-none sm:w-24 cursor-pointer"
+                      />
+                    </div>
+
+                    <div className="flex-1 min-w-0 sm:max-w-md sm:mx-auto lg:mx-0">
+                      <Label className="text-white/70 text-xs block mb-1.5">Visualizer reactivity</Label>
+                      <Slider
+                        value={[sensitivity]}
+                        min={VIZ_SENSITIVITY_MIN}
+                        max={VIZ_SENSITIVITY_MAX}
+                        step={0.05}
+                        onValueChange={(v) => setSensitivity(v[0] ?? 1)}
+                        className="cursor-pointer w-full"
+                        aria-label="Visualizer reactivity"
+                      />
+                      <p className="text-[10px] text-white/45 mt-1 hidden sm:block">
+                        Lower = calmer, less noise. Higher = snappier.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-center gap-2 shrink-0 sm:justify-end sm:min-w-[5.5rem]">
+                      {isAirPlayAvailable && (
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => void showRemotePlaybackPicker()}
-                          className={`text-white hover:text-white hover:bg-white/20 ${isRemotePlaybackConnected ? 'bg-white/20' : ''}`}
-                          aria-label={isRemotePlaybackConnected ? 'Casting connected' : 'Open cast devices'}
-                          title={isRemotePlaybackConnected ? 'Casting connected' : 'Cast'}
+                          onClick={showAirPlayPicker}
+                          className="text-white hover:text-white hover:bg-white/20"
+                          aria-label="Open AirPlay devices"
+                          title="AirPlay"
                         >
-                          <Tv className="h-5 w-5" aria-hidden />
+                          <Radio className="h-5 w-5" aria-hidden />
                         </Button>
-                        <AnimatePresence initial={false}>
-                          {isRemotePlaybackConnected && (
-                            <motion.span
-                              key="fullscreen-cast-device"
-                              initial={{ opacity: 0, x: -4 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              exit={{ opacity: 0, x: -4 }}
-                              transition={{ duration: 0.18, ease: 'easeOut' }}
-                              className="max-w-24 truncate text-[11px] text-white/70"
-                            >
-                              {remotePlaybackDeviceName ?? 'Connected'}
-                            </motion.span>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                    )}
+                      )}
+                      {isRemotePlaybackAvailable && (
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => void showRemotePlaybackPicker()}
+                            className={`text-white hover:text-white hover:bg-white/20 ${isRemotePlaybackConnected ? 'bg-white/20' : ''}`}
+                            aria-label={isRemotePlaybackConnected ? 'Casting connected' : 'Open cast devices'}
+                            title={isRemotePlaybackConnected ? 'Casting connected' : 'Cast'}
+                          >
+                            <Tv className="h-5 w-5" aria-hidden />
+                          </Button>
+                          <AnimatePresence initial={false}>
+                            {isRemotePlaybackConnected && (
+                              <motion.span
+                                key="fullscreen-cast-device"
+                                initial={{ opacity: 0, x: -4 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: -4 }}
+                                transition={{ duration: 0.18, ease: 'easeOut' }}
+                                className="max-w-24 truncate text-[11px] text-white/70 hidden sm:inline"
+                              >
+                                {remotePlaybackDeviceName ?? 'Connected'}
+                              </motion.span>
+                            )}
+                          </AnimatePresence>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -714,63 +741,82 @@ export function MusicPlayer() {
             </div>
           </div>
 
-          {/* Playback Controls - wrap on mobile so fullscreen/playlist stay visible */}
-          <div className="flex flex-wrap items-center justify-between gap-4 sm:gap-6">
-            {/* Volume Controls Group */}
-            <div className="flex flex-shrink-0 items-center gap-2 bg-background/40 rounded-lg px-3 py-2 backdrop-blur-sm">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={toggleMute}
-                className="text-cyan-400 hover:text-fuchsia-400 hover:bg-transparent hover:shadow-lg hover:shadow-fuchsia-500/20 transition-all duration-300"
-                aria-label={isMuted ? 'Unmute' : 'Mute'}
-              >
-                {isMuted ? <VolumeX className="h-5 w-5" aria-hidden /> : <Volume2 className="h-5 w-5" aria-hidden />}
-              </Button>
-              <Slider
-                value={[isMuted ? 0 : volume]}
-                max={1}
-                step={0.01}
-                onValueChange={handleVolumeChange}
-                className="w-16 sm:w-24 cursor-pointer"
-              />
+          {/* Mobile: transport on top; md+: [volume+viz] [transport] [view] */}
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-center md:gap-x-6 md:gap-y-3">
+            {/* Playback — first on mobile; centered column on desktop */}
+            <div className="flex justify-center md:col-start-2 md:row-start-1">
+              <div className="flex items-center gap-2 bg-background/40 rounded-lg px-4 py-2 backdrop-blur-sm">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={skipBack}
+                  disabled={currentTrack === 0}
+                  className="text-cyan-400 hover:text-fuchsia-400 hover:bg-transparent hover:shadow-lg hover:shadow-fuchsia-500/20 disabled:text-muted-foreground transition-all duration-300"
+                  aria-label="Previous track"
+                >
+                  <SkipBack className="h-6 w-6" aria-hidden />
+                </Button>
+                <Button
+                  size="icon"
+                  onClick={handleTogglePlay}
+                  disabled={!tracks[currentTrack].url || (!isAudioReady && !isPlaying)}
+                  className="h-12 w-12 rounded-full bg-fuchsia-600 hover:bg-fuchsia-500 text-white shadow-lg shadow-fuchsia-900/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
+                  aria-label={isPlaying ? 'Pause' : 'Play'}
+                >
+                  {isPlaying ? <Pause className="h-6 w-6" aria-hidden /> : <Play className="h-6 w-6 ml-0.5" aria-hidden />}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={skipForward}
+                  disabled={currentTrack === tracks.length - 1}
+                  className="text-cyan-400 hover:text-fuchsia-400 hover:bg-transparent hover:shadow-lg hover:shadow-fuchsia-500/20 disabled:text-muted-foreground transition-all duration-300"
+                  aria-label="Next track"
+                >
+                  <SkipForward className="h-6 w-6" aria-hidden />
+                </Button>
+              </div>
             </div>
 
-            {/* Playback Controls Group */}
-            <div className="flex flex-shrink-0 items-center gap-2 bg-background/40 rounded-lg px-4 py-2 backdrop-blur-sm">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={skipBack}
-                disabled={currentTrack === 0}
-                className="text-cyan-400 hover:text-fuchsia-400 hover:bg-transparent hover:shadow-lg hover:shadow-fuchsia-500/20 disabled:text-muted-foreground transition-all duration-300"
-                aria-label="Previous track"
-              >
-                <SkipBack className="h-6 w-6" aria-hidden />
-              </Button>
-              <Button
-                size="icon"
-                onClick={handleTogglePlay}
-                disabled={!tracks[currentTrack].url || (!isAudioReady && !isPlaying)}
-                className="h-12 w-12 rounded-full bg-fuchsia-600 hover:bg-fuchsia-500 text-white shadow-lg shadow-fuchsia-900/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
-                aria-label={isPlaying ? 'Pause' : 'Play'}
-              >
-                {isPlaying ? <Pause className="h-6 w-6" aria-hidden /> : <Play className="h-6 w-6 ml-0.5" aria-hidden />}
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={skipForward}
-                disabled={currentTrack === tracks.length - 1}
-                className="text-cyan-400 hover:text-fuchsia-400 hover:bg-transparent hover:shadow-lg hover:shadow-fuchsia-500/20 disabled:text-muted-foreground transition-all duration-300"
-                aria-label="Next track"
-              >
-                <SkipForward className="h-6 w-6" aria-hidden />
-              </Button>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch md:col-start-1 md:row-start-1 min-w-0">
+              <div className="flex flex-1 min-w-0 items-center gap-2 bg-background/40 rounded-lg px-3 py-2 backdrop-blur-sm">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={toggleMute}
+                  className="text-cyan-400 hover:text-fuchsia-400 hover:bg-transparent hover:shadow-lg hover:shadow-fuchsia-500/20 transition-all duration-300 shrink-0"
+                  aria-label={isMuted ? 'Unmute' : 'Mute'}
+                >
+                  {isMuted ? <VolumeX className="h-5 w-5" aria-hidden /> : <Volume2 className="h-5 w-5" aria-hidden />}
+                </Button>
+                <Slider
+                  value={[isMuted ? 0 : volume]}
+                  max={1}
+                  step={0.01}
+                  onValueChange={handleVolumeChange}
+                  className="flex-1 min-w-0 cursor-pointer"
+                />
+              </div>
+
+              <div className="flex flex-1 min-w-0 flex-col gap-1.5 bg-background/40 rounded-lg px-3 py-2 backdrop-blur-sm sm:max-w-xs">
+                <Label className="text-xs text-muted-foreground">Visualizer reactivity</Label>
+                <Slider
+                  value={[sensitivity]}
+                  min={VIZ_SENSITIVITY_MIN}
+                  max={VIZ_SENSITIVITY_MAX}
+                  step={0.05}
+                  onValueChange={(v) => setSensitivity(v[0] ?? 1)}
+                  className="cursor-pointer w-full"
+                  aria-label="Visualizer reactivity"
+                />
+                <p className="text-[10px] text-muted-foreground leading-snug hidden sm:block">
+                  Lower = calmer, less noise
+                </p>
+              </div>
             </div>
 
-            {/* View Controls Group */}
-            <div className="flex w-full flex-shrink-0 basis-full items-center justify-center gap-2 sm:w-auto sm:basis-auto bg-background/40 rounded-lg px-3 py-2 backdrop-blur-sm">
+            <div className="flex w-full justify-center md:justify-end md:col-start-3 md:row-start-1 shrink-0">
+              <div className="flex items-center justify-center gap-2 bg-background/40 rounded-lg px-3 py-2 backdrop-blur-sm">
               {canShowRemoteTargets && (
                 <>
                   {isAirPlayAvailable && (
@@ -834,6 +880,7 @@ export function MusicPlayer() {
               >
                 <List className="h-5 w-5" aria-hidden />
               </Button>
+              </div>
             </div>
           </div>
         </div>}

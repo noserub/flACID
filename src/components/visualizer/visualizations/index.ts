@@ -8,11 +8,28 @@ import type { DrawVisualization, EQBands, VisualizerDrawOptions } from '../types
 import { drawOrganicFlow } from './organicFlow';
 import { drawBreathingMandala } from './breathingMandala';
 import { drawNeonGrid } from './neonGrid';
+import { drawIfsKaleidoscope } from './ifsKaleidoscope';
+import { drawSpectrumBars } from './spectrumBars';
+import { drawMetaballs } from './metaballs';
+import { drawReactionDiffusion } from './reactionDiffusion';
+import { drawPulseHorizon } from './pulseHorizon';
+import { drawLightSpeedWarp } from './lightSpeedWarp';
+import { drawTronCorridor } from './tronCorridor';
+import { drawThreeNeonTunnelStub } from './threeNeonTunnel';
 
 // Re-export for use in main component
 export { drawOrganicFlow } from './organicFlow';
 export { drawBreathingMandala } from './breathingMandala';
 export { drawNeonGrid } from './neonGrid';
+export { drawIfsKaleidoscope } from './ifsKaleidoscope';
+export { drawSpectrumBars } from './spectrumBars';
+export { drawMetaballs } from './metaballs';
+export { drawReactionDiffusion } from './reactionDiffusion';
+export { drawPulseHorizon } from './pulseHorizon';
+export { drawLightSpeedWarp } from './lightSpeedWarp';
+export { drawTronCorridor } from './tronCorridor';
+export { drawThreeNeonTunnelStub, createNeonTunnelRenderer } from './threeNeonTunnel';
+export type { ThreeTunnelHandle, ThreeTunnelFrameArgs } from './threeNeonTunnel';
 
 type DrawFn = (
   ctx: CanvasRenderingContext2D,
@@ -39,9 +56,19 @@ const VISUALIZATIONS: DrawFn[] = [
   drawSpiralGalaxy,
   drawCrystalLattice,
   drawBreathingMandala,
+  drawIfsKaleidoscope,
+  drawSpectrumBars,
+  drawMetaballs,
+  drawReactionDiffusion,
+  drawPulseHorizon,
+  drawLightSpeedWarp,
+  drawTronCorridor,
+  drawThreeNeonTunnelStub,
 ];
 
 export const NUM_VISUALIZATIONS = VISUALIZATIONS.length;
+/** WebGL tunnel — use `createNeonTunnelRenderer` in PsychedelicVisualizer, not 2D draw. */
+export const THREE_NEON_TUNNEL_VIZ_INDEX = VISUALIZATIONS.length - 1;
 
 export function getVisualization(id: number): DrawFn {
   return VISUALIZATIONS[id % VISUALIZATIONS.length] ?? VISUALIZATIONS[0];

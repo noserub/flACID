@@ -7,6 +7,10 @@
  */
 
 import type { EQBands } from '../components/visualizer/types';
+import {
+  VIZ_SENSITIVITY_MAX as SENS_MAX,
+  VIZ_SENSITIVITY_MIN as SENS_MIN,
+} from '../contexts/VizSensitivityContext';
 
 const BAND_KEYS = [
   'subBass',
@@ -38,6 +42,58 @@ export interface VisualAudioSmootherResult {
   beatPulse: number;
   /** 0–1 calm factor (higher = softer / less motion) */
   calm: number;
+}
+
+export interface VisualAudioProcessOptions {
+  /** 1 = library default; lower = calmer / less noise amplification; higher = snappier */
+  sensitivity?: number;
+}
+
+/** 0 at SENS_MIN, 1 at sensitivity 1 */
+function anchorBelow1(s: number): number {
+  if (s >= 1) return 1;
+  const d = 1 - SENS_MIN;
+  return d <= 0 ? 1 : Math.max(0, Math.min(1, (s - SENS_MIN) / d));
+}
+
+/** 0 at 1, 1 at SENS_MAX */
+function anchorAbove1(s: number): number {
+  if (s <= 1) return 0;
+  const d = SENS_MAX - 1;
+  return d <= 0 ? 0 : Math.max(0, Math.min(1, (s - 1) / d));
+}
+
+/** All return 1 when sensitivity === 1 (legacy default). Stronger spread toward min/max. */
+function normScaleMultiplier(sensitivity: number): number {
+  if (sensitivity <= 1) {
+    const t = anchorBelow1(sensitivity);
+    return 0.24 + 0.76 * t;
+  }
+  return 1 + 0.78 * anchorAbove1(sensitivity);
+}
+
+function smoothingAlphaMultiplier(sensitivity: number): number {
+  if (sensitivity <= 1) {
+    const t = anchorBelow1(sensitivity);
+    return 0.18 + 0.82 * t;
+  }
+  return 1 + 0.58 * anchorAbove1(sensitivity);
+}
+
+function onsetThresholdMultiplier(sensitivity: number): number {
+  if (sensitivity <= 1) {
+    const t = anchorBelow1(sensitivity);
+    return 2.5 - 1.5 * t;
+  }
+  return Math.max(0.52, 1 - 0.48 * anchorAbove1(sensitivity));
+}
+
+function relativeBoostScale(sensitivity: number): number {
+  if (sensitivity <= 1) {
+    const t = anchorBelow1(sensitivity);
+    return 0.06 + 0.94 * t;
+  }
+  return 1 + 0.68 * anchorAbove1(sensitivity);
 }
 
 type BandKey = (typeof BAND_KEYS)[number];
@@ -76,7 +132,18 @@ export class VisualAudioSmoother {
    * @param rawSpectrum same length as used by visualizer (byte frequency data or simulated fill)
    * @param nowMs performance.now()
    */
-  process(rawEq: EQBands, rawSpectrum: Uint8Array, nowMs: number): VisualAudioSmootherResult {
+  process(
+    rawEq: EQBands,
+    rawSpectrum: Uint8Array,
+    nowMs: number,
+    options?: VisualAudioProcessOptions
+  ): VisualAudioSmootherResult {
+    const sensitivity = options?.sensitivity ?? 1;
+    const normScale = normScaleMultiplier(sensitivity);
+    const alphaScale = smoothingAlphaMultiplier(sensitivity);
+    const onsetScale = onsetThresholdMultiplier(sensitivity);
+    const relScale = relativeBoostScale(sensitivity);
+
     const mean = meanBandEnergy(rawEq);
 
     // Per-band rolling history: each band normalizes within its own range
@@ -93,7 +160,7 @@ export class VisualAudioSmoother {
       const low = sorted[Math.floor(n * 0.1)] ?? v;
       const high = sorted[Math.floor(n * 0.9)] ?? v;
       const spread = Math.max(12, high - low);
-      const scale = 220 / spread;
+      const scale = (220 / spread) * normScale;
       normEq[k] = clamp255((v - low) * scale);
     }
 
@@ -105,12 +172,12 @@ export class VisualAudioSmoother {
     const meanLow = meanSorted[Math.floor(n * 0.1)] ?? mean;
     const meanHigh = meanSorted[Math.floor(n * 0.9)] ?? mean;
     const meanSpread = Math.max(12, meanHigh - meanLow);
-    normEq.energy = clamp255((mean - meanLow) * (220 / meanSpread));
+    normEq.energy = clamp255((mean - meanLow) * ((220 / meanSpread) * normScale));
 
     // Spectrum: use average of per-band floors for spectrum bins (spectrum is full-range)
     const spectrumLow = meanLow;
     const spectrumSpread = Math.max(12, meanSpread);
-    const spectrumScale = 220 / spectrumSpread;
+    const spectrumScale = (220 / spectrumSpread) * normScale;
     const normSpectrum = new Uint8Array(rawSpectrum.length);
     for (let i = 0; i < rawSpectrum.length; i++) {
       normSpectrum[i] = clamp255((rawSpectrum[i] - spectrumLow) * spectrumScale);
@@ -140,7 +207,10 @@ export class VisualAudioSmoother {
     const fluxNorm = Math.min(1, (flux - fluxLow) / fluxSpread);
 
     const normMean = meanBandEnergy(normEq);
-    const softLift = 0.72 + 0.28 * Math.pow(normMean / 255, 0.55);
+    const softLiftTame =
+      sensitivity < 1 ? 0.32 + 0.68 * anchorBelow1(sensitivity) : 1;
+    const softLift =
+      0.72 + 0.28 * Math.pow(normMean / 255, 0.55) * softLiftTame;
 
     // Per-band relative change (pattern-based: band vs its own baseline)
     const relativeBoost: Partial<Record<keyof EQBands, number>> = {};
@@ -149,7 +219,7 @@ export class VisualAudioSmoother {
       const base = this.bandBaselines[k] ?? v;
       this.bandBaselines[k] = base * 0.92 + v * 0.08;
       const rel = base > 8 ? Math.max(0, (v - base) / (base + 8)) : 0;
-      relativeBoost[k] = Math.min(1, rel * 0.6);
+      relativeBoost[k] = Math.min(1, rel * 0.6 * relScale);
     }
 
     // Two time-scale energies (now on normalized 0–255, so volume-independent)
@@ -157,12 +227,26 @@ export class VisualAudioSmoother {
     this.fastEnergy = this.fastEnergy * 0.78 + normMean * 0.22;
 
     const delta = Math.max(0, this.fastEnergy - this.slowEnergy);
-    const adaptiveThresh = 8 + this.slowEnergy * 0.08;
+    const adaptiveThresh = (8 + this.slowEnergy * 0.08) * onsetScale;
     const minGapMs = 100;
 
+    const fluxGate =
+      sensitivity <= 1
+        ? 0.35 + (1 - anchorBelow1(sensitivity)) * 0.32
+        : 0.35 - 0.16 * anchorAbove1(sensitivity);
+    const fluxSpreadMin =
+      sensitivity <= 1
+        ? 2 + (1 - anchorBelow1(sensitivity)) * 1.35
+        : 2 - 0.95 * anchorAbove1(sensitivity);
+
     // Onset: energy delta + spectral flux (both work at any volume after normalization)
-    const fluxOnset = fluxNorm > 0.35 && fluxSpread > 2;
+    const fluxOnset = fluxNorm > fluxGate && fluxSpread > fluxSpreadMin;
     const energyOnset = delta > adaptiveThresh * 1.2;
+
+    const pulseIncScale =
+      sensitivity <= 1
+        ? 0.42 + 0.58 * anchorBelow1(sensitivity)
+        : 1 + 0.38 * anchorAbove1(sensitivity);
 
     if ((energyOnset || fluxOnset) && nowMs - this.lastOnsetMs > minGapMs) {
       const energyStrength = energyOnset
@@ -170,13 +254,20 @@ export class VisualAudioSmoother {
         : 0;
       const fluxStrength = fluxOnset ? Math.min(0.7, fluxNorm * 0.9) : 0;
       const strength = Math.max(energyStrength, fluxStrength);
-      this.pulse = Math.min(1, this.pulse + 0.38 + strength * 0.45);
+      this.pulse = Math.min(
+        1,
+        this.pulse + (0.38 + strength * 0.45) * pulseIncScale
+      );
       this.lastOnsetMs = nowMs;
     }
 
-    this.pulse *= 0.91;
+    const pulseDecay =
+      sensitivity <= 1
+        ? 0.91 + (1 - anchorBelow1(sensitivity)) * 0.045
+        : 0.91 - 0.055 * anchorAbove1(sensitivity);
+    this.pulse *= pulseDecay;
 
-    const bandAlpha = 0.22 + this.pulse * 0.12;
+    const bandAlpha = (0.22 + this.pulse * 0.12) * alphaScale;
     const nextEq: EQBands = { ...normEq };
 
     if (!this.prevEq) {
@@ -210,7 +301,7 @@ export class VisualAudioSmoother {
         this.spectrumFloat[i] = normSpectrum[i];
       }
     } else {
-      const specAlpha = 0.16 + this.pulse * 0.08;
+      const specAlpha = (0.16 + this.pulse * 0.08) * alphaScale;
       for (let i = 0; i < len; i++) {
         let target = normSpectrum[i] * (0.92 + softLift * 0.08);
         if (fluxNorm > 0.3 && i < len * 0.15) {
