@@ -3,7 +3,15 @@ import type { EQBands } from './visualizer/types';
 import { Particle } from './visualizer/Particle';
 import { VisualAudioSmoother } from '../lib/audioVisualControl';
 import { generateEQData } from '../lib/eqSimulator';
-import { getVisualization, NUM_VISUALIZATIONS } from './visualizer/visualizations';
+import {
+  createNeonTunnelRenderer,
+  getVisualization,
+  NUM_VISUALIZATIONS,
+  THREE_NEON_TUNNEL_VIZ_INDEX,
+  type ThreeTunnelHandle,
+} from './visualizer/visualizations';
+import { useVizSensitivity } from '../contexts/VizSensitivityContext';
+import { useDescentOverlayForVisualizer } from '../contexts/DescentModeContext';
 
 interface PsychedelicVisualizerProps {
   analyser: AnalyserNode | null;
@@ -24,6 +32,11 @@ const BACKGROUND_BASE = [
   { h: 240, s: 30, l1: 8, l2: 5, l3: 2 },
   { h: 290, s: 35, l1: 9, l2: 5, l3: 3 },
   { h: 310, s: 38, l1: 9, l2: 5, l3: 2 },
+  { h: 285, s: 42, l1: 8, l2: 4, l3: 2 },
+  { h: 210, s: 32, l1: 10, l2: 6, l3: 3 },
+  { h: 265, s: 40, l1: 7, l2: 4, l3: 2 },
+  { h: 300, s: 36, l1: 8, l2: 5, l3: 2 },
+  { h: 300, s: 55, l1: 7, l2: 4, l3: 2 },
 ];
 
 export function PsychedelicVisualizer({
@@ -32,21 +45,37 @@ export function PsychedelicVisualizer({
   currentTrack,
   visualizationId,
 }: PsychedelicVisualizerProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const webglRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number>();
   const particlesRef = useRef<Particle[]>([]);
   const musicTimeRef = useRef(0);
+  const { sensitivity } = useVizSensitivity();
+  const sensitivityRef = useRef(sensitivity);
+  sensitivityRef.current = sensitivity;
+  const isDescentOverlay = useDescentOverlayForVisualizer();
+  const descentRef = useRef(false);
+  descentRef.current = isDescentOverlay;
 
   useEffect(() => {
+    const container = containerRef.current;
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    const webgl = webglRef.current;
+    if (!container || !canvas || !webgl) return;
 
-    // desynchronized:true can tear on iOS (orientation, mirroring). Prefer default compositing.
-    const ctx = canvas.getContext('2d', { alpha: false });
-    if (!ctx) return;
+    const vizPick = visualizationId !== undefined ? visualizationId : currentTrack;
+    const isThreeTunnel = vizPick % NUM_VISUALIZATIONS === THREE_NEON_TUNNEL_VIZ_INDEX;
+
+    let ctx: CanvasRenderingContext2D | null = null;
+    if (!isThreeTunnel) {
+      ctx = canvas.getContext('2d', { alpha: false });
+      if (!ctx) return;
+    }
+
+    const threeHandle: ThreeTunnelHandle | null = isThreeTunnel ? createNeonTunnelRenderer(webgl) : null;
 
     let isVisible = true;
-    // threshold 0.1 caused false "not visible" during iOS rotation → draw loop skipped → frozen frame
     const observer = new IntersectionObserver(
       (entries) => {
         const e = entries[0];
@@ -54,16 +83,15 @@ export function PsychedelicVisualizer({
       },
       { threshold: 0, rootMargin: '0px' }
     );
-    observer.observe(canvas);
+    observer.observe(isThreeTunnel ? webgl : canvas);
 
     const getPixelRatio = () => Math.min(window.devicePixelRatio || 1, 1.5);
 
-    /** Quantize layout dims so iOS PWA / subpixel layout churn does not resize the canvas every frame. */
     const LAYOUT_QUANT = 4;
     const quantizeLayoutDim = (n: number) =>
       Math.max(LAYOUT_QUANT, Math.round(n / LAYOUT_QUANT) * LAYOUT_QUANT);
 
-    const readLayoutSize = (el: HTMLCanvasElement) => {
+    const readLayoutSize = (el: HTMLElement) => {
       const r = el.getBoundingClientRect();
       return { w: quantizeLayoutDim(r.width), h: quantizeLayoutDim(r.height) };
     };
@@ -73,15 +101,12 @@ export function PsychedelicVisualizer({
 
     type CanvasSync = { drawW: number; drawH: number; didResetViz: boolean };
 
-    /** Backing-store + CSS layout sync; reset viz only on real size / DPR changes. */
-    const syncCanvasSize = (): CanvasSync => {
+    const syncLayout = (): CanvasSync => {
       const pr = getPixelRatio();
-      const { w, h } = readLayoutSize(canvas);
+      const { w, h } = readLayoutSize(container);
       if (w < LAYOUT_QUANT || h < LAYOUT_QUANT) {
         return { drawW: Math.max(1, w), drawH: Math.max(1, h), didResetViz: false };
       }
-      const bw = Math.max(1, Math.round(w * pr));
-      const bh = Math.max(1, Math.round(h * pr));
 
       let didResetViz = false;
       if (lastQuantW !== 0 && (w !== lastQuantW || h !== lastQuantH)) {
@@ -90,12 +115,18 @@ export function PsychedelicVisualizer({
       lastQuantW = w;
       lastQuantH = h;
 
-      if (canvas.width !== bw || canvas.height !== bh) {
-        canvas.width = bw;
-        canvas.height = bh;
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.scale(pr, pr);
-        didResetViz = true;
+      if (isThreeTunnel && threeHandle) {
+        threeHandle.setSize(w, h, pr);
+      } else if (ctx) {
+        const bw = Math.max(1, Math.round(w * pr));
+        const bh = Math.max(1, Math.round(h * pr));
+        if (canvas.width !== bw || canvas.height !== bh) {
+          canvas.width = bw;
+          canvas.height = bh;
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
+          ctx.scale(pr, pr);
+          didResetViz = true;
+        }
       }
 
       return { drawW: w, drawH: h, didResetViz };
@@ -106,7 +137,7 @@ export function PsychedelicVisualizer({
       if (resizeRaf !== null) return;
       resizeRaf = requestAnimationFrame(() => {
         resizeRaf = null;
-        syncCanvasSize();
+        syncLayout();
       });
     };
 
@@ -125,21 +156,21 @@ export function PsychedelicVisualizer({
     const onOrientationChange = () => {
       scheduleSync();
       requestAnimationFrame(() => {
-        syncCanvasSize();
+        syncLayout();
         requestAnimationFrame(() => {
-          syncCanvasSize();
+          syncLayout();
         });
       });
     };
 
-    syncCanvasSize();
+    syncLayout();
     window.addEventListener('resize', scheduleSync);
     window.addEventListener('orientationchange', onOrientationChange);
     const vv = window.visualViewport;
     const onVisualViewportChange = () => scheduleSync();
     vv?.addEventListener('resize', onVisualViewportChange);
     vv?.addEventListener('scroll', onVisualViewportChange);
-    ro?.observe(canvas);
+    ro?.observe(container);
 
     const bufferLength = analyser ? analyser.frequencyBinCount : 1024;
     const dataArray = new Uint8Array(bufferLength);
@@ -152,7 +183,7 @@ export function PsychedelicVisualizer({
         return;
       }
 
-      const { drawW: width, drawH: height, didResetViz } = syncCanvasSize();
+      const { drawW: width, drawH: height, didResetViz } = syncLayout();
       if (didResetViz) {
         particlesRef.current = [];
         audioSmoother.reset();
@@ -215,11 +246,34 @@ export function PsychedelicVisualizer({
       let calm = 0.35;
       let beatPulse = 0;
       if (isPlaying) {
-        const shaped = audioSmoother.process(eq, dataArray, performance.now());
+        const shaped = audioSmoother.process(eq, dataArray, performance.now(), {
+          sensitivity: sensitivityRef.current,
+        });
         eq = shaped.eq;
         spectrumForViz = shaped.smoothedSpectrum;
         calm = shaped.calm;
         beatPulse = shaped.beatPulse;
+      }
+
+      if (isThreeTunnel && threeHandle) {
+        threeHandle.frame({
+          eq,
+          time,
+          dataArray: spectrumForViz,
+          bufferLength,
+          beatPulse,
+          calm,
+          descent: descentRef.current,
+          isPlaying,
+        });
+        time++;
+        animationRef.current = requestAnimationFrame(draw);
+        return;
+      }
+
+      if (!ctx) {
+        animationRef.current = requestAnimationFrame(draw);
+        return;
       }
 
       const intensity = isPlaying ? eq.energy / 255 : 0.1;
@@ -254,6 +308,7 @@ export function PsychedelicVisualizer({
           isPlaying,
           beatPulse,
           calm,
+          descentOverlayActive: descentRef.current,
         });
       } else {
         const centerX = width / 2;
@@ -277,6 +332,7 @@ export function PsychedelicVisualizer({
     draw();
 
     return () => {
+      threeHandle?.dispose();
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
       if (resizeRaf !== null) cancelAnimationFrame(resizeRaf);
       if (roDebounceTimer !== null) clearTimeout(roDebounceTimer);
@@ -289,5 +345,21 @@ export function PsychedelicVisualizer({
     };
   }, [isPlaying, currentTrack, analyser, visualizationId]);
 
-  return <canvas ref={canvasRef} className="w-full h-full" style={{ display: 'block' }} />;
+  const activeVizId = visualizationId !== undefined ? visualizationId : currentTrack;
+  const showWebGLTunnel = activeVizId % NUM_VISUALIZATIONS === THREE_NEON_TUNNEL_VIZ_INDEX;
+
+  return (
+    <div ref={containerRef} className="relative h-full min-h-0 w-full min-w-0">
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0 block h-full min-h-[1px] w-full"
+        style={{ display: showWebGLTunnel ? 'none' : 'block' }}
+      />
+      <canvas
+        ref={webglRef}
+        className="absolute inset-0 block h-full min-h-[1px] w-full"
+        style={{ display: showWebGLTunnel ? 'block' : 'none' }}
+      />
+    </div>
+  );
 }
