@@ -1,4 +1,5 @@
 import { cn } from './ui/utils';
+import { ambientClass } from '../lib/colors';
 import { brandSectionWashClass } from '../lib/brandClasses';
 
 interface SectionAmbientProps {
@@ -17,13 +18,10 @@ export function SectionAmbient({ className, variant = 'default' }: SectionAmbien
         aria-hidden
       />
       <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            variant === 'editorial'
-              ? 'radial-gradient(ellipse 80% 55% at 18% 30%, rgba(147,51,234,0.14) 0%, transparent 55%), radial-gradient(ellipse 60% 40% at 85% 70%, rgba(74,222,128,0.06) 0%, transparent 50%)'
-              : 'radial-gradient(ellipse 70% 45% at 50% 0%, rgba(147,51,234,0.1) 0%, transparent 58%)',
-        }}
+        className={cn(
+          'pointer-events-none absolute inset-0',
+          variant === 'editorial' ? ambientClass.editorial : ambientClass.default
+        )}
         aria-hidden
       />
     </>

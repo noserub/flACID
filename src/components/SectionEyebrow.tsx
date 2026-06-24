@@ -1,20 +1,12 @@
 import { cn } from './ui/utils';
+import { TextLabel } from './TextLabel';
 
 interface SectionEyebrowProps {
   children: React.ReactNode;
   className?: string;
 }
 
-/** High-contrast section label — readable on void backgrounds. */
+/** @deprecated Prefer TextLabel — kept for backward compatibility. */
 export function SectionEyebrow({ children, className }: SectionEyebrowProps) {
-  return (
-    <p
-      className={cn(
-        'mb-3 text-xs font-semibold uppercase tracking-[0.24em] text-neon-green',
-        className
-      )}
-    >
-      {children}
-    </p>
-  );
+  return <TextLabel className={cn('mb-3', className)}>{children}</TextLabel>;
 }

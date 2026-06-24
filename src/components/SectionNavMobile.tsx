@@ -8,6 +8,7 @@ import {
   SECTION_SCROLL_MARGIN_PX,
   type SectionNavItem,
 } from '../lib/sectionNav';
+import { SectionNavButton } from './SectionNavButton';
 import { cn } from './ui/utils';
 
 function useMobileNav() {
@@ -97,13 +98,26 @@ export function SectionNavMobile() {
     }
   }, [visibleItems, activeId]);
 
-  if (
-    !isMobile ||
-    isDescentMode ||
-    isFullscreen ||
-    isHeroStage ||
-    visibleItems.length < 2
-  ) {
+  const navVisible =
+    isMobile &&
+    !isDescentMode &&
+    !isFullscreen &&
+    !isHeroStage &&
+    visibleItems.length >= 2;
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (navVisible) {
+      root.dataset.mobileSectionNav = 'visible';
+    } else {
+      delete root.dataset.mobileSectionNav;
+    }
+    return () => {
+      delete root.dataset.mobileSectionNav;
+    };
+  }, [navVisible]);
+
+  if (!navVisible) {
     return null;
   }
 
@@ -122,21 +136,14 @@ export function SectionNavMobile() {
           const label = SHORT_LABELS[item.id] ?? item.label;
           return (
             <li key={item.id} className="flex-1 min-w-0">
-              <button
-                type="button"
+              <SectionNavButton
                 aria-label={`Go to ${item.label}`}
                 aria-current={isActive ? 'true' : undefined}
+                isActive={isActive}
                 onClick={() => scrollToSection(item)}
-                className={cn(
-                  'w-full rounded-lg px-1 py-2 text-[10px] font-medium uppercase tracking-wide transition-all duration-300',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-green/50',
-                  isActive
-                    ? 'text-neon-green shadow-[0_0_12px_rgba(74,222,128,0.2)]'
-                    : 'text-signal-purple-bright/80 hover:text-foreground'
-                )}
               >
                 {label}
-              </button>
+              </SectionNavButton>
             </li>
           );
         })}

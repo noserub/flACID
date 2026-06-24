@@ -8,7 +8,10 @@ import {
   SECTION_SCROLL_MARGIN_PX,
   type SectionNavItem,
 } from '../lib/sectionNav';
-import { cn } from './ui/utils';
+import {
+  sectionNavRailClass,
+  SectionNavRailDot,
+} from './SectionNavRailDot';
 
 function useDesktopNav() {
   const [desktop, setDesktop] = useState(
@@ -119,31 +122,15 @@ export function SectionNavRail() {
   }
 
   return (
-    <nav
-      aria-label="Page sections"
-      className={cn(
-        'fixed right-[max(1rem,env(safe-area-inset-right))] top-1/2 z-40',
-        '-translate-y-1/2 hidden lg:flex flex-col items-center gap-2.5',
-        'pointer-events-none'
-      )}
-    >
+    <nav aria-label="Page sections" className={sectionNavRailClass}>
       {visibleItems.map((item) => {
         const isActive = activeId === item.id;
         return (
-          <button
+          <SectionNavRailDot
             key={item.id}
-            type="button"
-            title={item.label}
-            aria-label={`Go to ${item.label}`}
-            aria-current={isActive ? 'true' : undefined}
+            label={item.label}
+            isActive={isActive}
             onClick={() => scrollToSection(item)}
-            className={cn(
-              'pointer-events-auto rounded-full border transition-all duration-300',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-purple-bright/60',
-              isActive
-                ? 'h-2.5 w-2.5 border-neon-green/70 bg-neon-green shadow-[0_0_12px_rgba(74,222,128,0.45)]'
-                : 'h-2 w-2 border-signal-purple/40 bg-signal-purple/45 hover:h-2.5 hover:w-2.5 hover:border-neon-green/55 hover:bg-signal-purple-bright/90 hover:shadow-[0_0_10px_rgba(74,222,128,0.25)]'
-            )}
           />
         );
       })}

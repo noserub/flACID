@@ -8,7 +8,13 @@ import { useEditMode } from '../contexts/EditModeContext';
 import type { SiteContent } from '../contexts/EditModeContext';
 
 type Track = SiteContent['musicPlayer']['tracks'][number];
-import { EditDialog, AudioUpload } from './EditableSection';
+import { EditDialog, AudioUpload, EditTriggerButton } from './EditableSection';
+import {
+  editorDestructiveGhostClass,
+  editorIndexBadgeClass,
+  editorReorderButtonClass,
+} from '../lib/editorStyles';
+import { EditorCallout } from './editor/EditorCallout';
 import {
   Accordion,
   AccordionContent,
@@ -196,14 +202,10 @@ export function MusicPlayerEditDialog() {
         if (open) setTracks(content.musicPlayer.tracks.map((t) => ({ ...t })));
       }}
       trigger={
-        <Button
-          variant="secondary"
-          size="sm"
-          className="absolute top-4 right-4 z-10 bg-black/50 hover:bg-black/70"
-        >
+        <EditTriggerButton className="absolute top-4 right-4 z-10">
           <Edit2 className="h-4 w-4 mr-2" />
           Edit Tracks
-        </Button>
+        </EditTriggerButton>
       }
       title="Edit Music Player"
       onSave={handleSave}
@@ -227,7 +229,7 @@ export function MusicPlayerEditDialog() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                      className={editorReorderButtonClass}
                       onClick={() => handleMoveTrack(index, 'up')}
                       disabled={index === 0}
                       aria-label="Move up"
@@ -237,7 +239,7 @@ export function MusicPlayerEditDialog() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                      className={editorReorderButtonClass}
                       onClick={() => handleMoveTrack(index, 'down')}
                       disabled={index === tracks.length - 1}
                       aria-label="Move down"
@@ -245,7 +247,7 @@ export function MusicPlayerEditDialog() {
                       <ChevronDown className="h-4 w-4" />
                     </Button>
                   </div>
-                  <span className="text-xs bg-primary/20 text-primary px-2 py-1 rounded shrink-0">
+                  <span className={editorIndexBadgeClass}>
                     Viz {(track.visualizationId ?? index % NUM_VISUALIZATIONS) + 1}
                   </span>
                   <span className="truncate">{track.title} - {track.duration}</span>
@@ -259,7 +261,7 @@ export function MusicPlayerEditDialog() {
                       variant="outline"
                       size="sm"
                       onClick={() => handleRemoveTrack(track.id)}
-                      className="text-red-500 hover:text-red-600"
+                      className={editorDestructiveGhostClass}
                     >
                       <Trash2 className="h-4 w-4 mr-2" />
                       Remove
@@ -272,19 +274,13 @@ export function MusicPlayerEditDialog() {
                     onUpload={(url) => handleAudioUpload(track.id, url)}
                   />
                   {processingTrack === track.id && (
-                    <div className="rounded-lg bg-blue-500/10 border border-blue-500/30 p-3">
-                      <p className="text-xs text-blue-300">
-                        ⏳ Processing audio file...
-                      </p>
-                    </div>
+                    <EditorCallout variant="info">⏳ Processing audio file...</EditorCallout>
                   )}
 
                   {track.url && processingTrack !== track.id && (
-                    <div className="rounded-lg bg-green-500/10 border border-green-500/30 p-3">
-                      <p className="text-xs text-green-300">
-                        ✓ Audio loaded • Duration: {track.duration}
-                      </p>
-                    </div>
+                    <EditorCallout variant="success">
+                      ✓ Audio loaded · Duration: {track.duration}
+                    </EditorCallout>
                   )}
 
                   <div className="space-y-2">

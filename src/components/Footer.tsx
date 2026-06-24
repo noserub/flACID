@@ -2,6 +2,7 @@ import { Facebook, Instagram, Twitter, Youtube, Music } from 'lucide-react';
 import { useEditMode } from '../contexts/EditModeContext';
 import { useDescentSectionLiftClass } from '../hooks/useDescentSectionStacking';
 import { brandSectionWashClass } from '../lib/brandClasses';
+import { caption, gradientText, displayWordmark, subheading } from '../lib/typography';
 import { cn } from './ui/utils';
 import { FooterEditDialog } from './FooterEditDialog';
 
@@ -24,17 +25,17 @@ export function Footer() {
         
         <div className="grid md:grid-cols-3 gap-8 mb-8">
           <div>
-            <h3 className="font-hero text-2xl bg-gradient-to-r from-signal-purple-bright via-hot-pink to-neon-green bg-clip-text text-transparent mb-4">
+            <h3 className={cn(displayWordmark, gradientText, 'mb-4')}>
               {footer.bandName}
             </h3>
-            <p className="text-muted-foreground">
+            <p className={caption}>
               {footer.description}
             </p>
           </div>
 
           <div>
-            <h4 className="mb-4 text-foreground font-hero tracking-wide">Connect</h4>
-            <div className="space-y-2 text-muted-foreground">
+            <h4 className={cn(subheading, 'mb-4')}>Connect</h4>
+            <div className={cn('space-y-2', caption)}>
               <a href={`mailto:${footer.email}`} className="block hover:text-neon-green transition-colors">
                 {footer.email}
               </a>
@@ -42,7 +43,7 @@ export function Footer() {
           </div>
 
           <div>
-            <h4 className="mb-4 text-foreground font-hero tracking-wide">Follow Us</h4>
+            <h4 className={cn(subheading, 'mb-4')}>Follow Us</h4>
             <div className="flex gap-4 flex-wrap">
               {footer.socialLinks.facebook && (
                 <a
@@ -114,7 +115,7 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="pt-8 border-t border-border text-center text-muted-foreground text-sm">
+        <div className={cn('pt-8 border-t border-border text-center', caption)}>
           <p>{footer.copyright}</p>
         </div>
       </div>

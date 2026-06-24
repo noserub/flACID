@@ -1,20 +1,13 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
-import {
-  Play,
-  Pause,
-  SkipBack,
-  SkipForward,
-  ChevronDown,
-  ListMusic,
-} from 'lucide-react';
+import { ListMusic } from 'lucide-react';
 import { usePlayback } from '../contexts/PlaybackContext';
 import { useDescentMode } from '../contexts/DescentModeContext';
 import { DESCENT_CHROME_LIFT } from '../lib/descentContentLayer';
-import { brandIconButtonClass, brandPrimaryButtonClass } from '../lib/brandClasses';
 import { cn } from './ui/utils';
 import { Slider } from './ui/slider';
 import { Label } from './ui/label';
+import { MiniPlayerChip } from './MiniPlayerChip';
 import {
   useVizSensitivity,
   VIZ_SENSITIVITY_MAX,
@@ -22,7 +15,7 @@ import {
 } from '../contexts/VizSensitivityContext';
 import { motion, AnimatePresence } from 'motion/react';
 
-export type MiniPlayerDock = 'hero' | 'chrome';
+export type { MiniPlayerDock } from './MiniPlayerChip';
 
 function useLargeScreen() {
   const [large, setLarge] = useState(
@@ -108,7 +101,7 @@ function NowPlayingPanel({
     const maxHeight = panelMaxHeight();
     if (!anchor) {
       return {
-        bottom: 'max(4.25rem, calc(env(safe-area-inset-bottom) + 3.75rem))',
+        bottom: 'calc(var(--mobile-mini-player-bottom) + var(--mobile-player-strip-height) + 0.5rem)',
       };
     }
     if (openAbove) {
@@ -200,7 +193,8 @@ function NowPlayingPanel({
                       onClose();
                     }}
                     className={cn(
-                      'w-full text-left rounded-lg px-3 py-2 text-sm transition-colors',
+                      'w-full text-left rounded-lg px-3 text-sm transition-colors',
+                      !isLargeScreen ? 'min-h-11 py-3' : 'py-2',
                       isActive
                         ? 'bg-signal-purple/20 text-foreground'
                         : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
@@ -349,132 +343,56 @@ export function MiniPlayer({ dock = 'chrome' }: { dock?: MiniPlayerDock }) {
     !isFullscreen &&
     (isPlaying || !playerInView);
 
+  useEffect(() => {
+    if (isHeroDock || isLargeScreen || !showChrome) {
+      delete document.documentElement.dataset.mobileChromePlayer;
+      return;
+    }
+    document.documentElement.dataset.mobileChromePlayer = 'visible';
+    return () => {
+      delete document.documentElement.dataset.mobileChromePlayer;
+    };
+  }, [isHeroDock, isLargeScreen, showChrome]);
+
   if (!showHero && !showChrome) return null;
 
   const showVizControls = isHeroDock || isHeroStage;
-  const skipBtnClass = cn(
-    'p-1.5 rounded-md disabled:opacity-40 disabled:pointer-events-none transition-colors',
-    isHeroDock
-      ? 'hidden sm:inline-flex text-white/65 hover:text-white hover:bg-white/10'
-      : cn('hidden sm:inline-flex', brandIconButtonClass)
-  );
 
   const chip = (
-      <motion.div
-        ref={chipRef}
-        layout={isHeroDock}
-        initial={{ opacity: 0, y: isHeroDock ? 12 : isLargeScreen ? -8 : 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{
-          duration: 0.2,
-          layout: { duration: 0.55, ease: [0.22, 1, 0.36, 1] },
-        }}
-        className={cn(
-          'flex w-full min-h-12 items-stretch overflow-hidden rounded-xl shadow-lg',
-          panelOpen && isHeroDock && 'relative z-[48]',
-          isHeroDock
-            ? cn(
-                'relative border border-white/10 bg-black/75 backdrop-blur-md',
-                'shadow-[0_8px_40px_rgba(0,0,0,0.6)] ring-1 ring-white/5'
-              )
-            : cn(
-                'h-12 border border-signal-purple/25 bg-background/90 backdrop-blur-md',
-                isLargeScreen
-                  ? 'lg:min-w-[280px] lg:max-w-[400px]'
-                  : cn(
-                      'fixed left-1/2 -translate-x-1/2 w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)]',
-                      isDescentMode ? DESCENT_CHROME_LIFT : 'z-[45]'
-                    )
-              )
-        )}
-        style={
-          isHeroDock
-            ? undefined
-            : !isLargeScreen
-              ? { bottom: 'max(0.5rem, env(safe-area-inset-bottom))' }
-              : undefined
-        }
-      >
-        <div
-          className={cn(
-            'flex shrink-0 items-center gap-0.5 px-1.5 sm:px-2',
-            isHeroDock ? 'border-r border-white/10' : 'border-r border-signal-purple/15'
-          )}
-        >
-          <button
-            type="button"
-            onClick={skipBack}
-            disabled={currentTrack === 0}
-            className={skipBtnClass}
-            aria-label="Previous track"
-          >
-            <SkipBack className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={handlePlayPause}
-            disabled={!currentTrackData?.url}
-            className={cn(
-              'm-0.5 p-2 rounded-full disabled:opacity-50 disabled:cursor-not-allowed shrink-0',
-              brandPrimaryButtonClass
-            )}
-            aria-label={isPlaying ? 'Pause' : 'Play'}
-          >
-            {isPlaying ? (
-              <Pause className="h-3.5 w-3.5" />
-            ) : (
-              <Play className="h-3.5 w-3.5 ml-0.5" />
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={skipForward}
-            disabled={currentTrack === tracks.length - 1}
-            className={skipBtnClass}
-            aria-label="Next track"
-          >
-            <SkipForward className="h-4 w-4" />
-          </button>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setPanelOpen((o) => !o)}
-          className={cn(
-            'flex flex-1 min-w-0 items-center gap-2 px-2.5 py-1.5 text-left transition-colors',
-            isHeroDock ? 'hover:bg-white/5' : 'hover:bg-muted/40'
-          )}
-          aria-expanded={panelOpen}
-          aria-label={panelOpen ? 'Close now playing' : `Now playing — ${currentTrackData.title}`}
-        >
-          <div className="min-w-0 flex-1">
-            <p
-              className={cn(
-                'text-sm font-semibold truncate leading-tight',
-                isHeroDock ? 'text-white' : 'text-foreground'
-              )}
-            >
-              {currentTrackData.title}
-            </p>
-            <p
-              className={cn(
-                'text-xs truncate leading-tight mt-0.5',
-                isHeroDock ? 'text-white/55' : 'text-muted-foreground'
-              )}
-            >
-              {currentTrackData.album || currentTrackData.artist}
-            </p>
-          </div>
-          <ChevronDown
-            className={cn(
-              'h-4 w-4 shrink-0 transition-transform',
-              panelOpen && 'rotate-180',
-              isHeroDock ? 'text-white/45' : 'text-muted-foreground'
-            )}
-            aria-hidden
-          />
-        </button>
-      </motion.div>
+    <MiniPlayerChip
+      ref={chipRef}
+      dock={isHeroDock ? 'hero' : 'chrome'}
+      title={currentTrackData.title}
+      subtitle={currentTrackData.album || currentTrackData.artist}
+      isPlaying={isPlaying}
+      panelOpen={panelOpen}
+      canPlay={!!currentTrackData?.url}
+      canSkipBack={currentTrack > 0}
+      canSkipForward={currentTrack < tracks.length - 1}
+      currentTime={currentTime}
+      duration={duration}
+      onPlayPause={handlePlayPause}
+      onSkipBack={skipBack}
+      onSkipForward={skipForward}
+      onTogglePanel={() => setPanelOpen((o) => !o)}
+      layout={isHeroDock}
+      panelActive={panelOpen}
+      animated
+      isLargeScreen={isLargeScreen}
+      className={cn(
+        !isHeroDock &&
+          !isLargeScreen &&
+          cn(
+            'fixed inset-x-0 !min-w-0 !max-w-none w-full',
+            isDescentMode ? DESCENT_CHROME_LIFT : 'z-[45]'
+          )
+      )}
+      style={
+        !isHeroDock && !isLargeScreen
+          ? { bottom: 'var(--mobile-mini-player-bottom)' }
+          : undefined
+      }
+    />
   );
 
   const panel = (

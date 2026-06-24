@@ -22,6 +22,16 @@ import { Slider } from '../components/ui/slider';
 import { Label } from '../components/ui/label';
 import { cn } from '../components/ui/utils';
 import {
+  brandOverlayChromeButtonClass,
+  brandSpinnerClass,
+  brandStageOutlineButtonClass,
+  brandStagePanelClass,
+  brandStageSelectContentClass,
+  brandStageSelectTriggerClass,
+} from '../lib/brandClasses';
+import { onDark, overlay } from '../lib/colors';
+import { zIndex } from '../lib/layoutTokens';
+import {
   useVizSensitivity,
   VIZ_SENSITIVITY_MAX,
   VIZ_SENSITIVITY_MIN,
@@ -124,7 +134,7 @@ function StageProjectionView() {
   }, [deviceId]);
 
   return (
-    <div className="fixed inset-0 z-[9999] bg-black">
+    <div className={cn('fixed inset-0', zIndex.fullscreen, overlay.fullscreen)}>
       <PsychedelicVisualizer
         analyser={demoMode ? null : analyser}
         isPlaying={!!stream || demoMode}
@@ -135,10 +145,14 @@ function StageProjectionView() {
         <button
           type="button"
           onClick={enterFullscreen}
-          className="absolute inset-0 z-[10001] flex items-center justify-center bg-black/40 backdrop-blur-[2px] cursor-pointer transition-opacity hover:bg-black/50 focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+          className={cn(
+            'absolute inset-0 flex items-center justify-center backdrop-blur-[2px] cursor-pointer transition-opacity',
+            overlay.scrimLight,
+            'hover:bg-void-scrim focus:outline-none focus:ring-2 focus:ring-neon-green/50'
+          )}
           aria-label="Tap to present fullscreen"
         >
-          <span className="text-white/80 text-lg font-medium px-6 py-3 rounded-lg border border-white/20 bg-black/40">
+          <span className={cn(onDark.body, 'text-lg font-medium px-6 py-3 rounded-lg border border-white/20', overlay.scrimLight)}>
             Tap anywhere to present
           </span>
         </button>
@@ -340,7 +354,7 @@ export function StagePage() {
 
   return (
     <div
-      className="fixed inset-0 z-[9999] bg-black flex flex-col cursor-pointer"
+      className={cn('fixed inset-0 flex flex-col cursor-pointer', zIndex.fullscreen, overlay.fullscreen)}
       onClick={handleBackgroundClick}
     >
       {/* Fullscreen visualizer */}
@@ -355,28 +369,28 @@ export function StagePage() {
 
       {/* Loading overlay */}
       {loading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/70 z-10" onClick={(e) => e.stopPropagation()}>
+        <div className={cn('absolute inset-0 flex items-center justify-center z-10', overlay.scrimHeavy)} onClick={(e) => e.stopPropagation()}>
           <div className="text-center space-y-4">
-            <Loader2 className="h-12 w-12 text-cyan-400 animate-spin mx-auto" />
-            <p className="text-white/80">Requesting microphone access…</p>
+            <Loader2 className={cn('h-12 w-12 animate-spin mx-auto', brandSpinnerClass)} />
+            <p className={onDark.body}>Requesting microphone access…</p>
           </div>
         </div>
       )}
 
       {/* Error overlay */}
       {error && !loading && !demoMode && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-10 p-6" onClick={(e) => e.stopPropagation()}>
+        <div className={cn('absolute inset-0 flex items-center justify-center z-10 p-6', overlay.scrimHeavy)} onClick={(e) => e.stopPropagation()}>
           <div className="text-center space-y-5 max-w-md">
             <Mic className="h-16 w-16 text-amber-500/80 mx-auto" />
-            <p className="text-white/90 text-lg font-medium">{error}</p>
-            <p className="text-white/60 text-sm">
+            <p className={cn(onDark.heading, 'text-lg font-medium')}>{error}</p>
+            <p className={cn(onDark.muted, 'text-sm')}>
               To allow mic access: click the lock or info icon in the address bar → Site settings → Microphone → Allow.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <Button
                 onClick={() => startLiveInput(selectedDeviceId || undefined)}
                 variant="outline"
-                className="text-white border-white/30 hover:bg-white/20"
+                className={brandStageOutlineButtonClass}
               >
                 Try again
               </Button>
@@ -386,12 +400,12 @@ export function StagePage() {
                   setDemoMode(true);
                 }}
                 variant="secondary"
-                className="bg-white/20 text-white hover:bg-white/30 border-white/30"
+                className={cn(brandStageOutlineButtonClass, 'bg-white/20 hover:bg-white/30')}
               >
                 Use Demo Mode
               </Button>
             </div>
-            <p className="text-white/40 text-xs">Demo mode shows simulated visuals for testing without a mic.</p>
+            <p className={cn(onDark.faint, 'text-xs')}>Demo mode shows simulated visuals for testing without a mic.</p>
           </div>
         </div>
       )}
@@ -417,7 +431,7 @@ export function StagePage() {
             variant="outline"
             size="icon"
             onClick={handlePrevViz}
-            className="h-10 w-10 bg-black/50 text-white border-white/30 hover:bg-white/20"
+            className={cn('h-10 w-10', brandOverlayChromeButtonClass)}
             aria-label="Previous visualization"
             title="Previous visualization"
           >
@@ -427,7 +441,7 @@ export function StagePage() {
             variant="outline"
             size="icon"
             onClick={handleNextViz}
-            className="h-10 w-10 bg-black/50 text-white border-white/30 hover:bg-white/20"
+            className={cn('h-10 w-10', brandOverlayChromeButtonClass)}
             aria-label="Next visualization"
             title="Next visualization"
           >
@@ -437,7 +451,7 @@ export function StagePage() {
             variant="outline"
             size="icon"
             onClick={() => setShowSettings((s) => !s)}
-            className="h-10 w-10 bg-black/50 text-white border-white/30 hover:bg-white/20"
+            className={cn('h-10 w-10', brandOverlayChromeButtonClass)}
             aria-label="Settings"
           >
             <Settings2 className="h-5 w-5" />
@@ -445,10 +459,10 @@ export function StagePage() {
         </div>
 
         {showSettings && (
-          <div className="bg-black/70 backdrop-blur-md rounded-lg p-4 space-y-3 min-w-[220px]">
+          <div className={cn(brandStagePanelClass, 'space-y-3 min-w-[220px]')}>
             {demoMode ? (
               <div className="space-y-2">
-                <p className="text-cyan-400/90 text-sm">Demo mode (simulated audio)</p>
+                <p className={cn(onDark.accent, 'text-sm')}>Demo mode (simulated audio)</p>
                 <Button
                   variant="outline"
                   size="sm"
@@ -463,15 +477,15 @@ export function StagePage() {
               </div>
             ) : (
               <>
-                <label className="text-white/80 text-sm block">Audio input</label>
+                <label className={cn(onDark.body, 'text-sm block')}>Audio input</label>
                 <Select
                   value={selectedDeviceId || (devices[0]?.deviceId ?? '')}
                   onValueChange={handleDeviceChange}
                 >
-                  <SelectTrigger className="bg-white/10 border-white/20 text-white">
+                  <SelectTrigger className={brandStageSelectTriggerClass}>
                     <SelectValue placeholder="Select device" />
                   </SelectTrigger>
-              <SelectContent className="z-[10050] bg-black/90 border-white/20 text-white">
+              <SelectContent className={cn(brandStageSelectContentClass, zIndex.lightboxChrome)}>
                 {devices
                   .filter((d) => d.deviceId)
                   .map((d) => (
@@ -484,17 +498,17 @@ export function StagePage() {
               </>
             )}
 
-            <label className="text-white/80 text-sm block">Visualization</label>
+            <label className={cn(onDark.body, 'text-sm block')}>Visualization</label>
             <Select value={String(vizId)} onValueChange={(v) => {
                 const n = Number(v);
                 vizIdRef.current = n;
                 if (typeof localStorage !== 'undefined') localStorage.setItem(STAGE_VIZ_STORAGE_KEY, String(n));
                 setVizId(n);
               }}>
-              <SelectTrigger className="bg-white/10 border-white/20 text-white">
+              <SelectTrigger className={brandStageSelectTriggerClass}>
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="z-[10050] bg-black/90 border-white/20 text-white">
+              <SelectContent className={cn(brandStageSelectContentClass, zIndex.lightboxChrome)}>
                 {VIZ_NAMES.map((name, i) => (
                   <SelectItem key={i} value={String(i)}>
                     {name}
@@ -504,7 +518,7 @@ export function StagePage() {
             </Select>
 
             <div className="space-y-1.5">
-              <Label className="text-white/80 text-sm block">Visualizer reactivity</Label>
+              <Label className={cn(onDark.body, 'text-sm block')}>Visualizer reactivity</Label>
               <Slider
                 value={[sensitivity]}
                 min={VIZ_SENSITIVITY_MIN}
@@ -514,12 +528,12 @@ export function StagePage() {
                 className="cursor-pointer"
                 aria-label="Visualizer reactivity"
               />
-              <p className="text-[11px] text-white/50">Lower = calmer, less noise</p>
+              <p className={cn(onDark.faint, 'text-[11px]')}>Lower = calmer, less noise</p>
             </div>
 
             <div className="pt-2 border-t border-white/20 space-y-2">
               <div className="flex items-center justify-between gap-2">
-                <label className="text-white/80 text-sm flex items-center gap-1.5" htmlFor="auto-cycle">
+                <label className={cn(onDark.body, 'text-sm flex items-center gap-1.5')} htmlFor="auto-cycle">
                   <Timer className="h-3.5 w-3.5" />
                   Auto-cycle
                 </label>
@@ -534,10 +548,10 @@ export function StagePage() {
                   value={String(autoCycleMinutes)}
                   onValueChange={(v) => setAutoCycleMinutes(Number(v))}
                 >
-                  <SelectTrigger className="bg-white/10 border-white/20 text-white h-8 text-sm">
+                  <SelectTrigger className={cn(brandStageSelectTriggerClass, 'h-8 text-sm')}>
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="z-[10050] bg-black/90 border-white/20 text-white">
+                  <SelectContent className={cn(brandStageSelectContentClass, zIndex.lightboxChrome)}>
                     {AUTO_CYCLE_DURATIONS.map((m) => (
                       <SelectItem key={m} value={String(m)}>
                         {m} min
@@ -552,7 +566,7 @@ export function StagePage() {
               <Button
                 variant="outline"
                 size="sm"
-                className="w-full text-white border-white/30 hover:bg-white/20 flex items-center gap-2"
+                className={cn(brandStageOutlineButtonClass, 'w-full flex items-center gap-2')}
                 onClick={() => {
                   const id = vizIdRef.current;
                   const dev = selectedDeviceIdRef.current;
@@ -580,7 +594,7 @@ export function StagePage() {
                 <Monitor className="h-4 w-4" />
                 Project (viz only)
               </Button>
-              <p className="text-white/40 text-xs mt-1.5">Opens a second window. Move to projector, then tap to present.</p>
+              <p className={cn(onDark.faint, 'text-xs mt-1.5')}>Opens a second window. Move to projector, then tap to present.</p>
             </div>
           </div>
         )}

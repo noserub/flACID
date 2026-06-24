@@ -65,8 +65,7 @@ function StutteringLogo({ logoSrc, isInitialLoad }: StutteringLogoProps) {
         className={cn(
           'w-full h-auto object-contain',
           'max-h-[4rem] sm:max-h-[5rem] md:max-h-24',
-          'drop-shadow-[0_4px_24px_rgba(0,0,0,0.85)]',
-          'drop-shadow-[0_0_48px_rgba(147,51,234,0.25)]'
+          'drop-shadow-hero-logo'
         )}
         fetchpriority="high"
         decoding="sync"
@@ -80,29 +79,8 @@ function StutteringLogo({ logoSrc, isInitialLoad }: StutteringLogoProps) {
 function HeroArtOverlays() {
   return (
     <>
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background: `
-            linear-gradient(to bottom,
-              rgba(5,5,8,0.12) 0%,
-              transparent 28%,
-              transparent 48%,
-              rgba(5,5,8,0.55) 72%,
-              rgba(5,5,8,0.92) 88%,
-              rgba(5,5,8,0.98) 100%
-            )`,
-        }}
-        aria-hidden
-      />
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background:
-            'radial-gradient(ellipse 90% 55% at 50% 88%, rgba(88,28,135,0.22) 0%, transparent 70%)',
-        }}
-        aria-hidden
-      />
+      <div className="absolute inset-0 pointer-events-none bg-hero-fade" aria-hidden />
+      <div className="absolute inset-0 pointer-events-none bg-hero-purple-glow" aria-hidden />
       <div className="absolute inset-0 hero-cosmic-grain" aria-hidden />
     </>
   );
@@ -311,10 +289,10 @@ export function HeroSection() {
           </div>
         </motion.div>
 
-        {/* Scroll hint — bottom-right on idle poster only */}
+        {/* Scroll hint — bottom-right on idle poster; hidden lg+ where SectionNavRail owns the right edge */}
         <div
           className={cn(
-            'absolute inset-x-0 bottom-0 z-30 flex justify-end pointer-events-none',
+            'absolute inset-x-0 bottom-0 z-30 flex justify-end pointer-events-none lg:hidden',
             'px-4 sm:px-6',
             'pb-[max(1rem,calc(env(safe-area-inset-bottom)+0.75rem))]',
             'sm:pb-[max(1.25rem,calc(env(safe-area-inset-bottom)+1rem))]',

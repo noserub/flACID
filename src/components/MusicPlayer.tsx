@@ -27,6 +27,16 @@ import {
   brandSpinnerClass,
   brandVizSurfaceClass,
 } from '../lib/brandClasses';
+import { border, onDark, overlay, shadow } from '../lib/colors';
+import { zIndex } from '../lib/layoutTokens';
+import {
+  playerAlbum,
+  playerAlbumLarge,
+  playerArtist,
+  playerArtistLarge,
+  playerTrackTitle,
+  playerTrackTitleLarge,
+} from '../lib/typography';
 import { motion, AnimatePresence } from 'motion/react';
 
 export function MusicPlayer() {
@@ -254,7 +264,7 @@ export function MusicPlayer() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.35, ease: 'easeInOut' }}
-            className="fixed top-0 left-0 right-0 z-[9980] h-[100dvh] min-h-[100dvh] w-full bg-black cursor-pointer"
+            className={cn('fixed top-0 left-0 right-0 h-[100dvh] min-h-[100dvh] w-full cursor-pointer', zIndex.fullscreen, overlay.fullscreen)}
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
@@ -272,11 +282,11 @@ export function MusicPlayer() {
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.3 }}
-                  className="absolute inset-0 flex items-center justify-center z-[60] bg-black/50 backdrop-blur-sm"
+                  className={cn('absolute inset-0 flex items-center justify-center backdrop-blur-sm', zIndex.modal, overlay.scrim)}
                 >
                   <div className="text-center space-y-4">
-                    <Loader2 className="h-12 w-12 text-purple-400 animate-spin mx-auto" />
-                    <p className="text-white/80 text-lg">Initializing visualization...</p>
+                    <Loader2 className={cn('h-12 w-12 animate-spin mx-auto', brandSpinnerClass)} />
+                    <p className={cn(onDark.body, 'text-lg')}>Initializing visualization...</p>
                   </div>
                 </motion.div>
               )}
@@ -290,11 +300,11 @@ export function MusicPlayer() {
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.2 }}
-                  className="absolute inset-0 flex items-center justify-center z-[59] bg-black/30"
+                  className={cn('absolute inset-0 flex items-center justify-center', zIndex.modal, overlay.scrimLight)}
                 >
                   <div className="text-center space-y-3">
-                    <Loader2 className="h-10 w-10 text-signal-purple-bright animate-spin mx-auto" />
-                    <p className="text-white/70 text-sm">Buffering...</p>
+                    <Loader2 className={cn('h-10 w-10 animate-spin mx-auto', brandSpinnerClass)} />
+                    <p className={cn(onDark.secondary, 'text-sm')}>Buffering...</p>
                   </div>
                 </motion.div>
               )}
@@ -311,7 +321,7 @@ export function MusicPlayer() {
                 transition={{ duration: 0.15 }}
                 className="absolute top-4 left-1/2 -translate-x-1/2 z-[55] pointer-events-none"
               >
-                <div className="bg-white/20 backdrop-blur-sm rounded-full px-4 py-2 text-white/90 text-sm">
+                <div className={cn('rounded-full px-4 py-2 text-sm', overlay.pill, onDark.heading)}>
                   Swipe down to exit
                 </div>
               </motion.div>
@@ -357,10 +367,10 @@ export function MusicPlayer() {
                       transition={{ delay: 0.05, duration: 0.3 }}
                       className="text-center"
                     >
-                      <h3 className="text-white/90 mb-2 text-4xl md:text-5xl">{tracks[currentTrack].title}</h3>
-                      <p className="text-white/60 text-2xl md:text-3xl">{tracks[currentTrack].artist}</p>
+                      <h3 className={cn(playerTrackTitleLarge, 'mb-2')}>{tracks[currentTrack].title}</h3>
+                      <p className={playerArtistLarge}>{tracks[currentTrack].artist}</p>
                       {tracks[currentTrack].album && (
-                        <p className="text-white/50 mt-1 text-xl md:text-2xl">{tracks[currentTrack].album}</p>
+                        <p className={playerAlbumLarge}>{tracks[currentTrack].album}</p>
                       )}
                     </motion.div>
                   </motion.div>
@@ -390,7 +400,7 @@ export function MusicPlayer() {
                     onValueChange={handleSeek}
                     className="cursor-pointer"
                   />
-                  <div className="flex justify-between text-sm text-white/70">
+                  <div className={cn('flex justify-between text-sm', onDark.secondary)}>
                     <span>{formatTime(currentTime)}</span>
                     <span>{formatTime(duration)}</span>
                   </div>
@@ -433,7 +443,7 @@ export function MusicPlayer() {
                       collisionPadding={16}
                       className={cn(
                         DESCENT_MENU_PORTAL_LIFT,
-                        'rounded-lg border border-signal-purple/30 bg-background/95 backdrop-blur-md shadow-xl shadow-[rgba(88,28,135,0.2)] p-4 text-sm text-foreground'
+                        cn('rounded-lg border bg-background/95 backdrop-blur-md shadow-xl p-4 text-sm text-foreground', border.brandSoft, shadow.glowPurpleSm)
                       )}
                       onOpenAutoFocus={(e) => e.preventDefault()}
                     >
@@ -486,7 +496,7 @@ export function MusicPlayer() {
                     </div>
 
                     <div className="flex-1 min-w-0 sm:max-w-md sm:mx-auto lg:mx-0">
-                      <Label className="text-white/70 text-xs block mb-1.5">Visualizer reactivity</Label>
+                      <Label className={cn(onDark.secondary, 'text-xs block mb-1.5')}>Visualizer reactivity</Label>
                       <Slider
                         value={[sensitivity]}
                         min={VIZ_SENSITIVITY_MIN}
@@ -496,7 +506,7 @@ export function MusicPlayer() {
                         className="cursor-pointer w-full"
                         aria-label="Visualizer reactivity"
                       />
-                      <p className="text-[10px] text-white/45 mt-1 hidden sm:block">
+                      <p className={cn(onDark.faint, 'text-[10px] mt-1 hidden sm:block')}>
                         Lower = calmer, less noise. Higher = snappier.
                       </p>
                     </div>
@@ -534,7 +544,7 @@ export function MusicPlayer() {
                                 animate={{ opacity: 1, x: 0 }}
                                 exit={{ opacity: 0, x: -4 }}
                                 transition={{ duration: 0.18, ease: 'easeOut' }}
-                                className="max-w-24 truncate text-[11px] text-white/70 hidden sm:inline"
+                                className={cn('max-w-24 truncate text-[11px] hidden sm:inline', onDark.secondary)}
                               >
                                 {remotePlaybackDeviceName ?? 'Connected'}
                               </motion.span>
@@ -568,7 +578,7 @@ export function MusicPlayer() {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.25 }}
-                className="fixed top-0 right-0 z-[10100] flex items-center gap-3 pointer-events-auto p-4 sm:p-6 bg-black/60 backdrop-blur-md rounded-bl-xl"
+                className={cn('fixed top-0 right-0 flex items-center gap-3 pointer-events-auto p-4 sm:p-6 rounded-bl-xl', zIndex.fullscreenChrome, overlay.chromeBar)}
                 style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))', paddingRight: 'max(1rem, env(safe-area-inset-right))' }}
               >
                 {descentSupported && (
@@ -591,7 +601,7 @@ export function MusicPlayer() {
 
       {/* Normal player view */}
       {!isFullscreen && (
-      <div className="bg-card/80 backdrop-blur-md border-2 border-border rounded-lg overflow-hidden shadow-2xl shadow-[rgba(147,51,234,0.12)]">
+      <div className={cn('bg-card/80 backdrop-blur-md border-2 border-border rounded-lg overflow-hidden shadow-2xl', shadow.glowPurpleSm)}>
         {/* Visualizer */}
         <div className={cn('relative h-64 md:h-96', brandVizSurfaceClass)}>
           <AnimatePresence>
@@ -601,11 +611,11 @@ export function MusicPlayer() {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.2 }}
-                className="absolute inset-0 flex items-center justify-center z-10 bg-black/20"
+                className={cn('absolute inset-0 flex items-center justify-center z-10', overlay.scrimLight)}
               >
                 <div className="text-center space-y-2">
-                  <Loader2 className="h-8 w-8 text-signal-purple-bright animate-spin mx-auto" />
-                  <p className="text-white/70 text-sm">Buffering...</p>
+                  <Loader2 className={cn('h-8 w-8 animate-spin mx-auto', brandSpinnerClass)} />
+                  <p className={cn(onDark.secondary, 'text-sm')}>Buffering...</p>
                 </div>
               </motion.div>
             )}
@@ -615,7 +625,7 @@ export function MusicPlayer() {
               <p className="text-sm font-medium uppercase tracking-[0.2em] text-signal-purple-bright/90">
                 Hero Stage
               </p>
-              <p className="text-white/60 text-sm max-w-xs">
+              <p className="text-sm text-muted-foreground max-w-xs">
                 Visualizer is live at the top. Use the now playing bar for transport and tracks.
               </p>
             </div>
@@ -630,10 +640,16 @@ export function MusicPlayer() {
           )}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="text-center">
-              <h3 className={`text-white/90 mb-2 ${isFullscreen ? 'text-4xl md:text-5xl' : ''}`}>{tracks[currentTrack].title}</h3>
-              <p className={`text-white/60 ${isFullscreen ? 'text-2xl md:text-3xl' : ''}`}>{tracks[currentTrack].artist}</p>
+              <h3 className={cn(isFullscreen ? playerTrackTitleLarge : playerTrackTitle, 'mb-2')}>
+                {tracks[currentTrack].title}
+              </h3>
+              <p className={isFullscreen ? playerArtistLarge : playerArtist}>
+                {tracks[currentTrack].artist}
+              </p>
               {tracks[currentTrack].album && (
-                <p className={`text-white/50 mt-1 ${isFullscreen ? 'text-xl md:text-2xl' : 'text-sm'}`}>{tracks[currentTrack].album}</p>
+                <p className={isFullscreen ? playerAlbumLarge : playerAlbum}>
+                  {tracks[currentTrack].album}
+                </p>
               )}
             </div>
           </div>

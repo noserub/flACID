@@ -1,11 +1,10 @@
 import { useState } from 'react';
 import { Edit2 } from 'lucide-react';
-import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { useEditMode } from '../contexts/EditModeContext';
-import { EditDialog, ImageUpload } from './EditableSection';
+import { EditDialog, EditTriggerButton, ImageUpload } from './EditableSection';
 
 export function AboutEditDialog() {
   const { content, updateContent } = useEditMode();
@@ -25,14 +24,10 @@ export function AboutEditDialog() {
   return (
     <EditDialog
       trigger={
-        <Button
-          variant="secondary"
-          size="sm"
-          className="bg-black/50 hover:bg-black/70"
-        >
+        <EditTriggerButton>
           <Edit2 className="h-4 w-4 mr-2" />
           Edit
-        </Button>
+        </EditTriggerButton>
       }
       title="Edit About Section"
       onSave={handleSave}

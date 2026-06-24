@@ -10,6 +10,7 @@ import { NewsletterSignup } from './NewsletterSignup';
 import { SectionTitle } from './SectionTitle';
 import { SectionAmbient } from './SectionAmbient';
 import { TourTicketCard } from './TourTicketCard';
+import { bodySecondary, heading } from '../lib/typography';
 
 const VIRTUAL_SCROLL_THRESHOLD = 20;
 const TOUR_ITEM_HEIGHT = 124;
@@ -63,10 +64,8 @@ export function TourSection() {
               viewport={{ once: true }}
               className="mx-auto max-w-md rounded-2xl border border-dashed border-signal-purple/40 bg-card/60 px-8 py-12 text-center"
             >
-              <p className="font-hero text-lg text-signal-purple-bright sm:text-xl">
-                No shows on the horizon
-              </p>
-              <p className="mt-3 text-sm leading-relaxed text-foreground/75 sm:text-base">
+              <p className={heading}>No shows on the horizon</p>
+              <p className={cn('mt-3 text-sm sm:text-base', bodySecondary)}>
                 {content.tour.footerNote ||
                   'Check back soon — or join the list below for when we surface from the void.'}
               </p>
@@ -95,7 +94,7 @@ export function TourSection() {
             className="mt-12 text-center space-y-6"
           >
             {content.tour.footerNote && tourDates.length > 0 && (
-              <p className="text-foreground/75">{content.tour.footerNote}</p>
+              <p className={bodySecondary}>{content.tour.footerNote}</p>
             )}
             <div className="flex justify-center">
               <NewsletterSignup />

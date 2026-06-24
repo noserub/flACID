@@ -6,6 +6,7 @@ import { XIcon } from "lucide-react@0.487.0";
 
 import { cn } from "./utils";
 import { MODAL_PORTAL_LIFT } from "../../lib/descentContentLayer";
+import { brandOverlayScrimClass } from "../../lib/brandClasses";
 
 function Dialog({
   ...props
@@ -39,7 +40,7 @@ const DialogOverlay = React.forwardRef<
     ref={ref}
     data-slot="dialog-overlay"
     className={cn(
-      "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 bg-black/50",
+      brandOverlayScrimClass,
       MODAL_PORTAL_LIFT,
       className,
     )}

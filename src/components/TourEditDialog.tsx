@@ -5,7 +5,19 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { useEditMode, type SiteContent } from '../contexts/EditModeContext';
-import { EditDialog } from './EditableSection';
+import { EditDialog, EditTriggerButton } from './EditableSection';
+import {
+  editorDestructiveGhostClass,
+  editorPanelTitleClass,
+  editorRowCardClass,
+} from '../lib/editorStyles';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
 
 type TourDateRow = SiteContent['tour']['dates'][number];
 
@@ -70,10 +82,10 @@ export function TourEditDialog() {
   return (
     <EditDialog
       trigger={
-        <Button variant="secondary" size="sm" className="bg-black/50 hover:bg-black/70">
+        <EditTriggerButton>
           <Edit2 className="h-4 w-4 mr-2" />
           Edit section & dates
-        </Button>
+        </EditTriggerButton>
       }
       title="Edit tour section"
       onOpenChange={(open) => {
@@ -107,7 +119,7 @@ export function TourEditDialog() {
 
       <div className="border-t border-border pt-4 mt-4 space-y-3">
         <div className="flex items-center justify-between">
-          <h4 className="font-medium">Tour dates</h4>
+          <h4 className={editorPanelTitleClass}>Tour dates</h4>
           <Button type="button" size="sm" variant="outline" onClick={addDate}>
             <Plus className="h-4 w-4 mr-2" />
             Add date
@@ -119,14 +131,14 @@ export function TourEditDialog() {
             <p className="text-sm text-muted-foreground text-center py-6">No dates yet. Add one to get started.</p>
           )}
           {dates.map((row, index) => (
-            <div key={row.id} className="border rounded-lg p-4 space-y-3 bg-card/50">
+            <div key={row.id} className={editorRowCardClass}>
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-muted-foreground">Show {index + 1}</span>
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="text-red-500 hover:text-red-600"
+                  className={editorDestructiveGhostClass}
                   onClick={() => removeDate(row.id)}
                 >
                   <Trash2 className="h-4 w-4" />
@@ -143,19 +155,23 @@ export function TourEditDialog() {
                 </div>
                 <div className="space-y-2">
                   <Label>Ticket status</Label>
-                  <select
-                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  <Select
                     value={row.status}
-                    onChange={(e) =>
-                      updateDate(row.id, { status: e.target.value as TourDateRow['status'] })
+                    onValueChange={(value) =>
+                      updateDate(row.id, { status: value as TourDateRow['status'] })
                     }
                   >
-                    {STATUS_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {STATUS_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
               <div className="space-y-2">

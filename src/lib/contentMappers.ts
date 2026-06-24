@@ -83,7 +83,9 @@ export function dbToSiteContent(db: DbSnapshot, defaultContent: SiteContent): Si
 
   const tabs: SiteContent['gallery']['tabs'] = galleryTabs.length > 0
     ? galleryTabs.map((tab) => {
-        const tabPhotos = db.photos.filter((p) => p.tab_id === tab.id);
+        const tabPhotos = db.photos
+          .filter((p) => p.tab_id === tab.id)
+          .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
         return {
           id: tab.id,
           name: tab.name,

@@ -13,6 +13,9 @@ import {
   DialogTitle,
 } from './ui/dialog';
 import { cn } from './ui/utils';
+import { TextLabel } from './TextLabel';
+import { heading, vizCardHint, vizCardName } from '../lib/typography';
+import { border, shadow } from '../lib/colors';
 
 function scrollToHero() {
   const el = document.getElementById('hero-stage');
@@ -81,9 +84,10 @@ function VizPreviewCard({
       className={cn(
         'group relative aspect-[4/3] overflow-hidden rounded-xl text-left',
         'border border-signal-purple/40 bg-void',
-        'shadow-[0_8px_28px_rgba(0,0,0,0.35)]',
+        shadow.card,
         'transition-[border-color,box-shadow] duration-300',
-        'hover:border-neon-green/50 hover:shadow-[0_0_24px_rgba(74,222,128,0.18)]',
+        border.brandHover,
+        shadow.hoverGreen,
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-green/50'
       )}
     >
@@ -104,15 +108,11 @@ function VizPreviewCard({
       />
 
       <div className="relative flex h-full flex-col justify-end p-3 sm:p-3.5 pointer-events-none">
-        <span className="mb-0.5 text-[10px] font-medium uppercase tracking-[0.2em] text-neon-green/90">
+        <TextLabel as="span" className="mb-0.5 font-medium">
           Viz {index + 1}
-        </span>
-        <span className="font-hero text-sm leading-tight text-foreground sm:text-base">
-          {name}
-        </span>
-        <span className="mt-2 text-[11px] text-foreground/65 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-          Preview
-        </span>
+        </TextLabel>
+        <span className={vizCardName}>{name}</span>
+        <span className={cn('mt-2', vizCardHint)}>Preview</span>
       </div>
     </motion.button>
   );
@@ -187,10 +187,10 @@ export function VisualizationShowcase({ className }: VisualizationShowcaseProps)
 
                 <div className="space-y-4 p-5 sm:p-6">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-neon-green">
+                    <TextLabel as="span" className="font-medium">
                       Viz {selectedViz + 1}
-                    </p>
-                    <h3 className="font-hero text-2xl text-foreground mt-1">{selectedName}</h3>
+                    </TextLabel>
+                    <h3 className={cn(heading, 'mt-1')}>{selectedName}</h3>
                   </div>
 
                   {tracks.some((t) => t.url) && (

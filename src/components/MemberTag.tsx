@@ -1,4 +1,5 @@
 import { cn } from './ui/utils';
+import { inlineSecondary } from '../lib/typography';
 
 interface MemberTagProps {
   name: string;
@@ -10,14 +11,13 @@ export function MemberTag({ name, role }: MemberTagProps) {
     <li
       className={cn(
         'rounded-full border border-signal-purple/55 bg-card px-3.5 py-2 text-sm',
-        'shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_0_0_1px_rgba(74,222,128,0.06)]',
+        'shadow-member-tag',
         'transition-all duration-300',
-        'hover:border-neon-green/55 hover:bg-muted/80',
-        'hover:shadow-[0_0_18px_rgba(74,222,128,0.2),inset_0_1px_0_rgba(255,255,255,0.06)]'
+        'hover:border-neon-green/55 hover:bg-muted/80'
       )}
     >
       <span className="font-medium text-foreground">{name}</span>
-      {role && <span className="text-foreground/65"> · {role}</span>}
+      {role && <span className={inlineSecondary}> · {role}</span>}
     </li>
   );
 }

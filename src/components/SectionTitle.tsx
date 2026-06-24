@@ -1,13 +1,19 @@
 import { motion } from 'motion/react';
 import { cn } from './ui/utils';
+import {
+  bodySecondary,
+  gradientText,
+  titleEditorial,
+  titleSection,
+} from '../lib/typography';
 
-type SectionTitleVariant = 'gradient' | 'clean';
+type SectionTitleSize = 'section' | 'editorial';
 
 interface SectionTitleProps {
   children: React.ReactNode;
   /** Optional line below the title */
   subtitle?: string;
-  variant?: SectionTitleVariant;
+  size?: SectionTitleSize;
   className?: string;
   subtitleClassName?: string;
   /** Motion on scroll into view */
@@ -15,31 +21,22 @@ interface SectionTitleProps {
   align?: 'center' | 'left';
 }
 
-const titleVariants: Record<SectionTitleVariant, string> = {
-  gradient:
-    'bg-gradient-to-r from-signal-purple-bright via-hot-pink to-neon-green bg-clip-text text-transparent',
-  clean: 'text-foreground',
+const titleSizes: Record<SectionTitleSize, string> = {
+  section: titleSection,
+  editorial: titleEditorial,
 };
 
 export function SectionTitle({
   children,
   subtitle,
-  variant = 'gradient',
+  size = 'section',
   className,
   subtitleClassName,
   animate = true,
   align = 'center',
 }: SectionTitleProps) {
   const heading = (
-    <h2
-      className={cn(
-        'font-hero text-4xl sm:text-5xl md:text-6xl font-medium tracking-tight',
-        titleVariants[variant],
-        className
-      )}
-    >
-      {children}
-    </h2>
+    <h2 className={cn(titleSizes[size], gradientText, className)}>{children}</h2>
   );
 
   const content = (
@@ -48,7 +45,8 @@ export function SectionTitle({
       {subtitle && (
         <p
           className={cn(
-            'text-muted-foreground text-base md:text-lg font-light max-w-2xl',
+            bodySecondary,
+            'font-light max-w-2xl',
             align === 'center' ? 'mx-auto' : 'mx-0',
             subtitleClassName
           )}

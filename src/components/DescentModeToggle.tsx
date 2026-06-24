@@ -5,7 +5,8 @@ import { useDescentMode } from '../contexts/DescentModeContext';
 import { usePlayback } from '../contexts/PlaybackContext';
 import { OPEN_DESCENT_HELP_EVENT, TRY_DESCENT_CLICKED_EVENT } from '../lib/descentHelp';
 import { DESCENT_MENU_PORTAL_LIFT } from '../lib/descentContentLayer';
-import { brandControlClass, brandPrimaryButtonClass } from '../lib/brandClasses';
+import { brandControlClass, brandToggleActiveClass } from '../lib/brandClasses';
+import { border, shadow } from '../lib/colors';
 import { Popover, PopoverAnchor, PopoverContent } from './ui/popover';
 import { Button } from './ui/button';
 import { cn } from './ui/utils';
@@ -16,11 +17,9 @@ const DESCENT_ONBOARDING_KEY = 'flacid.descentOnboardingSeen';
 /** min-h/w 11 (44px) matches Apple HIG + WCAG 2.5.5 AAA minimum touch target. */
 export const descentToggleButtonClass = (isDescentMode: boolean) =>
   cn(
-    'relative rounded-lg font-medium transition-all duration-300 touch-manipulation',
+    'relative rounded-lg transition-all duration-300 touch-manipulation',
     'flex items-center justify-center min-h-11 px-3 sm:px-4 text-sm shrink-0',
-    isDescentMode
-      ? cn('rounded-lg', brandPrimaryButtonClass)
-      : brandControlClass
+    isDescentMode ? brandToggleActiveClass : brandControlClass
   );
 
 type DescentToggleButtonProps = {
@@ -50,7 +49,7 @@ export function DescentToggleButton({
       className={cn(descentToggleButtonClass(isDescentMode), className)}
       whileHover={{ scale: 1.05 }}
       whileTap={{ scale: 0.95 }}
-      title={title ?? (isDescentMode ? 'Ascend — return to normal view' : 'Descend — full-page reactive visuals')}
+      title={title ?? (isDescentMode ? 'Ascend: return to normal view' : 'Descend: full-page reactive visuals')}
       aria-label={
         ariaLabel ?? (isDescentMode ? 'Ascend: turn off Descend mode' : 'Descend: turn on full-page show mode')
       }
@@ -71,13 +70,11 @@ export function DescentToggleButton({
       </div>
       {isDescentMode && (
         <motion.div
-          className="absolute inset-0 bg-signal-purple rounded-lg blur-xl opacity-50 -z-10"
-          animate={{
-            scale: [1, 1.2, 1],
-            opacity: [0.5, 0.3, 0.5],
-          }}
+          className="pointer-events-none absolute inset-0 -z-10 rounded-lg border border-neon-green/60"
+          aria-hidden
+          animate={{ opacity: [0.35, 0.85, 0.35] }}
           transition={{
-            duration: 2,
+            duration: 2.2,
             repeat: Infinity,
             ease: 'easeInOut',
           }}
@@ -181,9 +178,13 @@ export function DescentModeToggle() {
         collisionPadding={16}
         aria-labelledby="descent-onboarding-title"
         className={cn(
-          DESCENT_MENU_PORTAL_LIFT,
-          'relative w-[min(20rem,calc(100vw-2rem))] sm:w-80 rounded-lg border border-signal-purple/30',
-          'bg-background/95 backdrop-blur-md shadow-xl shadow-[rgba(88,28,135,0.2)] p-4 text-sm text-foreground'
+          cn(
+            DESCENT_MENU_PORTAL_LIFT,
+            'relative w-[min(20rem,calc(100vw-2rem))] sm:w-80 rounded-lg border',
+            border.brandSoft,
+            'bg-background/95 backdrop-blur-md shadow-xl p-4 text-sm text-foreground',
+            shadow.glowPurpleSm
+          )
         )}
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
