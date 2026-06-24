@@ -12,6 +12,9 @@ import {
   DialogTitle,
 } from './ui/dialog';
 import { subscribeToNewsletter } from '../services/newsletter.service';
+import { cn } from './ui/utils';
+import { gradientText, heading } from '../lib/typography';
+import { border, gradient, interactive, shadow, surface } from '../lib/colors';
 
 type Phase = 'form' | 'submitting' | 'success' | 'error';
 
@@ -65,7 +68,14 @@ export function NewsletterSignup({
         variant={triggerVariant}
         className={
           triggerClassName ??
-          'border-signal-purple/40 text-signal-purple-bright hover:bg-signal-purple/10 hover:border-neon-green/50 hover:text-neon-green shadow-sm shadow-[rgba(88,28,135,0.15)]'
+          cn(
+            border.brand,
+            interactive.rest,
+            surface.purpleTint,
+            border.brandHover,
+            'hover:text-neon-green shadow-sm',
+            shadow.glowPurpleSm
+          )
         }
         onClick={() => setOpen(true)}
       >
@@ -74,12 +84,20 @@ export function NewsletterSignup({
       </Button>
 
       <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent className="sm:max-w-md border border-signal-purple/25 bg-gradient-to-b from-background via-background to-[rgba(88,28,135,0.12)] shadow-xl shadow-[rgba(88,28,135,0.25)] overflow-hidden">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_120%_80%_at_50%_-20%,rgba(147,51,234,0.12),transparent)]" />
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_100%_100%,rgba(74,222,128,0.08),transparent)]" />
+        <DialogContent
+          className={cn(
+            'sm:max-w-md border overflow-hidden',
+            border.brandSubtle,
+            gradient.newsletterDialog,
+            'shadow-xl',
+            shadow.glowPurpleMd
+          )}
+        >
+          <div className="pointer-events-none absolute inset-0 bg-radial-purple-top" />
+          <div className="pointer-events-none absolute inset-0 bg-radial-green-bottom" />
 
           <DialogHeader className="relative z-10">
-            <DialogTitle className="font-hero text-xl font-semibold tracking-tight bg-gradient-to-r from-signal-purple-bright via-hot-pink to-neon-green bg-clip-text text-transparent">
+            <DialogTitle className={cn(heading, gradientText)}>
               Stay in the loop
             </DialogTitle>
             <DialogDescription className="text-muted-foreground text-sm leading-relaxed">
@@ -172,7 +190,7 @@ export function NewsletterSignup({
                   <Button
                     type="submit"
                     disabled={phase === 'submitting' || !email.trim()}
-                    className="w-full bg-gradient-to-r from-signal-purple to-hot-pink-bright hover:from-signal-purple-bright hover:to-hot-pink text-primary-foreground shadow-lg shadow-[rgba(88,28,135,0.3)]"
+                    className={cn('w-full text-primary-foreground shadow-lg', gradient.cta, shadow.glowPurpleCta)}
                   >
                     {phase === 'submitting' ? (
                       <>

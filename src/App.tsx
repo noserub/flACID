@@ -12,7 +12,10 @@ import { VizSensitivityProvider } from './contexts/VizSensitivityContext';
 import { DescentModeWrapper } from './components/DescentModeEffects';
 import { SiteHeader } from './components/SiteHeader';
 import { SectionNavRail } from './components/SectionNavRail';
+import { SectionNavMobile } from './components/SectionNavMobile';
 import { StagePage } from './pages/StagePage';
+import { VizCapturePage } from './pages/VizCapturePage';
+import { DesignSystemPage } from './pages/DesignSystemPage';
 
 // Lazy load below-the-fold sections
 const VercelAnalytics = lazy(() =>
@@ -82,7 +85,7 @@ function AppContent() {
     <PlaybackProvider>
     <PlaybackAnalyserBridge />
     <HeroViewportBridge />
-    <div className="min-h-screen bg-background text-foreground pb-24 md:pb-0">
+    <div className="min-h-screen bg-background text-foreground pb-[var(--mobile-page-bottom-padding)] lg:pb-0">
             <Analytics pageName="home" />
             {/* Descent Mode Effects Overlay */}
             <DescentModeWrapper />
@@ -90,6 +93,7 @@ function AppContent() {
             {/* Site Header with Menu */}
             <SiteHeader />
             <SectionNavRail />
+            <SectionNavMobile />
             
             {/* Hero Section */}
             <HeroSection />
@@ -136,6 +140,10 @@ export default function App() {
     <VizSensitivityProvider>
       {pathname === '/stage' ? (
         <StagePage />
+      ) : pathname === '/capture-viz' ? (
+        <VizCapturePage />
+      ) : pathname === '/design-system' ? (
+        <DesignSystemPage />
       ) : (
         <>
           <EditModeProvider>

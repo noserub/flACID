@@ -8,12 +8,12 @@ import {
   Download,
   CheckCircle,
   XCircle,
-  Package,
   LogIn,
   LogOut,
   CircleHelp,
   Mic,
   Smartphone,
+  Palette,
 } from 'lucide-react';
 import {
   AlertDialog,
@@ -26,7 +26,6 @@ import {
   AlertDialogTitle,
 } from './ui/alert-dialog';
 import { Button } from './ui/button';
-import { ComponentLibrary } from './ComponentLibrary';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -57,7 +56,6 @@ export function SiteHeader() {
   const { isAuthenticated, isAdmin, signOut } = useAuth();
   const [signInOpen, setSignInOpen] = useState(false);
   const [exportSuccess, setExportSuccess] = useState(false);
-  const [showComponentLibrary, setShowComponentLibrary] = useState(false);
   const [exitConfirmOpen, setExitConfirmOpen] = useState(false);
   const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
   const [installIosOpen, setInstallIosOpen] = useState(false);
@@ -247,6 +245,15 @@ export function SiteHeader() {
             )}
 
             <DropdownMenuSeparator />
+            <DropdownMenuLabel className="text-xs text-muted-foreground">Design</DropdownMenuLabel>
+            <DropdownMenuItem asChild>
+              <a href="/design-system" target="_blank" rel="noopener noreferrer">
+                <Palette className="mr-2 h-4 w-4" />
+                <span>Design System</span>
+              </a>
+            </DropdownMenuItem>
+
+            <DropdownMenuSeparator />
             
             {/* Edit Mode Toggle - site admins only (see site_admins table) */}
             {isAuthenticated && isAdmin && (
@@ -320,20 +327,6 @@ export function SiteHeader() {
               </>
             )}
 
-            {/* Component Library (Edit Mode Only) */}
-            {isEditMode && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuLabel className="text-xs text-muted-foreground">
-                  Development
-                </DropdownMenuLabel>
-                <DropdownMenuItem onClick={() => setShowComponentLibrary(true)}>
-                  <Package className="mr-2 h-4 w-4" />
-                  <span>Component Library</span>
-                </DropdownMenuItem>
-              </>
-            )}
-
             {/* Stage / Live Mode — venue projection, signed-in only */}
             {isAuthenticated && (
               <>
@@ -365,10 +358,6 @@ export function SiteHeader() {
       </div>
 
       {/* Component Library Modal */}
-      {showComponentLibrary && (
-        <ComponentLibrary onClose={() => setShowComponentLibrary(false)} />
-      )}
-
       {/* Sign In Dialog */}
       <SignInDialog open={signInOpen} onOpenChange={setSignInOpen} />
 

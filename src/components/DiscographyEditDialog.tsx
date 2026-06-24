@@ -5,7 +5,8 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { useEditMode } from '../contexts/EditModeContext';
-import { EditDialog, ImageUpload } from './EditableSection';
+import { EditDialog, EditTriggerButton, ImageUpload } from './EditableSection';
+import { editorDestructiveGhostClass } from '../lib/editorStyles';
 import {
   Accordion,
   AccordionContent,
@@ -65,14 +66,10 @@ export function DiscographyEditDialog() {
   return (
     <EditDialog
       trigger={
-        <Button
-          variant="secondary"
-          size="sm"
-          className="bg-black/50 hover:bg-black/70"
-        >
+        <EditTriggerButton>
           <Edit2 className="h-4 w-4 mr-2" />
           Edit
-        </Button>
+        </EditTriggerButton>
       }
       title="Edit Discography"
       onSave={handleSave}
@@ -106,7 +103,7 @@ export function DiscographyEditDialog() {
                       variant="outline"
                       size="sm"
                       onClick={() => handleRemoveAlbum(album.id)}
-                      className="text-red-500 hover:text-red-600"
+                      className={editorDestructiveGhostClass}
                     >
                       <Trash2 className="h-4 w-4 mr-2" />
                       Remove Album

@@ -3,7 +3,33 @@
 :root {
   --font-size: 16px;
   --font-hero: "Syne", system-ui, sans-serif;
-  /* Cosmic signal palette (live site) */
+  --font-body: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+
+  /* ── Type scale — major third (1.25) from 16px base ── */
+  --type-xs: 0.75rem;
+  --type-sm: 0.875rem;
+  --type-base: 1rem;
+  --type-md: 1.125rem;
+  --type-lg: 1.25rem;
+  --type-xl: 1.563rem;
+  --type-2xl: 1.953rem;
+  --type-3xl: 2.441rem;
+
+  /* Fluid display sizes */
+  --type-display-section: clamp(2.25rem, 3.5vw + 1.25rem, 3.75rem);
+  --type-display-editorial: clamp(1.875rem, 2.5vw + 1rem, 3rem);
+  --type-display-wordmark: clamp(1.5rem, 1.5vw + 1rem, 2rem);
+  --type-heading: clamp(1.25rem, 1vw + 1rem, 1.5rem);
+  --type-card-title: clamp(1.125rem, 0.75vw + 0.95rem, 1.375rem);
+  --type-lead: clamp(1.25rem, 1vw + 1.05rem, 1.5rem);
+  --type-body: clamp(1rem, 0.2vw + 0.95rem, 1.125rem);
+  --type-date-day: clamp(1.75rem, 2vw + 1rem, 2.5rem);
+  --type-player-title: clamp(1.125rem, 0.5vw + 1rem, 1.25rem);
+  --type-player-title-fs: clamp(2.25rem, 4vw + 1rem, 3rem);
+  --type-player-artist-fs: clamp(1.5rem, 2.5vw + 0.75rem, 1.875rem);
+  --type-player-album-fs: clamp(1.125rem, 1.5vw + 0.75rem, 1.5rem);
+
+  /* ── Cosmic brand palette ── */
   --void: #050508;
   --signal-purple: #9333ea;
   --signal-purple-bright: #c084fc;
@@ -14,16 +40,58 @@
   --hot-pink: #f472b6;
   --hot-pink-bright: #ec4899;
   --hot-pink-glow: rgba(244, 114, 182, 0.2);
+
+  /* Derived fills (color-mix from brand hues — no ad-hoc purple-900) */
+  --signal-purple-subtle: color-mix(in srgb, var(--signal-purple) 12%, transparent);
+  --signal-purple-muted: color-mix(in srgb, var(--signal-purple) 20%, transparent);
+  --signal-purple-wash: color-mix(in srgb, var(--signal-purple) 6%, transparent);
+  --neon-green-subtle: color-mix(in srgb, var(--neon-green) 8%, transparent);
+  --neon-green-muted: color-mix(in srgb, var(--neon-green) 18%, transparent);
+  --void-scrim: color-mix(in srgb, var(--void) 50%, transparent);
+  --void-scrim-light: color-mix(in srgb, var(--void) 30%, transparent);
+  --void-scrim-heavy: color-mix(in srgb, var(--void) 70%, transparent);
+  --void-panel: color-mix(in srgb, var(--void) 95%, transparent);
+
+  /* Motion */
+  --motion-fast: 150ms;
+  --motion-base: 300ms;
+  --motion-slow: 500ms;
+
+  /* Z-index scale */
+  --z-nav: 40;
+  --z-overlay: 50;
+  --z-modal: 60;
+  --z-fullscreen: 9980;
+  --z-lightbox-chrome: 10250;
+
+  /* Section spacing */
+  --space-section-y: 5rem;
+
+  /* Mobile bottom chrome — section nav at true bottom; mini player strip stacks above */
+  --mobile-section-nav-height: calc(2.75rem + max(0.5rem, env(safe-area-inset-bottom)));
+  --mobile-player-strip-height: calc(3.75rem + 2px);
+  --mobile-mini-player-bottom: max(0.5rem, env(safe-area-inset-bottom));
+  --mobile-page-bottom-padding: 6.5rem;
+
+  /* Ambient radial spots */
+  --ambient-purple-spot: color-mix(in srgb, var(--signal-purple) 10%, transparent);
+  --ambient-purple-editorial: color-mix(in srgb, var(--signal-purple) 14%, transparent);
+  --ambient-green-spot: color-mix(in srgb, var(--neon-green) 6%, transparent);
+
+  /* ── Semantic surfaces ── */
   --background: #0a0a0f;
   --foreground: #e8e8f0;
   --card: #1a1a24;
   --card-foreground: #e8e8f0;
   --popover: #1a1a24;
   --popover-foreground: #e8e8f0;
-  /* Darkened from fuchsia-500 for WCAG AA text contrast (4.5:1) with white foreground */
+
+  /* CTA — darkened fuchsia for WCAG AA with white foreground */
   --primary: #a21caf;
   --primary-foreground: #ffffff;
-  --secondary: #8b5cf6;
+
+  /* Aliased to brand */
+  --secondary: var(--signal-purple);
   --secondary-foreground: #e8e8f0;
   --muted: #2a2a3a;
   --muted-foreground: #a0a0b0;
@@ -31,69 +99,94 @@
   --accent-foreground: var(--void);
   --destructive: #dc2626;
   --destructive-foreground: #ffffff;
-  --border: rgba(139, 92, 246, 0.2);
-  --input: rgba(139, 92, 246, 0.2);
+  --success: var(--neon-green);
+  --success-foreground: var(--void);
+  --success-muted: color-mix(in srgb, var(--neon-green) 15%, transparent);
+
+  --border: color-mix(in srgb, var(--signal-purple) 20%, transparent);
+  --input: color-mix(in srgb, var(--signal-purple) 20%, transparent);
   --input-background: #1a1a24;
   --switch-background: #2a2a3a;
   --font-weight-medium: 600;
   --font-weight-normal: 400;
-  --ring: #8b5cf6;
-  --chart-1: #d946ef;
-  --chart-2: #8b5cf6;
-  --chart-3: #22d3ee;
-  --chart-4: #06b6d4;
-  --chart-5: #10b981;
+  --ring: var(--signal-purple-bright);
+
+  --chart-1: var(--hot-pink-bright);
+  --chart-2: var(--signal-purple);
+  --chart-3: var(--neon-green);
+  --chart-4: var(--signal-purple-bright);
+  --chart-5: var(--neon-green-dim);
+
   --radius: 0.5rem;
   --sidebar: #0a0a0f;
   --sidebar-foreground: #e8e8f0;
-  --sidebar-primary: #d946ef;
+  --sidebar-primary: var(--hot-pink-bright);
   --sidebar-primary-foreground: #0a0a0f;
   --sidebar-accent: #1a1a24;
   --sidebar-accent-foreground: #e8e8f0;
-  --sidebar-border: rgba(139, 92, 246, 0.2);
-  --sidebar-ring: #8b5cf6;
+  --sidebar-border: color-mix(in srgb, var(--signal-purple) 20%, transparent);
+  --sidebar-ring: var(--signal-purple-bright);
+
+  /* ── Elevation & glow shadows ── */
+  --shadow-glow-green-sm: 0 0 12px var(--neon-green-glow);
+  --shadow-glow-green-md: 0 0 24px var(--neon-green-muted);
+  --shadow-glow-green-lg: 0 0 32px color-mix(in srgb, var(--neon-green) 12%, transparent),
+    0 12px 40px rgba(0, 0, 0, 0.45);
+  --shadow-glow-purple-sm: 0 4px 16px color-mix(in srgb, var(--signal-purple) 15%, transparent);
+  --shadow-glow-purple-md: 0 8px 28px color-mix(in srgb, var(--signal-purple) 18%, transparent);
+  --shadow-glow-purple-lg: 0 8px 32px var(--signal-purple-glow);
+  --shadow-glow-purple-cta: 0 10px 24px color-mix(in srgb, var(--signal-purple) 30%, transparent);
+  --shadow-elevated: 0 12px 40px rgba(0, 0, 0, 0.45);
+  --shadow-card: 0 8px 28px rgba(0, 0, 0, 0.35);
+  --shadow-inset-highlight: inset 0 1px 0 color-mix(in srgb, white 4%, transparent);
+  --shadow-inset-green-ring: inset 0 0 0 1px color-mix(in srgb, var(--neon-green) 6%, transparent);
 }
 
+/* Cosmic dark — same brand tokens as :root (shadcn compat without grayscale wipe) */
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.145 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.145 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.985 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.396 0.141 25.723);
-  --destructive-foreground: oklch(0.637 0.237 25.331);
-  --border: oklch(0.269 0 0);
-  --input: oklch(0.269 0 0);
-  --ring: oklch(0.439 0 0);
-  --font-weight-medium: 500;
+  --background: #0a0a0f;
+  --foreground: #e8e8f0;
+  --card: #1a1a24;
+  --card-foreground: #e8e8f0;
+  --popover: #1a1a24;
+  --popover-foreground: #e8e8f0;
+  --primary: #a21caf;
+  --primary-foreground: #ffffff;
+  --secondary: var(--signal-purple);
+  --secondary-foreground: #e8e8f0;
+  --muted: #2a2a3a;
+  --muted-foreground: #a0a0b0;
+  --accent: var(--neon-green);
+  --accent-foreground: var(--void);
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --border: color-mix(in srgb, var(--signal-purple) 20%, transparent);
+  --input: color-mix(in srgb, var(--signal-purple) 20%, transparent);
+  --ring: var(--signal-purple-bright);
+  --font-weight-medium: 600;
   --font-weight-normal: 400;
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(0.269 0 0);
-  --sidebar-ring: oklch(0.439 0 0);
+  --chart-1: var(--hot-pink-bright);
+  --chart-2: var(--signal-purple);
+  --chart-3: var(--neon-green);
+  --chart-4: var(--signal-purple-bright);
+  --chart-5: var(--neon-green-dim);
+  --sidebar: #0a0a0f;
+  --sidebar-foreground: #e8e8f0;
+  --sidebar-primary: var(--hot-pink-bright);
+  --sidebar-primary-foreground: #0a0a0f;
+  --sidebar-accent: #1a1a24;
+  --sidebar-accent-foreground: #e8e8f0;
+  --sidebar-border: color-mix(in srgb, var(--signal-purple) 20%, transparent);
+  --sidebar-ring: var(--signal-purple-bright);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-void: var(--void);
+  --color-void-scrim: var(--void-scrim);
+  --color-void-scrim-light: var(--void-scrim-light);
+  --color-void-scrim-heavy: var(--void-scrim-heavy);
+  --color-void-panel: var(--void-panel);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
@@ -133,10 +226,31 @@
   --color-sidebar-ring: var(--sidebar-ring);
   --color-signal-purple: var(--signal-purple);
   --color-signal-purple-bright: var(--signal-purple-bright);
+  --color-signal-purple-subtle: var(--signal-purple-subtle);
+  --color-signal-purple-muted: var(--signal-purple-muted);
+  --color-signal-purple-wash: var(--signal-purple-wash);
+  --color-signal-purple-glow: var(--signal-purple-glow);
   --color-neon-green: var(--neon-green);
   --color-neon-green-dim: var(--neon-green-dim);
+  --color-neon-green-subtle: var(--neon-green-subtle);
+  --color-neon-green-muted: var(--neon-green-muted);
+  --color-neon-green-glow: var(--neon-green-glow);
   --color-hot-pink: var(--hot-pink);
   --color-hot-pink-bright: var(--hot-pink-bright);
+  --color-hot-pink-glow: var(--hot-pink-glow);
+  --color-success: var(--success);
+  --color-success-muted: var(--success-muted);
+  --shadow-glow-green-sm: var(--shadow-glow-green-sm);
+  --shadow-glow-green-md: var(--shadow-glow-green-md);
+  --shadow-glow-green-lg: var(--shadow-glow-green-lg);
+  --shadow-glow-purple-sm: var(--shadow-glow-purple-sm);
+  --shadow-glow-purple-md: var(--shadow-glow-purple-md);
+  --shadow-glow-purple-lg: var(--shadow-glow-purple-lg);
+  --shadow-glow-purple-cta: var(--shadow-glow-purple-cta);
+  --shadow-elevated: var(--shadow-elevated);
+  --shadow-card: var(--shadow-card);
+  --shadow-inset-highlight: var(--shadow-inset-highlight);
+  --shadow-inset-green-ring: var(--shadow-inset-green-ring);
   --font-hero: var(--font-hero);
 }
 
@@ -147,66 +261,46 @@
 
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-body);
+    font-size: var(--type-base);
+    line-height: 1.5;
   }
 }
 
 /**
- * Base typography. This is not applied to elements which have an ancestor with a Tailwind text class.
+ * Unstyled prose fallback — components should use typography.ts tokens.
+ * No competing h1–h4 sizes; tokens own the ramp.
  */
 @layer base {
   :where(:not(:has([class*=" text-"]), :not(:has([class^="text-"])))) {
-    h1 {
-      font-size: var(--text-2xl);
-      font-weight: var(--font-weight-medium);
-      line-height: 1.5;
-    }
-
-    h2 {
-      font-size: var(--text-xl);
-      font-weight: var(--font-weight-medium);
-      line-height: 1.5;
-    }
-
-    h3 {
-      font-size: var(--text-lg);
-      font-weight: var(--font-weight-medium);
-      line-height: 1.5;
-    }
-
-    h4 {
-      font-size: var(--text-base);
-      font-weight: var(--font-weight-medium);
-      line-height: 1.5;
-    }
-
-    p {
-      font-size: var(--text-base);
-      font-weight: var(--font-weight-normal);
-      line-height: 1.5;
-    }
-
-    label {
-      font-size: var(--text-base);
-      font-weight: var(--font-weight-medium);
-      line-height: 1.5;
-    }
-
-    button {
-      font-size: var(--text-base);
-      font-weight: var(--font-weight-medium);
-      line-height: 1.5;
-    }
-
+    p,
+    label,
+    button,
     input {
-      font-size: var(--text-base);
+      font-size: var(--type-base);
       font-weight: var(--font-weight-normal);
       line-height: 1.5;
+    }
+
+    button,
+    label {
+      font-weight: var(--font-weight-medium);
     }
   }
 }
 
 html {
   font-size: var(--font-size);
+}
+
+html[data-mobile-section-nav='visible'] {
+  --mobile-mini-player-bottom: calc(var(--mobile-section-nav-height) + 0.75rem);
+  --mobile-page-bottom-padding: calc(var(--mobile-section-nav-height) + var(--mobile-player-strip-height) + 0.75rem);
+  scroll-padding-bottom: var(--mobile-page-bottom-padding);
+}
+
+html[data-mobile-chrome-player='visible'] {
+  scroll-padding-bottom: var(--mobile-page-bottom-padding);
 }
 
 /* Font loading optimization */
@@ -267,13 +361,137 @@ img, picture, video, canvas, svg {
   font-family: var(--font-hero);
 }
 
-.hero-cosmic-grain {
+.font-body {
+  font-family: var(--font-body);
+}
+
+/* ── Type ramp utilities (single source — mirrored in typography.ts) ── */
+.type-display-section {
+  font-size: var(--type-display-section);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  font-weight: 500;
+}
+
+.type-display-editorial {
+  font-size: var(--type-display-editorial);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  font-weight: 500;
+}
+
+.type-display-wordmark {
+  font-size: var(--type-display-wordmark);
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+  font-weight: 500;
+}
+
+.type-heading {
+  font-size: var(--type-heading);
+  line-height: 1.2;
+  font-weight: 500;
+}
+
+.type-card-title {
+  font-size: var(--type-card-title);
+  line-height: 1.25;
+  font-weight: 500;
+}
+
+.type-subheading {
+  font-size: var(--type-base);
+  line-height: 1.4;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+
+.type-label {
+  font-size: var(--type-xs);
+  line-height: 1.3;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.type-lead {
+  font-size: var(--type-lead);
+  line-height: 1.55;
+  font-weight: 300;
+}
+
+.type-body {
+  font-size: var(--type-body);
+  line-height: 1.75;
+}
+
+.type-body-secondary {
+  font-size: var(--type-body);
+  line-height: 1.6;
+}
+
+.type-caption {
+  font-size: var(--type-sm);
+  line-height: 1.45;
+}
+
+.type-inline-secondary {
+  font-size: var(--type-sm);
+  line-height: 1.4;
+}
+
+.type-viz-name {
+  font-size: var(--type-sm);
+  line-height: 1.25;
+  font-weight: 500;
+}
+
+@media (min-width: 640px) {
+  .type-viz-name {
+    font-size: var(--type-base);
+  }
+}
+
+.type-date-day {
+  font-size: var(--type-date-day);
+  line-height: 1;
+  font-weight: 500;
+}
+
+.type-player-title {
+  font-size: var(--type-player-title);
+  line-height: 1.2;
+  font-weight: 500;
+}
+
+.type-player-title-fs {
+  font-size: var(--type-player-title-fs);
+  line-height: 1.1;
+  font-weight: 500;
+}
+
+.type-player-artist-fs {
+  font-size: var(--type-player-artist-fs);
+  line-height: 1.25;
+}
+
+.type-player-album-fs {
+  font-size: var(--type-player-album-fs);
+  line-height: 1.3;
+}
+
+.hero-cosmic-grain,
+.section-cosmic-grain {
   pointer-events: none;
   opacity: 0.06;
   mix-blend-mode: overlay;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   background-repeat: repeat;
   background-size: 180px 180px;
+}
+
+.section-cosmic-grain {
+  opacity: 0.05;
 }
 
 /* About band photo — slightly stronger grain for archive/zine feel */
@@ -327,11 +545,95 @@ img, picture, video, canvas, svg {
 .hero-copy-scrim {
   background: linear-gradient(
     180deg,
-    rgba(5, 5, 8, 0.35) 0%,
-    rgba(5, 5, 8, 0.62) 45%,
-    rgba(5, 5, 8, 0.5) 100%
+    color-mix(in srgb, var(--void) 35%, transparent) 0%,
+    color-mix(in srgb, var(--void) 62%, transparent) 45%,
+    color-mix(in srgb, var(--void) 50%, transparent) 100%
   );
   box-shadow:
-    0 0 0 1px rgba(147, 51, 234, 0.12),
+    0 0 0 1px color-mix(in srgb, var(--signal-purple) 12%, transparent),
     0 8px 32px rgba(0, 0, 0, 0.45);
+}
+
+/* Section ambient radial washes */
+.bg-ambient-default {
+  background: radial-gradient(
+    ellipse 70% 45% at 50% 0%,
+    var(--ambient-purple-spot) 0%,
+    transparent 58%
+  );
+}
+
+.bg-ambient-editorial {
+  background:
+    radial-gradient(
+      ellipse 80% 55% at 18% 30%,
+      var(--ambient-purple-editorial) 0%,
+      transparent 55%
+    ),
+    radial-gradient(
+      ellipse 60% 40% at 85% 70%,
+      var(--ambient-green-spot) 0%,
+      transparent 50%
+    );
+}
+
+/* Hero illustration overlays */
+.bg-hero-fade {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--void) 12%, transparent) 0%,
+    transparent 28%,
+    transparent 48%,
+    color-mix(in srgb, var(--void) 55%, transparent) 72%,
+    color-mix(in srgb, var(--void) 92%, transparent) 88%,
+    color-mix(in srgb, var(--void) 98%, transparent) 100%
+  );
+}
+
+.bg-hero-purple-glow {
+  background: radial-gradient(
+    ellipse 90% 55% at 50% 88%,
+    var(--signal-purple-muted) 0%,
+    transparent 70%
+  );
+}
+
+.drop-shadow-hero-logo {
+  filter: drop-shadow(0 4px 24px rgba(0, 0, 0, 0.85))
+    drop-shadow(0 0 48px var(--signal-purple-glow));
+}
+
+/* Newsletter / dialog decorative radials */
+.bg-radial-purple-top {
+  background: radial-gradient(
+    ellipse 120% 80% at 50% -20%,
+    var(--signal-purple-subtle) 0%,
+    transparent
+  );
+}
+
+.bg-radial-green-bottom {
+  background: radial-gradient(
+    ellipse 80% 60% at 100% 100%,
+    var(--neon-green-subtle) 0%,
+    transparent
+  );
+}
+
+/* Member tag pill shadows */
+.shadow-member-tag {
+  box-shadow: var(--shadow-inset-highlight), var(--shadow-inset-green-ring);
+}
+
+.shadow-member-tag:hover {
+  box-shadow: 0 0 18px var(--neon-green-muted), var(--shadow-inset-highlight);
+}
+
+/* About photo vignette */
+.bg-void-vignette {
+  background: radial-gradient(
+    ellipse 90% 80% at 50% 50%,
+    transparent 40%,
+    var(--void-scrim) 100%
+  );
 }

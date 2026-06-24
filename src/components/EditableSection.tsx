@@ -1,8 +1,16 @@
 import { ReactNode, useState } from 'react';
-import { Edit2, Eye, EyeOff, Upload, Trash2 } from 'lucide-react';
+import { Eye, EyeOff, Upload, Trash2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { useEditMode } from '../contexts/EditModeContext';
 import { validateAudioFile } from '../lib/audioOptimization';
+import {
+  editorChromeButtonClass,
+  editorDestructiveGhostClass,
+  editorDialogFooterClass,
+  editorSectionLabelClass,
+} from '../lib/editorStyles';
+import { EditorCallout } from './editor/EditorCallout';
+import { cn } from './ui/utils';
 import {
   Dialog,
   DialogContent,
@@ -15,6 +23,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Switch } from './ui/switch';
+import type { ButtonProps } from './ui/button';
 
 interface EditableSectionProps {
   children: ReactNode;
@@ -37,7 +46,7 @@ export function EditableSection({
 
   return (
     <div
-      className={`relative ${!visible && isEditMode ? 'opacity-50' : ''}`}
+      className={cn('relative', !visible && isEditMode && 'opacity-50')}
       data-section={sectionName.toLowerCase()}
     >
       {isEditMode && (
@@ -46,7 +55,7 @@ export function EditableSection({
             variant="secondary"
             size="sm"
             onClick={() => onVisibilityChange(!visible)}
-            className="bg-black/50 hover:bg-black/70"
+            className={editorChromeButtonClass}
           >
             {visible ? (
               <>
@@ -60,13 +69,25 @@ export function EditableSection({
               </>
             )}
           </Button>
-          <div className="px-2 py-1 bg-black/50 rounded text-xs text-white">
-            {sectionName}
-          </div>
+          <div className={editorSectionLabelClass}>{sectionName}</div>
         </div>
       )}
       {children}
     </div>
+  );
+}
+
+/** Standard edit dialog trigger — glass overlay on section chrome */
+export function EditTriggerButton({ className, children, ...props }: ButtonProps) {
+  return (
+    <Button
+      variant="secondary"
+      size="sm"
+      className={cn(editorChromeButtonClass, className)}
+      {...props}
+    >
+      {children}
+    </Button>
   );
 }
 
@@ -112,7 +133,7 @@ export function EditDialog({ trigger, title, children, onSave, onOpenChange }: E
           {children}
         </div>
         {onSave && (
-          <div className="border-t border-border px-6 py-4 bg-card">
+          <div className={editorDialogFooterClass}>
             <Button onClick={handleSave} className="w-full">
               Save Changes
             </Button>
@@ -192,7 +213,7 @@ export function ImageUpload({ label, currentImage, onUpload, aspectRatio, bucket
             type="button"
             variant="outline"
             onClick={() => onUpload('')}
-            className="text-red-500 hover:text-red-600"
+            className={editorDestructiveGhostClass}
           >
             <Trash2 className="h-4 w-4 mr-2" />
             Remove
@@ -280,22 +301,14 @@ export function AudioUpload({ label, currentUrl, onUpload }: AudioUploadProps) {
         </audio>
       )}
       
-      {/* Error message */}
-      {error && (
-        <div className="rounded-lg bg-red-500/10 border border-red-500/30 p-3">
-          <p className="text-xs text-red-300">⚠️ {error}</p>
-        </div>
-      )}
-      
-      {/* File size info */}
+      {error && <EditorCallout variant="error">⚠️ {error}</EditorCallout>}
+
       {!currentUrl && !error && (
-        <div className="rounded-lg bg-blue-500/10 border border-blue-500/30 p-3">
-          <p className="text-xs text-blue-300">
-            ℹ️ Max 50MB. Formats: MP3, WAV, FLAC, OGG, AAC, M4A (M4A uploads as{' '}
-            <code className="text-blue-200">audio/mp4</code>). Bucket:{' '}
-            <code className="text-blue-200">audio/*</code> or leave types unrestricted.
-          </p>
-        </div>
+        <EditorCallout variant="info">
+          ℹ️ Max 50MB. Formats: MP3, WAV, FLAC, OGG, AAC, M4A (M4A uploads as{' '}
+          <code className="text-signal-purple-bright/80">audio/mp4</code>). Bucket:{' '}
+          <code className="text-signal-purple-bright/80">audio/*</code> or leave types unrestricted.
+        </EditorCallout>
       )}
       
       <div className="flex gap-2">
@@ -323,7 +336,7 @@ export function AudioUpload({ label, currentUrl, onUpload }: AudioUploadProps) {
               onUpload('');
               setError(null);
             }}
-            className="text-red-500 hover:text-red-600"
+            className={editorDestructiveGhostClass}
           >
             <Trash2 className="h-4 w-4 mr-2" />
             Remove

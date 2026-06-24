@@ -1,10 +1,16 @@
 import { useState } from 'react';
-import { Edit2, Plus, Trash2, Eye, EyeOff } from 'lucide-react';
+import { Edit2, Plus, Trash2, Eye, EyeOff, ChevronUp, ChevronDown } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { useEditMode } from '../contexts/EditModeContext';
-import { EditDialog, ImageUpload } from './EditableSection';
+import { EditDialog, EditTriggerButton, ImageUpload } from './EditableSection';
+import {
+  editorDestructiveGhostClass,
+  editorPanelTitleClass,
+  editorReorderButtonClass,
+  editorRowCardClass,
+} from '../lib/editorStyles';
 import {
   Accordion,
   AccordionContent,
@@ -31,6 +37,14 @@ export function GalleryEditDialog() {
 
   const handleRemoveTab = (id: string) => {
     setTabs(tabs.filter((t) => t.id !== id));
+  };
+
+  const handleMoveTab = (fromIndex: number, direction: 'up' | 'down') => {
+    const toIndex = direction === 'up' ? fromIndex - 1 : fromIndex + 1;
+    if (toIndex < 0 || toIndex >= tabs.length) return;
+    const nextTabs = [...tabs];
+    [nextTabs[fromIndex], nextTabs[toIndex]] = [nextTabs[toIndex], nextTabs[fromIndex]];
+    setTabs(nextTabs);
   };
 
   const handleUpdateTab = (id: string, field: string, value: string | number | boolean) => {
@@ -110,14 +124,10 @@ export function GalleryEditDialog() {
   return (
     <EditDialog
       trigger={
-        <Button
-          variant="secondary"
-          size="sm"
-          className="bg-black/50 hover:bg-black/70"
-        >
+        <EditTriggerButton>
           <Edit2 className="h-4 w-4 mr-2" />
           Edit
-        </Button>
+        </EditTriggerButton>
       }
       title="Edit Gallery"
       onOpenChange={(open) => {
@@ -146,16 +156,42 @@ export function GalleryEditDialog() {
       </Button>
 
       <Accordion type="single" collapsible className="w-full">
-          {tabs.map((tab) => (
+          {tabs.map((tab, index) => (
             <AccordionItem key={tab.id} value={tab.id}>
-              <AccordionTrigger>
-                <div className="flex items-center gap-2">
+              <AccordionTrigger className="group">
+                <div className="flex items-center gap-2 w-full min-w-0">
+                  <div className="flex shrink-0" onClick={(e) => e.stopPropagation()}>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className={editorReorderButtonClass}
+                      onClick={() => handleMoveTab(index, 'up')}
+                      disabled={index === 0}
+                      aria-label={`Move ${tab.name} up`}
+                    >
+                      <ChevronUp className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className={editorReorderButtonClass}
+                      onClick={() => handleMoveTab(index, 'down')}
+                      disabled={index === tabs.length - 1}
+                      aria-label={`Move ${tab.name} down`}
+                    >
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </div>
                   {tab.visible ? (
-                    <Eye className="h-4 w-4" />
+                    <Eye className="h-4 w-4 shrink-0" />
                   ) : (
-                    <EyeOff className="h-4 w-4" />
+                    <EyeOff className="h-4 w-4 shrink-0" />
                   )}
-                  {tab.name} ({tab.images.length} images)
+                  <span className="truncate">
+                    {tab.name} ({tab.images.length} images)
+                  </span>
                 </div>
               </AccordionTrigger>
               <AccordionContent>
@@ -174,7 +210,7 @@ export function GalleryEditDialog() {
                       variant="outline"
                       size="sm"
                       onClick={() => handleRemoveTab(tab.id)}
-                      className="text-red-500 hover:text-red-600"
+                      className={editorDestructiveGhostClass}
                     >
                       <Trash2 className="h-4 w-4 mr-2" />
                       Remove Tab
@@ -193,7 +229,7 @@ export function GalleryEditDialog() {
 
                   <div className="border-t pt-4 mt-4">
                     <div className="flex items-center justify-between mb-4">
-                      <h4 className="font-medium">Images</h4>
+                      <h4 className={editorPanelTitleClass}>Images</h4>
                       <Button
                         onClick={() => handleAddImage(tab.id)}
                         size="sm"
@@ -206,17 +242,14 @@ export function GalleryEditDialog() {
 
                     <div className="space-y-4">
                       {tab.images.map((image, index) => (
-                        <div
-                          key={image.id}
-                          className="border rounded-lg p-4 space-y-3"
-                        >
+                        <div key={image.id} className={editorRowCardClass}>
                           <div className="flex items-center justify-between">
                             <span className="text-sm">Image {index + 1}</span>
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => handleRemoveImage(tab.id, image.id)}
-                              className="text-red-500 hover:text-red-600"
+                              className={editorDestructiveGhostClass}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>

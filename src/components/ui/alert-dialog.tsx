@@ -5,6 +5,7 @@ import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog@1.1.6";
 
 import { cn } from "./utils";
 import { buttonVariants } from "./button";
+import { brandOverlayScrimClass } from "../../lib/brandClasses";
 
 function AlertDialog({
   ...props
@@ -35,10 +36,7 @@ function AlertDialogOverlay({
   return (
     <AlertDialogPrimitive.Overlay
       data-slot="alert-dialog-overlay"
-      className={cn(
-        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/50",
-        className,
-      )}
+      className={cn(brandOverlayScrimClass, "z-50", className)}
       {...props}
     />
   );

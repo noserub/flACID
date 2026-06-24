@@ -4,11 +4,13 @@ import { ImageWithFallback } from './figma/ImageWithFallback';
 import { Calendar, Music } from 'lucide-react';
 import { useEditMode } from '../contexts/EditModeContext';
 import { useDescentSectionLiftClass } from '../hooks/useDescentSectionStacking';
-import { brandSectionWashClass } from '../lib/brandClasses';
 import { cn } from './ui/utils';
 import { EditableSection } from './EditableSection';
 import { DiscographyEditDialog } from './DiscographyEditDialog';
 import { SectionTitle } from './SectionTitle';
+import { SectionAmbient } from './SectionAmbient';
+import { cardTitle, caption } from '../lib/typography';
+import { border, gradient, shadow } from '../lib/colors';
 
 const defaultAlbumImage = 'https://images.unsplash.com/photo-1564178413634-1ec30062c5e2?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx2aW55bCUyMHJlY29yZCUyMGFsYnVtfGVufDF8fHx8MTc2MDIyOTk5N3ww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral';
 
@@ -25,8 +27,14 @@ const AlbumCard = memo(function AlbumCard({ album, index }: AlbumCardProps) {
       viewport={{ once: true }}
       transition={{ duration: 0.6, delay: index * 0.1 }}
     >
-      <div className="group relative bg-card border border-border rounded-lg overflow-hidden hover:border-primary/50 transition-all duration-300 shadow-lg hover:shadow-[rgba(88,28,135,0.2)]">
-        <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-[rgba(88,28,135,0.2)] to-[rgba(74,222,128,0.08)]">
+      <div
+        className={cn(
+          'group relative bg-card border border-border rounded-lg overflow-hidden transition-all duration-300 shadow-lg',
+          border.brandCardHover,
+          shadow.hoverPurple
+        )}
+      >
+        <div className={cn('relative aspect-square overflow-hidden', gradient.albumCover)}>
           <ImageWithFallback
             src={album.coverImage || defaultAlbumImage}
             alt={album.title}
@@ -45,8 +53,8 @@ const AlbumCard = memo(function AlbumCard({ album, index }: AlbumCardProps) {
           </div>
         </div>
         <div className="p-6 space-y-3">
-          <h3 className="text-2xl text-foreground group-hover:text-primary transition-colors">{album.title}</h3>
-          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+          <h3 className={cardTitle}>{album.title}</h3>
+          <div className={cn('flex items-center gap-4', caption)}>
             <div className="flex items-center gap-1">
               <Calendar className="w-4 h-4" />
               <span>{album.year}</span>
@@ -76,7 +84,9 @@ export function AlbumsSection() {
         updateContent('discography', { ...content.discography, visible })
       }
     >
-      <section className={cn('py-20 px-4', brandSectionWashClass)}>
+      <section className="relative overflow-hidden py-20 px-4">
+        <SectionAmbient />
+        <div className="relative">
         <div className={cn('max-w-7xl mx-auto', sectionLift)}>
           <div id="journey-section-head" className="text-center mb-16 scroll-mt-28">
             <SectionTitle subtitle="Chronicles of sound and consciousness">
@@ -93,9 +103,10 @@ export function AlbumsSection() {
             {albums.map((album, index) => (
               <AlbumCard key={album.id} album={album} index={index} />
             ))}
+          </div>
         </div>
-      </div>
-    </section>
+        </div>
+      </section>
     </EditableSection>
   );
 }

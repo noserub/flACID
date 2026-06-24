@@ -208,6 +208,12 @@ Step outside the standard verse-chorus structure and into a landscape of shiftin
     subtitle: 'Captured moments from our journey',
     tabs: [
       {
+        id: 'visuals',
+        name: 'Visuals',
+        visible: true,
+        images: [],
+      },
+      {
         id: 'live',
         name: 'Live',
         visible: true,

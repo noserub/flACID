@@ -7,11 +7,20 @@ import { ImageWithFallback } from './figma/ImageWithFallback';
 import Masonry, { ResponsiveMasonry } from 'react-responsive-masonry';
 import { useEditMode } from '../contexts/EditModeContext';
 import { useDescentSectionLiftClass } from '../hooks/useDescentSectionStacking';
-import { brandSectionWashClass } from '../lib/brandClasses';
-import { cn } from './ui/utils';
+import { OverlayChromeButton } from './OverlayChromeButton';
+import { brandLightboxCaptionClass, brandLightboxSurfaceClass } from '../lib/brandClasses';
+import { gradient, shadow } from '../lib/colors';
+import { zIndex } from '../lib/layoutTokens';
 import { EditableSection } from './EditableSection';
 import { GalleryEditDialog } from './GalleryEditDialog';
 import { SectionTitle } from './SectionTitle';
+import { SectionAmbient } from './SectionAmbient';
+import { VisualizationShowcase } from './VisualizationShowcase';
+import { cn } from './ui/utils';
+
+function isVisualsTab(name: string, id: string): boolean {
+  return /visual/i.test(name) || id === 'visuals';
+}
 
 export function PhotoGallery() {
   const { content, isEditMode, updateContent } = useEditMode();
@@ -23,7 +32,9 @@ export function PhotoGallery() {
   const visibleTabs = useMemo(() => {
     const byVisibility = tabs.filter((tab) => tab.visible || isEditMode);
     if (isEditMode) return byVisibility;
-    return byVisibility.filter((tab) => tab.images.length > 0);
+    return byVisibility.filter(
+      (tab) => tab.images.length > 0 || isVisualsTab(tab.name, tab.id)
+    );
   }, [tabs, isEditMode]);
   useEffect(() => {
     if (activeTab >= visibleTabs.length && visibleTabs.length > 0) {
@@ -79,9 +90,10 @@ export function PhotoGallery() {
         updateContent('gallery', { ...content.gallery, visible })
       }
     >
-      <section className={cn('py-20 px-4 relative overflow-hidden', brandSectionWashClass)}>
-        
-        <div className={cn('max-w-7xl mx-auto', sectionLift)}>
+      <section className="relative overflow-hidden py-20 px-4">
+        <SectionAmbient />
+
+        <div className={cn('relative max-w-7xl mx-auto', sectionLift)}>
           <div className="text-center mb-12">
             <SectionTitle subtitle={content.gallery.subtitle || undefined}>
               {content.gallery.title}
@@ -96,12 +108,15 @@ export function PhotoGallery() {
           {/* Gallery Tabs */}
           {visibleTabs.length > 0 && (
             <Tabs value={activeTab.toString()} className="mb-8" onValueChange={(value) => setActiveTab(parseInt(value))}>
-              <TabsList className={`grid w-full max-w-2xl mx-auto bg-card border border-border`} style={{ gridTemplateColumns: `repeat(${visibleTabs.length}, 1fr)` }}>
+              <TabsList
+                className="grid w-full max-w-2xl mx-auto"
+                style={{ gridTemplateColumns: `repeat(${visibleTabs.length}, 1fr)` }}
+              >
                 {visibleTabs.map((tab, index) => (
-                  <TabsTrigger 
+                  <TabsTrigger
                     key={tab.id}
                     value={index.toString()}
-                    className={`data-[state=active]:bg-primary data-[state=active]:text-primary-foreground ${!tab.visible && isEditMode ? 'opacity-50' : ''}`}
+                    className={cn(!tab.visible && isEditMode && 'opacity-50')}
                   >
                     {tab.name}
                     {!tab.visible && isEditMode && ' (Hidden)'}
@@ -111,7 +126,10 @@ export function PhotoGallery() {
             </Tabs>
           )}
 
-        {/* Photo Grid — Masonry needs each photo as a direct child (no AnimatePresence wrapper) */}
+        {visibleTabs[activeTab] && isVisualsTab(visibleTabs[activeTab].name, visibleTabs[activeTab].id) ? (
+          <VisualizationShowcase className="mb-8" />
+        ) : (
+        /* Photo Grid — Masonry needs each photo as a direct child (no AnimatePresence wrapper) */
         <motion.div layout className="mb-8">
           <ResponsiveMasonry
             columnsCountBreakPoints={{ 350: 1, 640: 2, 1024: 3 }}
@@ -151,11 +169,12 @@ export function PhotoGallery() {
             </Masonry>
           </ResponsiveMasonry>
         </motion.div>
+        )}
       </div>
 
       {/* Lightbox Modal */}
       <Dialog open={!!selectedPhoto} onOpenChange={handleDialogChange}>
-        <DialogContent className="!max-w-[98vw] w-[98vw] h-[98vh] min-h-[80vh] p-0 bg-black/95 border-purple-500/30" hideCloseButton>
+        <DialogContent className={brandLightboxSurfaceClass} hideCloseButton>
           <DialogTitle className="sr-only">
             {selectedPhoto?.caption || 'Photo'}
           </DialogTitle>
@@ -175,38 +194,37 @@ export function PhotoGallery() {
                   if (e.target === e.currentTarget) handleCloseLightbox();
                 }}
               >
-                {/* Close Button - lower on mobile to clear browser toolbar */}
-                <button
+                <OverlayChromeButton
                   onClick={handleCloseLightbox}
-                  className="absolute top-16 right-4 sm:top-4 z-[10250] min-w-[44px] min-h-[44px] rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center transition-colors border border-purple-500/30"
+                  className={cn('absolute top-16 right-4 sm:top-4', zIndex.lightboxChrome)}
                   aria-label="Close dialog"
                 >
                   <X className="w-6 h-6" />
-                </button>
+                </OverlayChromeButton>
 
-                {/* Previous Button */}
-                <button
+                <OverlayChromeButton
                   onClick={(e) => {
                     e.stopPropagation();
                     handlePrevious();
                   }}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 z-50 w-12 h-12 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center transition-colors border border-purple-500/30"
+                  size="lg"
+                  className={cn('absolute left-4 top-1/2 -translate-y-1/2', zIndex.overlay)}
                   aria-label="Previous photo"
                 >
                   <ChevronLeft className="w-8 h-8" />
-                </button>
+                </OverlayChromeButton>
 
-                {/* Next Button */}
-                <button
+                <OverlayChromeButton
                   onClick={(e) => {
                     e.stopPropagation();
                     handleNext();
                   }}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 z-50 w-12 h-12 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center transition-colors border border-purple-500/30"
+                  size="lg"
+                  className={cn('absolute right-4 top-1/2 -translate-y-1/2', zIndex.overlay)}
                   aria-label="Next photo"
                 >
                   <ChevronRight className="w-8 h-8" />
-                </button>
+                </OverlayChromeButton>
 
                 {/* Image */}
                 <div className="relative max-w-full max-h-full flex items-center justify-center">
@@ -214,17 +232,22 @@ export function PhotoGallery() {
                     src={selectedPhoto.url}
                     alt={selectedPhoto.caption || 'Gallery image'}
                     decoding="async"
-                    className="max-w-full max-h-[calc(98vh-5rem)] w-auto h-auto object-contain rounded-lg shadow-2xl shadow-purple-900/50"
+                    className={cn('max-w-full max-h-[calc(98vh-5rem)] w-auto h-auto object-contain rounded-lg', shadow.card)}
                   />
                   
-                  {/* Psychedelic Glow */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-pink-500/10 to-fuchsia-500/10 rounded-lg pointer-events-none" />
+                  <div
+                    className={cn(
+                      'absolute inset-0 rounded-lg pointer-events-none',
+                      gradient.brandSurface,
+                      'opacity-10'
+                    )}
+                  />
                 </div>
 
                 {/* Caption */}
                 {selectedPhoto.caption && (
                   <div className="absolute bottom-4 left-4 right-4 text-center">
-                    <p className="text-white text-lg drop-shadow-lg bg-black/50 rounded-lg px-4 py-2 inline-block">
+                    <p className={brandLightboxCaptionClass}>
                       {selectedPhoto.caption}
                     </p>
                   </div>

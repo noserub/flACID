@@ -71,4 +71,4 @@ export const VISUALIZATION_TYPES = [
   'waveform',
 ] as const;
 
-export { BRAND_COLORS, HERO_COPY } from './brand';
+export { BRAND_COLORS, COLOR_VALUES, HERO_COPY } from './brand';

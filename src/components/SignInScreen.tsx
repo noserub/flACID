@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { heading, caption } from '../lib/typography';
+import { cn } from './ui/utils';
 import { motion } from 'motion/react';
 import { Lock, Mail, Loader2 } from 'lucide-react';
 import { Button } from './ui/button';
@@ -40,8 +41,8 @@ export function SignInScreen() {
             <div className="w-14 h-14 rounded-full bg-primary/20 flex items-center justify-center mb-4">
               <Lock className="w-7 h-7 text-primary" />
             </div>
-            <h1 className="text-2xl font-bold text-foreground">Admin Access</h1>
-            <p className="text-muted-foreground text-sm mt-1">
+            <h1 className={heading}>Admin Access</h1>
+            <p className={cn(caption, 'mt-1')}>
               Sign in to manage site content
             </p>
           </div>
