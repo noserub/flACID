@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * Records WebM preview loops + WebP poster stills for all visualization modes.
+ * Records 60fps WebM preview loops + PNG poster stills for all visualization modes.
+ * Uses canvas MediaRecorder (smooth); falls back to Playwright video if needed.
  *
  * Usage:
  *   npm run capture:viz-previews
@@ -18,8 +19,8 @@ const ROOT = join(__dirname, '..');
 const OUT_DIR = join(ROOT, 'public', 'viz-previews');
 const TMP_VIDEO_DIR = join(ROOT, '.viz-capture-tmp');
 const NUM_VIZ = 20;
-const WARMUP_MS = 1200;
-const RECORD_MS = 4500;
+const WARMUP_MS = 1000;
+const PLAYWRIGHT_RECORD_MS = 5000;
 
 const SLUGS = [
   '00-organic-flow',
@@ -80,10 +81,48 @@ async function maybeStartDevServer() {
   }
 }
 
-async function captureAll() {
-  mkdirSync(OUT_DIR, { recursive: true });
+async function capturePoster(page) {
+  const posterBase64 = await page.evaluate(() => window.__captureVizPoster?.() ?? null);
+  if (!posterBase64?.startsWith('data:image/png')) {
+    throw new Error('Poster capture failed');
+  }
+  return Buffer.from(posterBase64.split(',')[1], 'base64');
+}
+
+async function captureCanvasWebm(page) {
+  const buffer = await page.evaluate(async () => {
+    if (!window.__recordVizPreview) {
+      throw new Error('__recordVizPreview not exposed');
+    }
+    const ab = await window.__recordVizPreview();
+    return Array.from(new Uint8Array(ab));
+  });
+  if (buffer.length < 8_000) {
+    throw new Error(`Recording too small (${buffer.length} bytes)`);
+  }
+  return Buffer.from(buffer);
+}
+
+async function capturePlaywrightWebm(browser, viz, webmPath) {
   rmSync(TMP_VIDEO_DIR, { recursive: true, force: true });
   mkdirSync(TMP_VIDEO_DIR, { recursive: true });
+
+  const context = await browser.newContext({
+    viewport: VIEWPORT,
+    recordVideo: { dir: TMP_VIDEO_DIR, size: VIEWPORT },
+  });
+  const page = await context.newPage();
+  await page.goto(`${BASE_URL}/capture-viz?viz=${viz}`, { waitUntil: 'networkidle' });
+  await page.waitForFunction(() => window.__vizCaptureReady === true, { timeout: 30_000 });
+  await page.waitForTimeout(WARMUP_MS + PLAYWRIGHT_RECORD_MS);
+  const video = page.video();
+  await context.close();
+  if (!video) throw new Error('Playwright fallback produced no video');
+  await video.saveAs(webmPath);
+}
+
+async function captureAll() {
+  mkdirSync(OUT_DIR, { recursive: true });
 
   const devProc = await maybeStartDevServer();
 
@@ -98,65 +137,33 @@ async function captureAll() {
   });
 
   try {
+    const context = await browser.newContext({ viewport: VIEWPORT });
+    const page = await context.newPage();
+
     for (const viz of vizIndices) {
       const slug = SLUGS[viz];
       const webmPath = join(OUT_DIR, `${slug}.webm`);
       const posterPath = join(OUT_DIR, `${slug}.png`);
       console.log(`Recording viz ${viz} → ${slug}`);
 
-      const context = await browser.newContext({
-        viewport: VIEWPORT,
-        deviceScaleFactor: 1,
-        recordVideo: { dir: TMP_VIDEO_DIR, size: VIEWPORT },
-      });
-      const page = await context.newPage();
-
       await page.goto(`${BASE_URL}/capture-viz?viz=${viz}`, { waitUntil: 'networkidle' });
       await page.waitForFunction(() => window.__vizCaptureReady === true, { timeout: 30_000 });
-      await page.waitForTimeout(WARMUP_MS);
+      await page.waitForTimeout(400);
 
-      const posterBase64 = await page.evaluate(() => {
-        const root = document.querySelector('[data-capture-root]');
-        if (!root) return null;
-        const canvases = root.querySelectorAll('canvas');
-        let canvas = null;
-        for (const el of canvases) {
-          if (window.getComputedStyle(el).display !== 'none') {
-            canvas = el;
-            break;
-          }
-        }
-        if (!canvas) return null;
-        try {
-          return canvas.toDataURL('image/png');
-        } catch {
-          return null;
-        }
-      });
+      writeFileSync(posterPath, await capturePoster(page));
+      console.log(`  poster ${Math.round(statSync(posterPath).size / 1024)} KB`);
 
-      if (!posterBase64?.startsWith('data:image/png')) {
-        throw new Error(`Poster capture failed for viz ${viz}`);
+      try {
+        writeFileSync(webmPath, await captureCanvasWebm(page));
+        console.log(`  webm ${Math.round(statSync(webmPath).size / 1024)} KB (60fps canvas)`);
+      } catch (err) {
+        console.warn(`  canvas record failed (${err.message}), Playwright fallback…`);
+        await capturePlaywrightWebm(browser, viz, webmPath);
+        console.log(`  webm ${Math.round(statSync(webmPath).size / 1024)} KB (fallback)`);
       }
-      writeFileSync(posterPath, Buffer.from(posterBase64.split(',')[1], 'base64'));
-      const posterKb = Math.round(statSync(posterPath).size / 1024);
-      console.log(`  poster ${posterKb} KB`);
-
-      await page.waitForTimeout(RECORD_MS);
-
-      const video = page.video();
-      await context.close();
-
-      if (!video) {
-        throw new Error(`No video recorded for viz ${viz}`);
-      }
-
-      await video.saveAs(webmPath);
-      const webmKb = Math.round(statSync(webmPath).size / 1024);
-      if (webmKb < 8) {
-        throw new Error(`Recording too small (${webmKb} KB)`);
-      }
-      console.log(`  webm ${webmKb} KB`);
     }
+
+    await context.close();
   } finally {
     await browser.close();
     devProc?.kill('SIGTERM');

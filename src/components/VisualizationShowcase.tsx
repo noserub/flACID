@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X } from 'lucide-react';
+import { PsychedelicVisualizer } from './PsychedelicVisualizer';
 import { usePlayback } from '../contexts/PlaybackContext';
 import { VISUALIZATION_NAMES } from '../lib/visualizationNames';
-import { vizPreviewPosterPath, vizPreviewWebmPath } from '../lib/vizPreviewPaths';
+import { vizPreviewPosterPath } from '../lib/vizPreviewPaths';
 import { Button } from './ui/button';
 import {
   Dialog,
@@ -36,36 +37,21 @@ interface VisualizationShowcaseProps {
   className?: string;
 }
 
-/** Detail modal — autoplay loop at full quality. */
-function VizPreviewDetailVideo({ vizId }: { vizId: number }) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const poster = vizPreviewPosterPath(vizId);
-  const src = vizPreviewWebmPath(vizId);
-
-  useEffect(() => {
-    const v = videoRef.current;
-    if (!v) return;
-    v.currentTime = 0;
-    v.play().catch(() => {});
-  }, [vizId]);
-
+/** Live engine preview — same renderer as the player. */
+function VizLivePreview({ vizId, className }: { vizId: number; className?: string }) {
   return (
-    <video
-      ref={videoRef}
-      src={src}
-      poster={poster}
-      className="absolute inset-0 h-full w-full object-cover"
-      autoPlay
-      loop
-      muted
-      playsInline
-      preload="auto"
-      aria-hidden
-    />
+    <div className={cn('absolute inset-0 overflow-hidden', className)}>
+      <PsychedelicVisualizer
+        analyser={null}
+        isPlaying
+        currentTrack={0}
+        visualizationId={vizId}
+      />
+    </div>
   );
 }
 
-/** Grid card — static poster; animates on hover only. */
+/** Grid card — static poster; live viz on hover. */
 function VizPreviewCard({
   vizId,
   name,
@@ -77,26 +63,8 @@ function VizPreviewCard({
   index: number;
   onOpen: () => void;
 }) {
-  const videoRef = useRef<HTMLVideoElement>(null);
   const [isHovering, setIsHovering] = useState(false);
   const poster = vizPreviewPosterPath(vizId);
-  const src = vizPreviewWebmPath(vizId);
-
-  const handleMouseEnter = useCallback(() => {
-    setIsHovering(true);
-    const v = videoRef.current;
-    if (!v) return;
-    v.currentTime = 0;
-    v.play().catch(() => {});
-  }, []);
-
-  const handleMouseLeave = useCallback(() => {
-    setIsHovering(false);
-    const v = videoRef.current;
-    if (!v) return;
-    v.pause();
-    v.currentTime = 0;
-  }, []);
 
   return (
     <motion.button
@@ -106,45 +74,32 @@ function VizPreviewCard({
       viewport={{ once: true, amount: 0.2 }}
       transition={{ duration: 0.4, delay: index * 0.02 }}
       onClick={onOpen}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-      onFocus={handleMouseEnter}
-      onBlur={handleMouseLeave}
+      onMouseEnter={() => setIsHovering(true)}
+      onMouseLeave={() => setIsHovering(false)}
+      onFocus={() => setIsHovering(true)}
+      onBlur={() => setIsHovering(false)}
       className={cn(
         'group relative aspect-[4/3] overflow-hidden rounded-xl text-left',
         'border border-signal-purple/40 bg-void',
         'shadow-[0_8px_28px_rgba(0,0,0,0.35)]',
-        'transition-all duration-300',
+        'transition-[border-color,box-shadow] duration-300',
         'hover:border-neon-green/50 hover:shadow-[0_0_24px_rgba(74,222,128,0.18)]',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-green/50'
       )}
     >
-      <img
-        src={poster}
-        alt=""
-        loading="lazy"
-        decoding="async"
-        className={cn(
-          'absolute inset-0 h-full w-full object-cover transition-opacity duration-300',
-          isHovering ? 'opacity-0' : 'opacity-100'
-        )}
-        aria-hidden
-      />
-      <video
-        ref={videoRef}
-        src={src}
-        loop
-        muted
-        playsInline
-        preload="none"
-        className={cn(
-          'absolute inset-0 h-full w-full object-cover transition-opacity duration-300',
-          isHovering ? 'opacity-100' : 'opacity-0'
-        )}
-        aria-hidden
-      />
+      {!isHovering && (
+        <img
+          src={poster}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          className="absolute inset-0 h-full w-full object-cover"
+          aria-hidden
+        />
+      )}
+      {isHovering && <VizLivePreview vizId={vizId} />}
       <div
-        className="absolute inset-0 bg-gradient-to-t from-void/95 via-void/25 to-transparent pointer-events-none"
+        className="absolute inset-0 bg-gradient-to-t from-void/95 via-void/20 to-transparent pointer-events-none"
         aria-hidden
       />
 
@@ -206,7 +161,7 @@ export function VisualizationShowcase({ className }: VisualizationShowcaseProps)
             {selectedName} visualization preview
           </DialogTitle>
           <DialogDescription className="sr-only">
-            Preview loop for {selectedName}. Open the hero player to experience this visualization live.
+            Live preview for {selectedName}. Open the hero player to experience this visualization with music.
           </DialogDescription>
 
           <AnimatePresence mode="wait">
@@ -216,10 +171,10 @@ export function VisualizationShowcase({ className }: VisualizationShowcaseProps)
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}
+                transition={{ duration: 0.15 }}
               >
                 <div className="relative aspect-video w-full bg-black">
-                  <VizPreviewDetailVideo vizId={selectedViz} />
+                  <VizLivePreview vizId={selectedViz} />
                   <button
                     type="button"
                     onClick={() => setSelectedViz(null)}
