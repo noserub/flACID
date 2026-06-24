@@ -8,8 +8,8 @@ import { PsychedelicVisualizer } from '../components/PsychedelicVisualizer';
 import { NUM_VISUALIZATIONS } from '../components/visualizer/visualizations';
 import { VISUALIZATION_NAMES } from '../lib/visualizationNames';
 
-const CAPTURE_W = 640;
-const CAPTURE_H = 360;
+const CAPTURE_W = 1280;
+const CAPTURE_H = 720;
 
 declare global {
   interface Window {

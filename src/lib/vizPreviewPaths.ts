@@ -13,5 +13,5 @@ export function vizPreviewWebmPath(index: number): string {
 }
 
 export function vizPreviewPosterPath(index: number): string {
-  return `/viz-previews/${vizPreviewSlug(index)}.webp`;
+  return `/viz-previews/${vizPreviewSlug(index)}.png`;
 }

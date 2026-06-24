@@ -1,10 +1,9 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Play, Sparkles, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { usePlayback } from '../contexts/PlaybackContext';
 import { VISUALIZATION_NAMES } from '../lib/visualizationNames';
-import { vizPreviewWebmPath } from '../lib/vizPreviewPaths';
-import { SECTION_SCROLL_MARGIN_PX } from '../lib/sectionNav';
+import { vizPreviewPosterPath, vizPreviewWebmPath } from '../lib/vizPreviewPaths';
 import { Button } from './ui/button';
 import {
   Dialog,
@@ -14,13 +13,13 @@ import {
 } from './ui/dialog';
 import { cn } from './ui/utils';
 
-function scrollToPlayer() {
-  const el =
-    document.getElementById('music-player') ??
-    document.getElementById('listen-section-head');
-  if (!el) return;
-  const top = el.getBoundingClientRect().top + window.scrollY - SECTION_SCROLL_MARGIN_PX;
-  window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+function scrollToHero() {
+  const el = document.getElementById('hero-stage');
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return;
+  }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function findTrackForViz(
@@ -37,42 +36,149 @@ interface VisualizationShowcaseProps {
   className?: string;
 }
 
-function VizPreviewVideo({ vizId, className }: { vizId: number; className?: string }) {
+/** Detail modal — autoplay loop at full quality. */
+function VizPreviewDetailVideo({ vizId }: { vizId: number }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const poster = vizPreviewPosterPath(vizId);
   const src = vizPreviewWebmPath(vizId);
+
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.currentTime = 0;
+    v.play().catch(() => {});
+  }, [vizId]);
 
   return (
     <video
+      ref={videoRef}
       src={src}
-      className={cn('absolute inset-0 h-full w-full object-cover', className)}
+      poster={poster}
+      className="absolute inset-0 h-full w-full object-cover"
       autoPlay
       loop
       muted
       playsInline
-      preload="metadata"
+      preload="auto"
       aria-hidden
     />
   );
 }
 
+/** Grid card — static poster; animates on hover only. */
+function VizPreviewCard({
+  vizId,
+  name,
+  index,
+  onOpen,
+}: {
+  vizId: number;
+  name: string;
+  index: number;
+  onOpen: () => void;
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isHovering, setIsHovering] = useState(false);
+  const poster = vizPreviewPosterPath(vizId);
+  const src = vizPreviewWebmPath(vizId);
+
+  const handleMouseEnter = useCallback(() => {
+    setIsHovering(true);
+    const v = videoRef.current;
+    if (!v) return;
+    v.currentTime = 0;
+    v.play().catch(() => {});
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    setIsHovering(false);
+    const v = videoRef.current;
+    if (!v) return;
+    v.pause();
+    v.currentTime = 0;
+  }, []);
+
+  return (
+    <motion.button
+      type="button"
+      initial={{ opacity: 0, y: 12 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.2 }}
+      transition={{ duration: 0.4, delay: index * 0.02 }}
+      onClick={onOpen}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      onFocus={handleMouseEnter}
+      onBlur={handleMouseLeave}
+      className={cn(
+        'group relative aspect-[4/3] overflow-hidden rounded-xl text-left',
+        'border border-signal-purple/40 bg-void',
+        'shadow-[0_8px_28px_rgba(0,0,0,0.35)]',
+        'transition-all duration-300',
+        'hover:border-neon-green/50 hover:shadow-[0_0_24px_rgba(74,222,128,0.18)]',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-green/50'
+      )}
+    >
+      <img
+        src={poster}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        className={cn(
+          'absolute inset-0 h-full w-full object-cover transition-opacity duration-300',
+          isHovering ? 'opacity-0' : 'opacity-100'
+        )}
+        aria-hidden
+      />
+      <video
+        ref={videoRef}
+        src={src}
+        loop
+        muted
+        playsInline
+        preload="none"
+        className={cn(
+          'absolute inset-0 h-full w-full object-cover transition-opacity duration-300',
+          isHovering ? 'opacity-100' : 'opacity-0'
+        )}
+        aria-hidden
+      />
+      <div
+        className="absolute inset-0 bg-gradient-to-t from-void/95 via-void/25 to-transparent pointer-events-none"
+        aria-hidden
+      />
+
+      <div className="relative flex h-full flex-col justify-end p-3 sm:p-3.5 pointer-events-none">
+        <span className="mb-0.5 text-[10px] font-medium uppercase tracking-[0.2em] text-neon-green/90">
+          Viz {index + 1}
+        </span>
+        <span className="font-hero text-sm leading-tight text-foreground sm:text-base">
+          {name}
+        </span>
+        <span className="mt-2 text-[11px] text-foreground/65 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+          Preview
+        </span>
+      </div>
+    </motion.button>
+  );
+}
+
 export function VisualizationShowcase({ className }: VisualizationShowcaseProps) {
-  const { tracks, selectTrack, setIsFullscreen, setShouldAutoPlay } = usePlayback();
+  const { tracks, selectTrack, playFromHero } = usePlayback();
   const [selectedViz, setSelectedViz] = useState<number | null>(null);
 
   const selectedName =
     selectedViz !== null ? VISUALIZATION_NAMES[selectedViz] : '';
 
-  const launchLive = useCallback(
-    (vizId: number, autoPlay: boolean) => {
+  const seeItLive = useCallback(
+    (vizId: number) => {
       const trackIndex = findTrackForViz(tracks, vizId);
-      selectTrack(trackIndex);
-      if (autoPlay) {
-        setShouldAutoPlay(true);
-      }
-      scrollToPlayer();
-      window.setTimeout(() => setIsFullscreen(true), 450);
       setSelectedViz(null);
+      selectTrack(trackIndex);
+      scrollToHero();
+      window.setTimeout(() => playFromHero(), 650);
     },
-    [tracks, selectTrack, setShouldAutoPlay, setIsFullscreen]
+    [tracks, selectTrack, playFromHero]
   );
 
   return (
@@ -84,48 +190,23 @@ export function VisualizationShowcase({ className }: VisualizationShowcaseProps)
         )}
       >
         {VISUALIZATION_NAMES.map((name, index) => (
-            <motion.button
-              key={name}
-              type="button"
-              initial={{ opacity: 0, y: 12 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, amount: 0.2 }}
-              transition={{ duration: 0.4, delay: index * 0.02 }}
-              onClick={() => setSelectedViz(index)}
-              className={cn(
-                'group relative aspect-[4/3] overflow-hidden rounded-xl text-left',
-                'border border-signal-purple/40 bg-void',
-                'shadow-[0_8px_28px_rgba(0,0,0,0.35)]',
-                'transition-all duration-300',
-                'hover:border-neon-green/50 hover:shadow-[0_0_24px_rgba(74,222,128,0.18)]',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-green/50'
-              )}
-            >
-              <VizPreviewVideo vizId={index} />
-              <div className="absolute inset-0 bg-gradient-to-t from-void/95 via-void/25 to-transparent" aria-hidden />
-
-              <div className="relative flex h-full flex-col justify-end p-3 sm:p-3.5">
-                <span className="mb-0.5 text-[10px] font-medium uppercase tracking-[0.2em] text-neon-green/90">
-                  Viz {index + 1}
-                </span>
-                <span className="font-hero text-sm leading-tight text-foreground sm:text-base">
-                  {name}
-                </span>
-                <span className="mt-2 text-[11px] text-foreground/65 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-                  Preview
-                </span>
-              </div>
-            </motion.button>
+          <VizPreviewCard
+            key={name}
+            vizId={index}
+            name={name}
+            index={index}
+            onOpen={() => setSelectedViz(index)}
+          />
         ))}
       </div>
 
       <Dialog open={selectedViz !== null} onOpenChange={(open) => !open && setSelectedViz(null)}>
-        <DialogContent className="max-w-2xl border-signal-purple/40 bg-void p-0 overflow-hidden gap-0">
+        <DialogContent className="max-w-4xl border-signal-purple/40 bg-void p-0 overflow-hidden gap-0">
           <DialogTitle className="sr-only">
             {selectedName} visualization preview
           </DialogTitle>
           <DialogDescription className="sr-only">
-            Preview loop for {selectedName}. Choose to see it live in the player or play a matching track.
+            Preview loop for {selectedName}. Open the hero player to experience this visualization live.
           </DialogDescription>
 
           <AnimatePresence mode="wait">
@@ -138,7 +219,7 @@ export function VisualizationShowcase({ className }: VisualizationShowcaseProps)
                 transition={{ duration: 0.2 }}
               >
                 <div className="relative aspect-video w-full bg-black">
-                  <VizPreviewVideo vizId={selectedViz} />
+                  <VizPreviewDetailVideo vizId={selectedViz} />
                   <button
                     type="button"
                     onClick={() => setSelectedViz(null)}
@@ -157,34 +238,15 @@ export function VisualizationShowcase({ className }: VisualizationShowcaseProps)
                     <h3 className="font-hero text-2xl text-foreground mt-1">{selectedName}</h3>
                   </div>
 
-                  <div className="flex flex-col gap-2 sm:flex-row">
+                  {tracks.some((t) => t.url) && (
                     <Button
                       type="button"
-                      className="flex-1 gap-2 bg-primary hover:bg-signal-purple-bright"
-                      onClick={() => launchLive(selectedViz, true)}
+                      className="w-full bg-primary hover:bg-signal-purple-bright"
+                      onClick={() => seeItLive(selectedViz)}
                     >
-                      <Sparkles className="h-4 w-4" aria-hidden />
                       See it live
                     </Button>
-                    {tracks.some((t) => t.url) && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="flex-1 gap-2 border-signal-purple/50 hover:border-neon-green/50"
-                        onClick={() => {
-                          const trackIndex = findTrackForViz(tracks, selectedViz);
-                          selectTrack(trackIndex);
-                          setShouldAutoPlay(true);
-                          setIsFullscreen(false);
-                          scrollToPlayer();
-                          setSelectedViz(null);
-                        }}
-                      >
-                        <Play className="h-4 w-4" aria-hidden />
-                        Play track
-                      </Button>
-                    )}
-                  </div>
+                  )}
                 </div>
               </motion.div>
             )}

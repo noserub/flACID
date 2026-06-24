@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Records WebM preview loops for all visualization modes via Playwright video capture.
+ * Records WebM preview loops + WebP poster stills for all visualization modes.
  *
  * Usage:
  *   npm run capture:viz-previews
@@ -8,7 +8,7 @@
  */
 
 import { chromium } from 'playwright';
-import { mkdirSync, rmSync, statSync } from 'node:fs';
+import { mkdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
@@ -18,8 +18,8 @@ const ROOT = join(__dirname, '..');
 const OUT_DIR = join(ROOT, 'public', 'viz-previews');
 const TMP_VIDEO_DIR = join(ROOT, '.viz-capture-tmp');
 const NUM_VIZ = 20;
-const WARMUP_MS = 900;
-const RECORD_MS = 4200;
+const WARMUP_MS = 1200;
+const RECORD_MS = 4500;
 
 const SLUGS = [
   '00-organic-flow',
@@ -46,7 +46,7 @@ const SLUGS = [
 
 const PORT = process.env.PORT || '5173';
 const BASE_URL = process.env.BASE_URL || `http://127.0.0.1:${PORT}`;
-const VIEWPORT = { width: 640, height: 360 };
+const VIEWPORT = { width: 1280, height: 720 };
 
 async function waitForServer(url, attempts = 40) {
   for (let i = 0; i < attempts; i++) {
@@ -98,24 +98,50 @@ async function captureAll() {
   });
 
   try {
-    const vizIndices = onlyEnv
-      ? onlyEnv.split(',').map((s) => parseInt(s.trim(), 10)).filter((n) => !Number.isNaN(n))
-      : Array.from({ length: NUM_VIZ }, (_, i) => i);
-
     for (const viz of vizIndices) {
       const slug = SLUGS[viz];
-      const outPath = join(OUT_DIR, `${slug}.webm`);
-      console.log(`Recording viz ${viz} → ${slug}.webm`);
+      const webmPath = join(OUT_DIR, `${slug}.webm`);
+      const posterPath = join(OUT_DIR, `${slug}.png`);
+      console.log(`Recording viz ${viz} → ${slug}`);
 
       const context = await browser.newContext({
         viewport: VIEWPORT,
+        deviceScaleFactor: 1,
         recordVideo: { dir: TMP_VIDEO_DIR, size: VIEWPORT },
       });
       const page = await context.newPage();
 
       await page.goto(`${BASE_URL}/capture-viz?viz=${viz}`, { waitUntil: 'networkidle' });
       await page.waitForFunction(() => window.__vizCaptureReady === true, { timeout: 30_000 });
-      await page.waitForTimeout(WARMUP_MS + RECORD_MS);
+      await page.waitForTimeout(WARMUP_MS);
+
+      const posterBase64 = await page.evaluate(() => {
+        const root = document.querySelector('[data-capture-root]');
+        if (!root) return null;
+        const canvases = root.querySelectorAll('canvas');
+        let canvas = null;
+        for (const el of canvases) {
+          if (window.getComputedStyle(el).display !== 'none') {
+            canvas = el;
+            break;
+          }
+        }
+        if (!canvas) return null;
+        try {
+          return canvas.toDataURL('image/png');
+        } catch {
+          return null;
+        }
+      });
+
+      if (!posterBase64?.startsWith('data:image/png')) {
+        throw new Error(`Poster capture failed for viz ${viz}`);
+      }
+      writeFileSync(posterPath, Buffer.from(posterBase64.split(',')[1], 'base64'));
+      const posterKb = Math.round(statSync(posterPath).size / 1024);
+      console.log(`  poster ${posterKb} KB`);
+
+      await page.waitForTimeout(RECORD_MS);
 
       const video = page.video();
       await context.close();
@@ -124,12 +150,12 @@ async function captureAll() {
         throw new Error(`No video recorded for viz ${viz}`);
       }
 
-      await video.saveAs(outPath);
-      const sizeKb = Math.round(statSync(outPath).size / 1024);
-      if (sizeKb < 8) {
-        throw new Error(`Recording too small (${sizeKb} KB)`);
+      await video.saveAs(webmPath);
+      const webmKb = Math.round(statSync(webmPath).size / 1024);
+      if (webmKb < 8) {
+        throw new Error(`Recording too small (${webmKb} KB)`);
       }
-      console.log(`  ✓ ${sizeKb} KB`);
+      console.log(`  webm ${webmKb} KB`);
     }
   } finally {
     await browser.close();
