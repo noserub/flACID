@@ -2,13 +2,13 @@ import { useCallback } from 'react';
 import { motion } from 'motion/react';
 import { useEditMode } from '../contexts/EditModeContext';
 import { useDescentSectionLiftClass } from '../hooks/useDescentSectionStacking';
-import { brandSectionWashClass } from '../lib/brandClasses';
 import { cn } from './ui/utils';
 import { EditableSection } from './EditableSection';
 import { VirtualizedList } from './VirtualizedList';
 import { TourEditDialog } from './TourEditDialog';
 import { NewsletterSignup } from './NewsletterSignup';
 import { SectionTitle } from './SectionTitle';
+import { SectionAmbient } from './SectionAmbient';
 import { TourTicketCard } from './TourTicketCard';
 
 const VIRTUAL_SCROLL_THRESHOLD = 20;
@@ -34,8 +34,9 @@ export function TourSection() {
       visible={content.tour.visible}
       onVisibilityChange={handleVisibilityChange}
     >
-      <section className={cn('py-20 px-4 relative overflow-hidden', brandSectionWashClass)}>
-        <div className={cn('max-w-5xl mx-auto', sectionLift)}>
+      <section className="relative overflow-hidden py-20 px-4">
+        <SectionAmbient />
+        <div className={cn('relative max-w-5xl mx-auto', sectionLift)}>
           <div className="text-center mb-16">
             <SectionTitle subtitle={content.tour.subtitle || undefined}>
               {content.tour.title}
@@ -55,6 +56,21 @@ export function TourSection() {
               getItemKey={(show) => show.id}
               renderItem={(show) => <TourTicketCard show={show} />}
             />
+          ) : tourDates.length === 0 ? (
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="mx-auto max-w-md rounded-2xl border border-dashed border-signal-purple/40 bg-card/60 px-8 py-12 text-center"
+            >
+              <p className="font-hero text-lg text-signal-purple-bright sm:text-xl">
+                No shows on the horizon
+              </p>
+              <p className="mt-3 text-sm leading-relaxed text-foreground/75 sm:text-base">
+                {content.tour.footerNote ||
+                  'Check back soon — or join the list below for when we surface from the void.'}
+              </p>
+            </motion.div>
           ) : (
             <div className="space-y-4">
               {tourDates.map((show, index) => (
@@ -78,8 +94,8 @@ export function TourSection() {
             transition={{ duration: 0.8, delay: 0.3 }}
             className="mt-12 text-center space-y-6"
           >
-            {content.tour.footerNote && (
-              <p className="text-muted-foreground">{content.tour.footerNote}</p>
+            {content.tour.footerNote && tourDates.length > 0 && (
+              <p className="text-foreground/75">{content.tour.footerNote}</p>
             )}
             <div className="flex justify-center">
               <NewsletterSignup />

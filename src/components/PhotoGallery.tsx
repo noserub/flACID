@@ -7,11 +7,16 @@ import { ImageWithFallback } from './figma/ImageWithFallback';
 import Masonry, { ResponsiveMasonry } from 'react-responsive-masonry';
 import { useEditMode } from '../contexts/EditModeContext';
 import { useDescentSectionLiftClass } from '../hooks/useDescentSectionStacking';
-import { brandSectionWashClass } from '../lib/brandClasses';
 import { cn } from './ui/utils';
 import { EditableSection } from './EditableSection';
 import { GalleryEditDialog } from './GalleryEditDialog';
 import { SectionTitle } from './SectionTitle';
+import { SectionAmbient } from './SectionAmbient';
+import { VisualizationShowcase } from './VisualizationShowcase';
+
+function isVisualsTab(name: string, id: string): boolean {
+  return /visual/i.test(name) || id === 'visuals';
+}
 
 export function PhotoGallery() {
   const { content, isEditMode, updateContent } = useEditMode();
@@ -79,9 +84,10 @@ export function PhotoGallery() {
         updateContent('gallery', { ...content.gallery, visible })
       }
     >
-      <section className={cn('py-20 px-4 relative overflow-hidden', brandSectionWashClass)}>
-        
-        <div className={cn('max-w-7xl mx-auto', sectionLift)}>
+      <section className="relative overflow-hidden py-20 px-4">
+        <SectionAmbient />
+
+        <div className={cn('relative max-w-7xl mx-auto', sectionLift)}>
           <div className="text-center mb-12">
             <SectionTitle subtitle={content.gallery.subtitle || undefined}>
               {content.gallery.title}
@@ -111,7 +117,10 @@ export function PhotoGallery() {
             </Tabs>
           )}
 
-        {/* Photo Grid — Masonry needs each photo as a direct child (no AnimatePresence wrapper) */}
+        {visibleTabs[activeTab] && isVisualsTab(visibleTabs[activeTab].name, visibleTabs[activeTab].id) ? (
+          <VisualizationShowcase className="mb-8" />
+        ) : (
+        /* Photo Grid — Masonry needs each photo as a direct child (no AnimatePresence wrapper) */
         <motion.div layout className="mb-8">
           <ResponsiveMasonry
             columnsCountBreakPoints={{ 350: 1, 640: 2, 1024: 3 }}
@@ -151,6 +160,7 @@ export function PhotoGallery() {
             </Masonry>
           </ResponsiveMasonry>
         </motion.div>
+        )}
       </div>
 
       {/* Lightbox Modal */}

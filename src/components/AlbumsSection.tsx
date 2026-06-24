@@ -4,11 +4,11 @@ import { ImageWithFallback } from './figma/ImageWithFallback';
 import { Calendar, Music } from 'lucide-react';
 import { useEditMode } from '../contexts/EditModeContext';
 import { useDescentSectionLiftClass } from '../hooks/useDescentSectionStacking';
-import { brandSectionWashClass } from '../lib/brandClasses';
 import { cn } from './ui/utils';
 import { EditableSection } from './EditableSection';
 import { DiscographyEditDialog } from './DiscographyEditDialog';
 import { SectionTitle } from './SectionTitle';
+import { SectionAmbient } from './SectionAmbient';
 
 const defaultAlbumImage = 'https://images.unsplash.com/photo-1564178413634-1ec30062c5e2?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx2aW55bCUyMHJlY29yZCUyMGFsYnVtfGVufDF8fHx8MTc2MDIyOTk5N3ww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral';
 
@@ -76,7 +76,9 @@ export function AlbumsSection() {
         updateContent('discography', { ...content.discography, visible })
       }
     >
-      <section className={cn('py-20 px-4', brandSectionWashClass)}>
+      <section className="relative overflow-hidden py-20 px-4">
+        <SectionAmbient />
+        <div className="relative">
         <div className={cn('max-w-7xl mx-auto', sectionLift)}>
           <div id="journey-section-head" className="text-center mb-16 scroll-mt-28">
             <SectionTitle subtitle="Chronicles of sound and consciousness">
@@ -93,9 +95,10 @@ export function AlbumsSection() {
             {albums.map((album, index) => (
               <AlbumCard key={album.id} album={album} index={index} />
             ))}
+          </div>
         </div>
-      </div>
-    </section>
+        </div>
+      </section>
     </EditableSection>
   );
 }

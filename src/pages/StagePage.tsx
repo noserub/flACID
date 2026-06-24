@@ -27,28 +27,9 @@ import {
   VIZ_SENSITIVITY_MIN,
 } from '../contexts/VizSensitivityContext';
 
-const VIZ_NAMES = [
-  'Organic Flow',
-  'Depth Layers',
-  'Waveform Interference',
-  'Minimal Geometric',
-  'Atmospheric Noise',
-  'Kaleidoscope Fractals',
-  'Liquid Plasma',
-  'Neon Grid',
-  'Spiral Galaxy',
-  'Crystal Lattice',
-  'Breathing Mandala',
-  'IFS Kaleidoscope',
-  'Prism Spectrum',
-  'Metaballs',
-  'Reaction Diffusion',
-  'Pulse Horizon',
-  'Light Speed Warp',
-  'Tron Corridor',
-  'Lite-Brite Magic',
-  'Neon Tunnel 3D',
-];
+import { VISUALIZATION_NAMES } from '../lib/visualizationNames';
+
+const VIZ_NAMES = VISUALIZATION_NAMES;
 
 const AUTO_CYCLE_DURATIONS = [5, 6, 8, 10, 12, 16] as const;
 
