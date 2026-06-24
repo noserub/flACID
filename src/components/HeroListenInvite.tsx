@@ -7,7 +7,7 @@ import { cn } from './ui/utils';
 
 export function HeroListenInvite() {
   const { content } = useEditMode();
-  const { tracks, playTrackAtHero, playFromHero, isBuffering } = usePlayback();
+  const { tracks, playTrackAtHero, playFromHero, isBuffering, hasPlaybackSession } = usePlayback();
 
   const primaryAlbum = content.discography.albums[0];
   const featuredIndex = primaryAlbum
@@ -19,12 +19,18 @@ export function HeroListenInvite() {
   if (!canPlay) return null;
 
   const handleListen = () => {
+    if (hasPlaybackSession) {
+      playFromHero();
+      return;
+    }
     if (featuredIndex >= 0) {
       playTrackAtHero(featuredIndex);
       return;
     }
     playFromHero();
   };
+
+  const label = isBuffering ? 'Loading…' : hasPlaybackSession ? 'Resume' : 'Listen now';
 
   return (
     <div className="flex w-full flex-col items-center px-2 text-center">
@@ -44,7 +50,7 @@ export function HeroListenInvite() {
         ) : (
           <Play className="h-5 w-5 fill-current" aria-hidden />
         )}
-        {isBuffering ? 'Loading…' : 'Listen now'}
+        {label}
       </button>
     </div>
   );
