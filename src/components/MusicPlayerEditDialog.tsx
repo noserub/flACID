@@ -9,6 +9,7 @@ import type { SiteContent } from '../contexts/EditModeContext';
 
 type Track = SiteContent['musicPlayer']['tracks'][number];
 import { EditDialog, AudioUpload, EditTriggerButton } from './EditableSection';
+import { toast } from '../lib/toast';
 import {
   editorDestructiveGhostClass,
   editorIndexBadgeClass,
@@ -177,7 +178,9 @@ export function MusicPlayerEditDialog() {
       await loadPromise;
     } catch (error) {
       console.error('Failed to load audio metadata:', error);
-      alert(error instanceof Error ? error.message : 'Failed to load audio file. Please try again with a different file.');
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to load audio file. Try a different file.'
+      );
       
       // Still update the track with URL but keep original duration
       const nextTracks = tracks.map((track) =>

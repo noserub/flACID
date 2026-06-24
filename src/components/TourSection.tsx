@@ -11,6 +11,7 @@ import { SectionTitle } from './SectionTitle';
 import { SectionAmbient } from './SectionAmbient';
 import { TourTicketCard } from './TourTicketCard';
 import { bodySecondary, heading } from '../lib/typography';
+import { border, shadow } from '../lib/colors';
 
 const VIRTUAL_SCROLL_THRESHOLD = 20;
 const TOUR_ITEM_HEIGHT = 124;
@@ -35,10 +36,10 @@ export function TourSection() {
       visible={content.tour.visible}
       onVisibilityChange={handleVisibilityChange}
     >
-      <section className="relative overflow-hidden py-20 px-4">
-        <SectionAmbient />
+      <section className="relative overflow-hidden py-20 px-4 sm:py-24">
+        <SectionAmbient variant="editorial" />
         <div className={cn('relative max-w-5xl mx-auto', sectionLift)}>
-          <div className="text-center mb-16">
+          <div className="mb-14 sm:mb-16 text-center">
             <SectionTitle subtitle={content.tour.subtitle || undefined}>
               {content.tour.title}
             </SectionTitle>
@@ -67,7 +68,7 @@ export function TourSection() {
               <p className={heading}>No shows on the horizon</p>
               <p className={cn('mt-3 text-sm sm:text-base', bodySecondary)}>
                 {content.tour.footerNote ||
-                  'Check back soon — or join the list below for when we surface from the void.'}
+                  'Check back soon, or join the list below for when we surface from the void.'}
               </p>
             </motion.div>
           ) : (
@@ -90,14 +91,28 @@ export function TourSection() {
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            transition={{ duration: 0.8, delay: 0.3 }}
-            className="mt-12 text-center space-y-6"
+            transition={{ duration: 0.8, delay: 0.2 }}
+            className="mt-14 sm:mt-16"
           >
-            {content.tour.footerNote && tourDates.length > 0 && (
-              <p className={bodySecondary}>{content.tour.footerNote}</p>
-            )}
-            <div className="flex justify-center">
-              <NewsletterSignup />
+            <div
+              className={cn(
+                'mx-auto max-w-2xl rounded-2xl border border-signal-purple/40 bg-card/80 px-6 py-8 text-center backdrop-blur-sm sm:px-10 sm:py-10',
+                shadow.card,
+                border.brandHoverMuted
+              )}
+            >
+              {content.tour.footerNote && tourDates.length > 0 && (
+                <p className={cn(bodySecondary, 'mb-6')}>{content.tour.footerNote}</p>
+              )}
+              {tourDates.length === 0 && (
+                <p className={cn(bodySecondary, 'mb-6')}>
+                  {content.tour.footerNote ||
+                    'No dates posted yet — join the list and we’ll surface from the void when something drops.'}
+                </p>
+              )}
+              <div className="flex justify-center">
+                <NewsletterSignup triggerVariant="default" />
+              </div>
             </div>
           </motion.div>
         </div>

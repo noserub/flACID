@@ -12,6 +12,51 @@ export interface ImageOptimizationOptions {
   format?: 'image/jpeg' | 'image/webp' | 'image/png';
 }
 
+/** Resize targets + source limits per upload surface */
+export type ImageUploadPreset =
+  | 'heroBackground'
+  | 'heroLogo'
+  | 'cover'
+  | 'photo'
+  | 'default';
+
+export const IMAGE_UPLOAD_PRESETS: Record<
+  ImageUploadPreset,
+  { maxWidth: number; maxHeight: number; quality: number; maxSourceBytes: number }
+> = {
+  /** Full-viewport hero poster — accept large sources, store up to 4K WebP */
+  heroBackground: {
+    maxWidth: 3840,
+    maxHeight: 2160,
+    quality: 0.88,
+    maxSourceBytes: 40 * 1024 * 1024,
+  },
+  heroLogo: {
+    maxWidth: 1600,
+    maxHeight: 900,
+    quality: 0.9,
+    maxSourceBytes: 15 * 1024 * 1024,
+  },
+  cover: {
+    maxWidth: 1200,
+    maxHeight: 1200,
+    quality: 0.85,
+    maxSourceBytes: 12 * 1024 * 1024,
+  },
+  photo: {
+    maxWidth: 2400,
+    maxHeight: 2400,
+    quality: 0.85,
+    maxSourceBytes: 20 * 1024 * 1024,
+  },
+  default: {
+    maxWidth: 1920,
+    maxHeight: 1080,
+    quality: 0.85,
+    maxSourceBytes: 10 * 1024 * 1024,
+  },
+};
+
 /**
  * Compress and resize an image file
  * Returns optimized blob ready for upload
@@ -38,6 +83,8 @@ export async function optimizeImage(
     }
 
     img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+
       // Calculate new dimensions while maintaining aspect ratio
       let { width, height } = img;
       
@@ -70,8 +117,12 @@ export async function optimizeImage(
       );
     };
 
-    img.onerror = () => reject(new Error('Failed to load image'));
-    img.src = URL.createObjectURL(file);
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error('Failed to load image'));
+    };
+    const objectUrl = URL.createObjectURL(file);
+    img.src = objectUrl;
   });
 }
 
@@ -106,8 +157,11 @@ export async function generateResponsiveSizes(
 /**
  * Validate file before upload
  */
-export function validateImageFile(file: File): { valid: boolean; error?: string } {
-  const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+export function validateImageFile(
+  file: File,
+  options?: { maxSourceBytes?: number }
+): { valid: boolean; error?: string } {
+  const MAX_FILE_SIZE = options?.maxSourceBytes ?? 10 * 1024 * 1024;
   const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
   const ALLOWED_EXTENSIONS = /\.(jpe?g|png|webp|gif)$/i;
 
@@ -118,7 +172,11 @@ export function validateImageFile(file: File): { valid: boolean; error?: string 
   }
 
   if (file.size > MAX_FILE_SIZE) {
-    return { valid: false, error: 'File too large. Maximum size is 10MB.' };
+    const limitMb = Math.round(MAX_FILE_SIZE / (1024 * 1024));
+    return {
+      valid: false,
+      error: `File too large. Maximum upload size is ${limitMb}MB (images are compressed before storage).`,
+    };
   }
 
   return { valid: true };

@@ -19,12 +19,12 @@ export function formatTourDateParts(isoDate: string): {
   year: string;
 } {
   if (!isoDate) {
-    return { day: '—', month: '—', weekday: '—', year: '—' };
+    return { day: '-', month: '-', weekday: '-', year: '-' };
   }
   const normalized = isoDate.includes('T') ? isoDate : `${isoDate}T12:00:00`;
   const d = new Date(normalized);
   if (Number.isNaN(d.getTime())) {
-    return { day: '—', month: '—', weekday: '—', year: '—' };
+    return { day: '-', month: '-', weekday: '-', year: '-' };
   }
   return {
     day: d.toLocaleDateString(undefined, { day: '2-digit' }),

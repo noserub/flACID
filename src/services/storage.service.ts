@@ -4,7 +4,7 @@
  * Handles all file uploads to Supabase Storage with optimization.
  */
 
-import { optimizeImage, validateImageFile } from '../lib/imageOptimization';
+import { optimizeImage, validateImageFile, IMAGE_UPLOAD_PRESETS, type ImageUploadPreset } from '../lib/imageOptimization';
 import {
   validateAudioFile,
   extractAudioMetadata,
@@ -120,7 +120,7 @@ async function uploadAudioBytesToBucket(
   }
 
   throw new Error(
-    `${lastMsg} If the bucket allows audio, this may be a Supabase Storage bug or project mismatch — open a support ticket with your project ref from Settings → General.`
+    `${lastMsg} If the bucket allows audio, this may be a Supabase Storage bug or project mismatch. Open a support ticket with your project ref from Settings → General.`
   );
 }
 
@@ -142,9 +142,11 @@ export async function uploadImage(
   file: File,
   bucket: 'covers' | 'photos',
   path: string,
-  onProgress?: (progress: UploadProgress) => void
+  onProgress?: (progress: UploadProgress) => void,
+  preset: ImageUploadPreset = bucket === 'photos' ? 'photo' : 'cover'
 ): Promise<{ url: string; publicUrl: string }> {
-  const validation = validateImageFile(file);
+  const profile = IMAGE_UPLOAD_PRESETS[preset];
+  const validation = validateImageFile(file, { maxSourceBytes: profile.maxSourceBytes });
   if (!validation.valid) throw new Error(validation.error);
 
   let blob: Blob;
@@ -153,16 +155,31 @@ export async function uploadImage(
 
   try {
     blob = await optimizeImage(file, {
-      maxWidth: bucket === 'covers' ? 1000 : 1920,
-      quality: 0.85,
+      maxWidth: profile.maxWidth,
+      maxHeight: profile.maxHeight,
+      quality: profile.quality,
       format: 'image/webp',
     });
-  } catch {
-    // Fallback: upload original when optimization fails (e.g. HEIC, AVIF, corrupted)
-    blob = file;
-    const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
-    uploadPath = path.replace(/\.webp$/i, `.${ext}`);
-    contentType = file.type || 'image/jpeg';
+  } catch (optimizeError) {
+    console.warn('[storage] Image optimization failed, trying reduced size:', optimizeError);
+    try {
+      blob = await optimizeImage(file, {
+        maxWidth: Math.min(profile.maxWidth, 2560),
+        maxHeight: Math.min(profile.maxHeight, 1440),
+        quality: 0.82,
+        format: 'image/webp',
+      });
+    } catch {
+      if (file.size > profile.maxSourceBytes) {
+        throw new Error(
+          `Could not process this image. Try exporting below ${Math.round(profile.maxSourceBytes / (1024 * 1024))}MB or use JPEG/WebP.`
+        );
+      }
+      blob = file;
+      const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+      uploadPath = path.replace(/\.webp$/i, `.${ext}`);
+      contentType = file.type || 'image/jpeg';
+    }
   }
 
   if (onProgress) {

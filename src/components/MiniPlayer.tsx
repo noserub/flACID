@@ -234,11 +234,12 @@ export function MiniPlayer({ dock = 'chrome' }: { dock?: MiniPlayerDock }) {
     isFullscreen,
     isHeroStage,
     heroInView,
+    isBuffering,
+    hasPlaybackSession,
   } = usePlayback();
   const { isDescentMode } = useDescentMode();
   const isLargeScreen = useLargeScreen();
   const chipRef = useRef<HTMLDivElement>(null);
-  const [playerInView, setPlayerInView] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
   const [panelAnchor, setPanelAnchor] = useState<PanelAnchor | null>(null);
 
@@ -300,48 +301,24 @@ export function MiniPlayer({ dock = 'chrome' }: { dock?: MiniPlayerDock }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [panelOpen]);
 
-  useEffect(() => {
-    if (isHeroDock) return;
-    let io: IntersectionObserver | null = null;
-    const attach = (el: Element) => {
-      io = new IntersectionObserver(
-        ([entry]) => setPlayerInView(entry?.isIntersecting ?? false),
-        { threshold: 0, rootMargin: '-100px 0px 0px 0px' }
-      );
-      io.observe(el);
-    };
-    const el = document.getElementById('music-player');
-    if (el) {
-      attach(el);
-      return () => io?.disconnect();
-    }
-    const id = setInterval(() => {
-      const target = document.getElementById('music-player');
-      if (target) {
-        clearInterval(id);
-        attach(target);
-      }
-    }, 400);
-    return () => {
-      clearInterval(id);
-      io?.disconnect();
-    };
-  }, [isHeroDock]);
-
-  /** Hero dock is mounted by HeroSection — always show when tracks exist (no heroInView gate). */
+  /** Hero dock — stage transport or active load/play while hero is in view. */
+  const heroPlaybackLive = isHeroStage || isPlaying || isBuffering;
   const showHero =
     isHeroDock &&
     tracks.length > 0 &&
     currentTrackData &&
-    !isFullscreen;
+    !isFullscreen &&
+    heroInView &&
+    heroPlaybackLive;
 
+  /** Chrome transport when away from hero during a session (including paused). */
   const showChrome =
     !isHeroDock &&
-    !heroInView &&
     tracks.length > 0 &&
     currentTrackData &&
     !isFullscreen &&
-    (isPlaying || !playerInView);
+    hasPlaybackSession &&
+    !heroInView;
 
   useEffect(() => {
     if (isHeroDock || isLargeScreen || !showChrome) {

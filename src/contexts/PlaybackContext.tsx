@@ -16,6 +16,8 @@ import { isSupabaseConfigured } from '../lib/supabase';
 import { parseVisualizationId } from '../lib/contentMappers';
 import { formatDuration } from '../utils';
 import { releaseScreenWakeLock, requestScreenWakeLock } from '../lib/screenWakeLock';
+import { scrollToHeroStage } from '../lib/albumTracks';
+import { toast } from '../lib/toast';
 
 export interface PlayerTrack {
   id: number;
@@ -45,6 +47,8 @@ interface PlaybackContextType {
   isMuted: boolean;
   isAudioReady: boolean;
   isBuffering: boolean;
+  /** True once the user has started listening this visit (survives pause). */
+  hasPlaybackSession: boolean;
   currentTrackData: PlayerTrack | undefined;
   /** Ref to the visualizer audio element — used by MusicPlayer to connect analyser (Web Audio) */
   audioRef: RefObject<HTMLAudioElement | null>;
@@ -71,6 +75,10 @@ interface PlaybackContextType {
   setHeroInView: (inView: boolean) => void;
   setHeroStageActive: (active: boolean) => void;
   playFromHero: () => void;
+  /** Select track and start Hero Stage playback (Listen now, viz showcase, etc.) */
+  playTrackAtHero: (index: number) => void;
+  /** Select track and play in place — discography / catalog (no scroll) */
+  playTrackInPlace: (index: number) => void;
   /** Shared Web Audio analyser for visualizers (PlaybackAnalyserBridge) */
   analyser: AnalyserNode | null;
   setAnalyser: (node: AnalyserNode | null) => void;
@@ -123,6 +131,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   const [isMuted, setIsMuted] = useState(false);
   const [isAudioReady, setIsAudioReady] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
+  const [playbackSessionActive, setPlaybackSessionActive] = useState(false);
   const [shouldAutoPlay, setShouldAutoPlay] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isHeroStage, setIsHeroStage] = useState(false);
@@ -142,15 +151,42 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   const castMediaSessionRef = useRef<any>(null);
   const castEnabledRef = useRef(false);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+  /** Prevents hero-stage sync from killing viz while scrolling up after catalog play */
+  const heroStageLockUntilRef = useRef(0);
+  /** Keeps hero stage active until catalog play reaches the hero viewport */
+  const catalogPlayPendingRef = useRef(false);
   const audioRef = visualizerAudioRef; // alias for MusicPlayer
 
   const currentTrackUrl = tracks[currentTrack]?.url?.trim() ?? '';
   const currentTrackData = tracks[currentTrack];
+  const hasPlaybackSession =
+    playbackSessionActive && Boolean(currentTrackData?.url?.trim());
+
+  const activatePlaybackSession = useCallback(() => {
+    setPlaybackSessionActive(true);
+  }, []);
+
+  const endPlaybackSession = useCallback(() => {
+    setPlaybackSessionActive(false);
+    setIsHeroStage(false);
+  }, []);
   const castReceiverAppId = String(import.meta.env.VITE_GOOGLE_CAST_APP_ID ?? '').trim() || 'CC1AD845';
 
   useEffect(() => {
     isPlayingRef.current = isPlaying;
   }, [isPlaying]);
+
+  useEffect(() => {
+    if (isPlaying || isBuffering) {
+      setPlaybackSessionActive(true);
+    }
+  }, [isPlaying, isBuffering]);
+
+  useEffect(() => {
+    if (currentTime > 0.5) {
+      setPlaybackSessionActive(true);
+    }
+  }, [currentTime]);
 
   useEffect(() => {
     const onVisibility = () => setPageVisible(document.visibilityState === 'visible');
@@ -162,7 +198,11 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   // Single element: audible output stays on the element; analyser uses captureStream in MusicPlayer (no handoff).
   useEffect(() => {
     setIsAudioReady(false);
-    setIsBuffering(false);
+    if (currentTrackUrl) {
+      setIsBuffering(true);
+    } else {
+      setIsBuffering(false);
+    }
     setIsPlaying(false);
     if (!currentTrackData) return;
 
@@ -238,9 +278,12 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
 
   const handleError = useCallback(() => {
     setIsAudioReady(false);
-    setIsHeroStage(false);
+    setIsBuffering(false);
+    setShouldAutoPlay(false);
+    catalogPlayPendingRef.current = false;
+    endPlaybackSession();
     setIsPlaying(false);
-  }, []);
+  }, [endPlaybackSession]);
 
   const handleEnded = useCallback(() => {
     if (currentTrack < tracks.length - 1) {
@@ -249,10 +292,10 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       if (next.url) setShouldAutoPlay(true);
       else setIsPlaying(false);
     } else {
-      setIsHeroStage(false);
+      endPlaybackSession();
       setIsPlaying(false);
     }
-  }, [currentTrack, tracks]);
+  }, [currentTrack, tracks, endPlaybackSession]);
 
   // Media Session API: metadata for lock screen, car display, notification shade, etc.
   useEffect(() => {
@@ -716,12 +759,13 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
         setIsPlaying(false);
         return;
       }
+      activatePlaybackSession();
       setIsPlaying(false);
       setCurrentTime(0);
       setCurrentTrackState(index);
       setShouldAutoPlay(true);
     },
-    [tracks]
+    [tracks, activatePlaybackSession]
   );
 
   const setCurrentTrack = useCallback((index: number) => {
@@ -733,15 +777,23 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const beginPlayback = useCallback(
-    (opts?: { forceHero?: boolean }) => {
-      const playableIndex = tracks[currentTrack]?.url?.trim()
+    (opts?: { forceHero?: boolean; trackIndex?: number }) => {
+      const requestedIndex = opts?.trackIndex;
+      const fallbackIndex = tracks[currentTrack]?.url?.trim()
         ? currentTrack
         : tracks.findIndex((t) => t.url?.trim());
+      const targetIndex =
+        requestedIndex != null && tracks[requestedIndex]?.url?.trim()
+          ? requestedIndex
+          : fallbackIndex;
 
-      if (playableIndex < 0) {
-        alert('No audio file uploaded for this track. Please upload an audio file in edit mode.');
+      if (targetIndex < 0) {
+        setIsBuffering(false);
+        toast.error('No audio file uploaded for this track. Upload audio in edit mode.');
         return;
       }
+
+      activatePlaybackSession();
 
       const useHero = opts?.forceHero ?? heroInView;
       if (opts?.forceHero && pageVisible && !isFullscreen) {
@@ -752,38 +804,79 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
 
       resumeAudioContextIfNeeded();
 
-      if (currentTrack !== playableIndex) {
+      if (currentTrack !== targetIndex) {
         setIsPlaying(false);
         setCurrentTime(0);
-        setCurrentTrackState(playableIndex);
+        setCurrentTrackState(targetIndex);
         setShouldAutoPlay(true);
         return;
       }
 
-      const track = tracks[currentTrack];
-      if (!track?.url) return;
+      const track = tracks[targetIndex];
+      if (!track?.url) {
+        setIsBuffering(false);
+        return;
+      }
 
       const el = visualizerAudioRef.current;
-      if (!castSessionRef.current && !isAudioReady && el) {
-        el.load();
-        setShouldAutoPlay(true);
-        return;
+      if (!castSessionRef.current && el) {
+        if (!isAudioReady || el.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) {
+          el.load();
+          setShouldAutoPlay(true);
+          return;
+        }
       }
 
+      setIsBuffering(false);
       setIsPlaying(true);
     },
-    [tracks, currentTrack, isAudioReady, heroInView, pageVisible, isFullscreen, resumeAudioContextIfNeeded]
+    [tracks, currentTrack, isAudioReady, heroInView, pageVisible, isFullscreen, resumeAudioContextIfNeeded, activatePlaybackSession]
   );
 
   const playFromHero = useCallback(() => {
     beginPlayback({ forceHero: true });
   }, [beginPlayback]);
 
+  const playTrackAtHero = useCallback(
+    (index: number) => {
+      const track = tracks[index];
+      if (!track?.url?.trim()) {
+        toast.error('No audio file uploaded for this track. Upload audio in edit mode.');
+        return;
+      }
+      catalogPlayPendingRef.current = true;
+      heroStageLockUntilRef.current = Date.now() + 8000;
+      scrollToHeroStage('smooth');
+      setIsBuffering(true);
+      beginPlayback({ forceHero: true, trackIndex: index });
+    },
+    [tracks, beginPlayback]
+  );
+
+  const playTrackInPlace = useCallback(
+    (index: number) => {
+      const track = tracks[index];
+      if (!track?.url?.trim()) {
+        toast.error('No audio file uploaded for this track. Upload audio in edit mode.');
+        return;
+      }
+      catalogPlayPendingRef.current = false;
+      heroStageLockUntilRef.current = 0;
+      if (!heroInView) {
+        setIsHeroStage(false);
+      }
+      setIsBuffering(true);
+      beginPlayback({ trackIndex: index });
+    },
+    [tracks, beginPlayback, heroInView]
+  );
+
   const togglePlay = useCallback(() => {
     const track = tracks[currentTrack];
     if (!track?.url) return;
 
     if (isPlaying) {
+      catalogPlayPendingRef.current = false;
       setIsHeroStage(false);
       resumeAudioContextIfNeeded();
       setIsPlaying(false);
@@ -800,24 +893,45 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     }
   }, [isFullscreen, isHeroStage]);
 
-  /** While playing: hero viz follows viewport visibility (audio keeps playing). */
+  /** While playing: enter hero stage when hero is visible; exit when scrolled away (audio continues). */
   useEffect(() => {
-    if (!isPlaying || isFullscreen) return;
+    if (!isPlaying || isFullscreen) {
+      if (!isPlaying && !isBuffering) catalogPlayPendingRef.current = false;
+      return;
+    }
 
     if (!pageVisible) {
+      catalogPlayPendingRef.current = false;
       setIsHeroStage(false);
       return;
     }
 
-    const delayMs = heroInView ? 150 : 450;
+    if (catalogPlayPendingRef.current) {
+      if (heroInView) {
+        catalogPlayPendingRef.current = false;
+        heroStageLockUntilRef.current = 0;
+        setIsHeroStage(true);
+        void resumeAudioContextIfNeeded();
+      }
+      return;
+    }
+
+    if (heroInView) {
+      heroStageLockUntilRef.current = 0;
+      const timer = window.setTimeout(() => {
+        setIsHeroStage(true);
+        void resumeAudioContextIfNeeded();
+      }, 150);
+      return () => window.clearTimeout(timer);
+    }
 
     const timer = window.setTimeout(() => {
-      setIsHeroStage(heroInView);
-      if (heroInView) void resumeAudioContextIfNeeded();
-    }, delayMs);
+      if (Date.now() < heroStageLockUntilRef.current) return;
+      setIsHeroStage(false);
+    }, 450);
 
     return () => window.clearTimeout(timer);
-  }, [isPlaying, heroInView, pageVisible, isFullscreen, resumeAudioContextIfNeeded]);
+  }, [isPlaying, isBuffering, heroInView, pageVisible, isFullscreen, resumeAudioContextIfNeeded]);
 
   const value: PlaybackContextType = useMemo(
     () => ({
@@ -831,6 +945,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       isMuted,
       isAudioReady,
       isBuffering,
+      hasPlaybackSession,
       currentTrackData,
       audioRef,
       togglePlay,
@@ -855,6 +970,8 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       setHeroInView,
       setHeroStageActive,
       playFromHero,
+      playTrackAtHero,
+      playTrackInPlace,
       analyser,
       setAnalyser,
     }),
@@ -872,6 +989,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       isMuted,
       isAudioReady,
       isBuffering,
+      hasPlaybackSession,
       currentTrackData,
       audioRef,
       togglePlay,
@@ -891,6 +1009,8 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       showRemotePlaybackPicker,
       setHeroStageActive,
       playFromHero,
+      playTrackAtHero,
+      playTrackInPlace,
       setAnalyser,
     ]
   );

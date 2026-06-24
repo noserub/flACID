@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback, ReactNode 
 import { useQueryClient } from '@tanstack/react-query';
 import { loadContentFromSupabase, publishContentToSupabase } from '../services/contentSync.service';
 import { TRACKS_QUERY_KEY } from '../hooks/useTracks';
+import type { ImageUploadPreset } from '../lib/imageOptimization';
 import { uploadImage as storageUploadImage, uploadAudio as storageUploadAudio } from '../services/storage.service';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
@@ -97,6 +98,8 @@ export interface SiteContent {
 export interface UploadImageOptions {
   bucket?: 'covers' | 'photos';
   pathPrefix?: string;
+  /** Controls resize + source size limits (hero background accepts up to 4K / 40MB source). */
+  preset?: ImageUploadPreset;
 }
 
 interface EditModeContextType {
@@ -106,6 +109,7 @@ interface EditModeContextType {
   /** Increments when draft (e.g. music player) is updated so players can re-read and show changes before Publish */
   draftRevision: number;
   loading: boolean;
+  publishLoading: boolean;
   toggleEditMode: () => void;
   updateContent: <K extends keyof SiteContent>(section: K, data: SiteContent[K]) => void;
   publishChanges: () => Promise<void>;
@@ -127,7 +131,7 @@ const defaultContent: SiteContent = {
   },
   about: {
     title: 'The Journey',
-    content: `FLACID is less of a traditional band and more of a sonic experiment in controlled chaos. What began as a curiosity—blending the raw power of heavy music with the fluid unpredictability of improvisational jams—has evolved into a coherent experience. Driven by sheer velocity, the thrill of the unexpected, and total immersion.
+    content: `FLACID is less of a traditional band and more of a sonic experiment in controlled chaos. What began as a curiosity, blending the raw power of heavy music with the fluid unpredictability of improvisational jams, has evolved into a coherent experience. Driven by sheer velocity, the thrill of the unexpected, and total immersion.
 
 Step outside the standard verse-chorus structure and into a landscape of shifting dynamics. Through building a wall of crushing distortion or stripping back to a minimalist pulse, the goal remains the same: to create a live environment where the music feels alive, evolving, and infinitely expansive.`,
     image: '',
@@ -136,7 +140,7 @@ Step outside the standard verse-chorus structure and into a landscape of shiftin
   listenNow: {
     title: 'Listen Now',
     description: 'Experience our latest tracks with immersive psychedelic visualizations',
-    visible: true,
+    visible: false,
   },
   discography: {
     title: 'Journey',
@@ -486,9 +490,11 @@ export function EditModeProvider({ children }: { children: ReactNode }) {
 
   const uploadImage = useCallback(async (file: File, options?: UploadImageOptions): Promise<string> => {
     const bucket = options?.bucket ?? 'covers';
-    const pathPrefix = options?.pathPrefix ?? 'images'; // Avoid bucket/path duplication
+    const pathPrefix = options?.pathPrefix ?? 'images';
+    const preset =
+      options?.preset ?? (bucket === 'photos' ? 'photo' : pathPrefix === 'hero' ? 'heroBackground' : 'cover');
     const path = generatePath(pathPrefix);
-    const { publicUrl } = await storageUploadImage(file, bucket, path);
+    const { publicUrl } = await storageUploadImage(file, bucket, path, undefined, preset);
     return publicUrl;
   }, []);
 
@@ -532,6 +538,7 @@ export function EditModeProvider({ children }: { children: ReactNode }) {
         content,
         draftRevision,
         loading,
+        publishLoading,
         toggleEditMode,
         updateContent,
         publishChanges,

@@ -4,6 +4,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { useEditMode } from '../contexts/EditModeContext';
 import { EditDialog, EditTriggerButton, ImageUpload } from './EditableSection';
+import { EditorCallout } from './editor/EditorCallout';
 
 export function HeroEditDialog() {
   const { content, updateContent } = useEditMode();
@@ -11,6 +12,13 @@ export function HeroEditDialog() {
   const [tagline, setTagline] = useState(content.hero.tagline);
   const [backgroundImage, setBackgroundImage] = useState(content.hero.backgroundImage);
   const [logoImage, setLogoImage] = useState(content.hero.logoImage);
+
+  const syncFromContent = () => {
+    setSubtitle(content.hero.subtitle);
+    setTagline(content.hero.tagline);
+    setBackgroundImage(content.hero.backgroundImage);
+    setLogoImage(content.hero.logoImage);
+  };
 
   const handleSave = () => {
     updateContent('hero', {
@@ -25,19 +33,27 @@ export function HeroEditDialog() {
   return (
     <EditDialog
       trigger={
-        <EditTriggerButton className="absolute top-4 left-4 z-10">
+        <EditTriggerButton type="button">
           <Edit2 className="h-4 w-4 mr-2" />
           Edit Hero
         </EditTriggerButton>
       }
       title="Edit Hero Section"
+      onOpenChange={(open) => {
+        if (open) syncFromContent();
+      }}
       onSave={handleSave}
     >
+      <EditorCallout variant="info">
+        Subtitle and phonetic tagline appear under the About section title (not on the hero poster).
+      </EditorCallout>
+
       <ImageUpload
         label="Logo Image"
         currentImage={logoImage}
         onUpload={setLogoImage}
-        aspectRatio="16:9 or larger"
+        aspectRatio="1600×900 or larger"
+        preset="heroLogo"
         bucket="covers"
         pathPrefix="hero"
       />
@@ -46,25 +62,26 @@ export function HeroEditDialog() {
         label="Background Image"
         currentImage={backgroundImage}
         onUpload={setBackgroundImage}
-        aspectRatio="1920x1080 or larger"
+        aspectRatio="3840×2160 recommended (4K)"
+        preset="heroBackground"
         bucket="covers"
         pathPrefix="hero"
       />
 
       <div className="space-y-2">
-        <Label htmlFor="subtitle">Subtitle</Label>
+        <Label htmlFor="hero-subtitle">Subtitle</Label>
         <Input
-          id="subtitle"
+          id="hero-subtitle"
           value={subtitle}
           onChange={(e) => setSubtitle(e.target.value)}
-          placeholder="Transcendence through sound"
+          placeholder="The Fragile Sphere"
         />
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="tagline">Phonetic / tagline</Label>
+        <Label htmlFor="hero-tagline">Phonetic / tagline</Label>
         <Input
-          id="tagline"
+          id="hero-tagline"
           value={tagline}
           onChange={(e) => setTagline(e.target.value)}
           placeholder="/flæs'id/"

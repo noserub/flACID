@@ -8,8 +8,12 @@ import {
   miniPlayerChipChromeMobileClass,
   miniPlayerChipHeroClass,
   miniPlayerChipWidthClass,
+  miniPlayerChipHeightClass,
+  miniPlayerChipRowClass,
   miniPlayerTransportDividerChrome,
   miniPlayerTransportDividerHero,
+  miniPlayerTransportPadClass,
+  miniPlayerMetaButtonClass,
   miniPlayerTransportTouchClass,
 } from '../lib/miniPlayerStyles';
 import {
@@ -82,7 +86,7 @@ export const MiniPlayerChip = forwardRef(function MiniPlayerChip(
 
   const playButtonClass = cn(
     'rounded-full shrink-0',
-    isMobileChrome ? cn(miniPlayerTransportTouchClass, 'size-11') : 'm-0.5 size-9'
+    isMobileChrome ? cn(miniPlayerTransportTouchClass, 'size-11') : 'size-9'
   );
 
   return (
@@ -99,16 +103,27 @@ export const MiniPlayerChip = forwardRef(function MiniPlayerChip(
         'mx-auto flex items-stretch overflow-hidden shadow-lg',
         isMobileChrome
           ? cn('flex-col', miniPlayerChipChromeMobileClass)
-          : cn('min-h-12 rounded-xl', miniPlayerChipWidthClass, isHeroDock ? miniPlayerChipHeroClass : miniPlayerChipChromeClass),
+          : cn(
+              'rounded-xl',
+              miniPlayerChipHeightClass,
+              miniPlayerChipWidthClass,
+              isHeroDock ? miniPlayerChipHeroClass : miniPlayerChipChromeClass
+            ),
         panelActive && isHeroDock && 'relative z-[48]',
         className
       )}
       style={style}
     >
-      <div className={cn('flex min-h-14 flex-1 items-stretch', isMobileChrome && 'min-h-0')}>
+      <div
+        className={cn(
+          'flex w-full items-center',
+          isMobileChrome ? 'min-h-[3.75rem] py-2' : miniPlayerChipRowClass
+        )}
+      >
         <div
           className={cn(
-            'flex shrink-0 items-center gap-0.5 px-1 sm:px-1.5',
+            'flex h-full shrink-0 items-center gap-0.5',
+            miniPlayerTransportPadClass,
             isHeroDock ? miniPlayerTransportDividerHero : miniPlayerTransportDividerChrome
           )}
         >
@@ -154,14 +169,14 @@ export const MiniPlayerChip = forwardRef(function MiniPlayerChip(
           type="button"
           onClick={onTogglePanel}
           className={cn(
-            'flex min-w-0 flex-1 items-center gap-2 px-2.5 text-left transition-colors touch-manipulation',
-            isMobileChrome ? 'min-h-14 py-2' : 'py-1.5',
+            miniPlayerMetaButtonClass,
+            'transition-colors',
             isHeroDock ? 'hover:bg-white/5' : 'hover:bg-muted/40'
           )}
           aria-expanded={panelOpen}
           aria-label={panelOpen ? 'Close now playing' : `Now playing: ${title}`}
         >
-          <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5">
             <p className={isHeroDock ? miniPlayerTitleOnDark : miniPlayerTitle}>{title}</p>
             <p className={isHeroDock ? miniPlayerMetaOnDark : miniPlayerMeta}>{subtitle}</p>
           </div>

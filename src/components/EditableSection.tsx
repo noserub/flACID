@@ -2,6 +2,7 @@ import { ReactNode, useState } from 'react';
 import { Eye, EyeOff, Upload, Trash2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { useEditMode } from '../contexts/EditModeContext';
+import { EDITOR_CHROME_LIFT } from '../lib/descentContentLayer';
 import { validateAudioFile } from '../lib/audioOptimization';
 import {
   editorChromeButtonClass,
@@ -10,6 +11,8 @@ import {
   editorSectionLabelClass,
 } from '../lib/editorStyles';
 import { EditorCallout } from './editor/EditorCallout';
+import { toast } from '../lib/toast';
+import type { ImageUploadPreset } from '../lib/imageOptimization';
 import { cn } from './ui/utils';
 import {
   Dialog,
@@ -30,6 +33,8 @@ interface EditableSectionProps {
   sectionName: string;
   visible: boolean;
   onVisibilityChange: (visible: boolean) => void;
+  /** Optional edit dialog trigger(s) rendered in the section chrome row (e.g. Edit Hero). */
+  editSlot?: ReactNode;
 }
 
 export function EditableSection({
@@ -37,6 +42,7 @@ export function EditableSection({
   sectionName,
   visible,
   onVisibilityChange,
+  editSlot,
 }: EditableSectionProps) {
   const { isEditMode } = useEditMode();
 
@@ -50,7 +56,13 @@ export function EditableSection({
       data-section={sectionName.toLowerCase()}
     >
       {isEditMode && (
-        <div className="absolute top-4 right-4 z-10 flex gap-2">
+        <div
+          className={cn(
+            'absolute top-4 right-4 flex gap-2 pointer-events-auto',
+            EDITOR_CHROME_LIFT
+          )}
+        >
+          {editSlot}
           <Button
             variant="secondary"
             size="sm"
@@ -117,9 +129,7 @@ export function EditDialog({ trigger, title, children, onSave, onOpenChange }: E
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        <div>{trigger}</div>
-      </DialogTrigger>
+      <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col p-0">
         <div className="px-6 pt-6">
           <DialogHeader>
@@ -152,10 +162,19 @@ interface ImageUploadProps {
   /** Storage bucket: 'covers' for album/hero/about, 'photos' for gallery */
   bucket?: 'covers' | 'photos';
   /** Path prefix within bucket (e.g. 'hero', 'albums', 'gallery') - avoids bucket/path duplication */
-  pathPrefix?: string;
+  /** Resize preset — hero background stores up to 4K WebP */
+  preset?: ImageUploadPreset;
 }
 
-export function ImageUpload({ label, currentImage, onUpload, aspectRatio, bucket = 'covers', pathPrefix }: ImageUploadProps) {
+export function ImageUpload({
+  label,
+  currentImage,
+  onUpload,
+  aspectRatio,
+  bucket = 'covers',
+  pathPrefix,
+  preset,
+}: ImageUploadProps) {
   const { uploadImage } = useEditMode();
   const [uploading, setUploading] = useState(false);
 
@@ -164,17 +183,19 @@ export function ImageUpload({ label, currentImage, onUpload, aspectRatio, bucket
     if (!file) return;
 
     if (!file.type.startsWith('image/') && !/\.(jpe?g|png|webp|gif)$/i.test(file.name)) {
-      alert('Please upload an image file (JPEG, PNG, WebP, or GIF)');
+      toast.error('Please upload an image file (JPEG, PNG, WebP, or GIF).');
       return;
     }
 
     setUploading(true);
     try {
-      const url = await uploadImage(file, { bucket, pathPrefix });
+      const url = await uploadImage(file, { bucket, pathPrefix, preset });
       onUpload(url);
     } catch (error) {
       console.error('Upload failed:', error);
-      alert('Failed to upload image');
+      const message =
+        error instanceof Error ? error.message : 'Failed to upload image. Try again or use a smaller file.';
+      toast.error(message);
     } finally {
       setUploading(false);
     }
@@ -284,7 +305,7 @@ export function AudioUpload({ label, currentUrl, onUpload }: AudioUploadProps) {
         msg.includes('not authorized')
       ) {
         errorMessage +=
-          ' Sign in as a site admin — storage uploads require an authenticated admin session.';
+          ' Sign in as a site admin. Storage uploads require an authenticated admin session.';
       }
       setError(errorMessage);
     } finally {

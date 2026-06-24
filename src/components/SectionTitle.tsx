@@ -2,41 +2,54 @@ import { motion } from 'motion/react';
 import { cn } from './ui/utils';
 import {
   bodySecondary,
-  gradientText,
   titleEditorial,
+  titleEditorialAccent,
+  titleEditorialGradient,
   titleSection,
+  titleSectionAccent,
+  titleSectionGradient,
 } from '../lib/typography';
 
 type SectionTitleSize = 'section' | 'editorial';
+type SectionTitleVariant = 'accent' | 'gradient' | 'solid';
 
 interface SectionTitleProps {
   children: React.ReactNode;
-  /** Optional line below the title */
   subtitle?: string;
   size?: SectionTitleSize;
+  /** accent = pink (default); gradient = brand ramp (Visuals); solid = foreground */
+  variant?: SectionTitleVariant;
   className?: string;
   subtitleClassName?: string;
-  /** Motion on scroll into view */
   animate?: boolean;
   align?: 'center' | 'left';
 }
 
-const titleSizes: Record<SectionTitleSize, string> = {
-  section: titleSection,
-  editorial: titleEditorial,
+const titleSizes: Record<SectionTitleSize, Record<SectionTitleVariant, string>> = {
+  section: {
+    accent: titleSectionAccent,
+    gradient: titleSectionGradient,
+    solid: cn(titleSection, 'text-foreground'),
+  },
+  editorial: {
+    accent: titleEditorialAccent,
+    gradient: titleEditorialGradient,
+    solid: cn(titleEditorial, 'text-foreground'),
+  },
 };
 
 export function SectionTitle({
   children,
   subtitle,
   size = 'section',
+  variant = 'accent',
   className,
   subtitleClassName,
   animate = true,
   align = 'center',
 }: SectionTitleProps) {
   const heading = (
-    <h2 className={cn(titleSizes[size], gradientText, className)}>{children}</h2>
+    <h2 className={cn(titleSizes[size][variant], className)}>{children}</h2>
   );
 
   const content = (

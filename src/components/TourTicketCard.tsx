@@ -9,17 +9,20 @@ import { TourStatusBadge } from './TourStatusBadge';
 
 type TourShow = SiteContent['tour']['dates'][number];
 
+function resolveTicketHref(ticketUrl: string | undefined): string | null {
+  const trimmed = ticketUrl?.trim();
+  if (!trimmed || trimmed === '#') return null;
+  return trimmed;
+}
+
 interface TourTicketCardProps {
   show: TourShow;
 }
 
 export function TourTicketCard({ show }: TourTicketCardProps) {
-  const href =
-    show.ticketUrl && show.ticketUrl !== '#' && show.ticketUrl.trim().length > 0
-      ? show.ticketUrl.trim()
-      : null;
+  const href = resolveTicketHref(show.ticketUrl);
   const canAttemptTicket = show.status !== 'sold_out' && show.status !== 'cancelled';
-  const ticketActive = canAttemptTicket && !!href;
+  const ticketActive = canAttemptTicket && href != null;
   const isInactive = show.status === 'sold_out' || show.status === 'cancelled';
 
   return (
@@ -86,8 +89,8 @@ export function TourTicketCard({ show }: TourTicketCardProps) {
           ) : (
             <Button
               size="sm"
-              disabled={!canAttemptTicket}
-              className="bg-primary hover:bg-signal-purple-bright text-primary-foreground disabled:opacity-50"
+              disabled
+              className="bg-primary text-primary-foreground disabled:opacity-50 disabled:pointer-events-none"
             >
               <Ticket className="size-4" aria-hidden />
               {show.status === 'sold_out'

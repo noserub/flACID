@@ -16,9 +16,12 @@ export const miniPlayerChipChromeClass = cn(
   shadow.glowPurpleSm
 );
 
+/** Shared fixed height for hero + desktop chrome chips */
+export const miniPlayerChipHeightClass = 'h-12';
+
 /** Mobile fixed strip above section nav — full width, taller touch targets */
 export const miniPlayerChipChromeMobileClass = cn(
-  'min-h-14 w-full max-w-none rounded-none rounded-t-xl border-x-0 border-b-0',
+  'min-h-[3.75rem] w-full max-w-none rounded-none rounded-t-xl border-x-0 border-b-0',
   'border-t border-signal-purple/30 bg-void/95 backdrop-blur-md',
   shadow.glowPurpleSm
 );
@@ -28,3 +31,13 @@ export const miniPlayerTransportTouchClass =
 
 export const miniPlayerTransportDividerHero = 'border-r border-white/10';
 export const miniPlayerTransportDividerChrome = 'border-r border-signal-purple/15';
+
+/** Transport cluster — equal horizontal inset */
+export const miniPlayerTransportPadClass = 'px-1.5 sm:px-2';
+
+/** Track meta tap target */
+export const miniPlayerMetaButtonClass =
+  'flex h-full min-w-0 flex-1 items-center gap-2.5 pl-3.5 pr-2.5 text-left touch-manipulation sm:gap-3 sm:pl-4 sm:pr-3';
+
+/** Inner row — vertically centers transport + meta in the chip */
+export const miniPlayerChipRowClass = 'flex h-full w-full items-center';

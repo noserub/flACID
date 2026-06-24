@@ -21,15 +21,6 @@ export const SECTION_NAV_ITEMS: SectionNavItem[] = [
     isVisible: (c) => c.about.visible,
   },
   {
-    id: 'listen',
-    label: 'Listen',
-    resolve: () =>
-      document.getElementById('listen-section-head') ??
-      document.querySelector('[data-section="listen now"]') ??
-      document.getElementById('music-player'),
-    isVisible: (c) => c.listenNow.visible,
-  },
-  {
     id: 'journey',
     label: 'Discography',
     resolve: () =>
@@ -77,7 +68,7 @@ function getSectionAnchors(items: SectionNavItem[]): SectionAnchor[] {
 
 /**
  * Pick the last section whose start is above the reference line.
- * Uses a viewport-centered line so tall sections (Listen) don't steal the active dot.
+ * Uses a viewport-centered line so tall sections don't steal the active dot.
  */
 export function getActiveSectionId(
   items: SectionNavItem[],

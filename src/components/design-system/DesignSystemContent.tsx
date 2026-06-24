@@ -30,7 +30,7 @@ import { ContextCompositesSpecimen } from './ContextCompositesSpecimen';
 import { BrandPatternsSpecimen } from './BrandPatternsSpecimen';
 import { DescentToggleButton } from '../DescentModeToggle';
 import { getCssVar } from '../../hooks/useCssVar';
-import { gradientText, displayWordmark, pageTitle, specimenTitle, titleSection } from '../../lib/typography';
+import { gradientText, displayWordmark, pageTitle, specimenTitle, titleSection, titleSectionAccent, titleSectionGradient } from '../../lib/typography';
 import {
   ACCESSIBILITY_NOTES,
   ADMIN_BUTTON_VARIANTS,
@@ -52,15 +52,17 @@ import {
   PRODUCTION_NAV,
   RADIUS_TOKENS,
   SEMANTIC_COLOR_MAPS,
+  TYPE_FONTS,
   TYPE_RAMP_HIERARCHY,
 } from '../../lib/designSystemRegistry';
 
 type ViewMode = 'production' | 'foundation';
 
-const GRADIENT_TYPE_TOKENS = new Set(['displayWordmark', 'titleSection', 'titleEditorial']);
+const GRADIENT_TYPE_TOKENS = new Set(['displayWordmark', 'titleSectionGradient', 'titleEditorialGradient']);
 
 function typeSampleClasses(token: string, classes: string) {
   if (token === 'gradientText') return cn(displayWordmark, gradientText);
+  if (token === 'titleSection') return cn(titleSection, 'text-foreground');
   return cn(classes, GRADIENT_TYPE_TOKENS.has(token) && gradientText);
 }
 
@@ -325,8 +327,12 @@ export function DesignSystemContent({ embed = false }: DesignSystemContentProps)
             </div>
             <div className="mt-6 grid gap-3 sm:grid-cols-3">
               <div>
-                <p className="text-[11px] text-muted-foreground mb-1.5">Section titles</p>
-                <p className={cn(titleSection, gradientText)}>Visuals</p>
+                <p className="text-[11px] text-muted-foreground mb-1.5">Section title (accent)</p>
+                <p className={titleSectionAccent}>Discography</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-muted-foreground mb-1.5">Section title (gradient)</p>
+                <p className={titleSectionGradient}>Gallery</p>
               </div>
               {PRODUCTION_GRADIENTS.filter((g) => g.key !== 'brandText').map(({ key, label: l, classes }) => (
                 <div key={key}>
@@ -353,8 +359,54 @@ export function DesignSystemContent({ embed = false }: DesignSystemContentProps)
             id="type-ramp"
             eyebrow="Brand"
             title="Typography"
-            description="Ordered hierarchy: H-level labels map to semantic tokens in typography.ts. Section pages use h2 for H1 visually (one h1 per document on the live site)."
+            description="Font stacks (Google Fonts) + semantic tokens in typography.ts. Section pages use h2 for H1 visually (one h1 per document on the live site)."
           >
+            <div className="mb-6 overflow-x-auto rounded-lg border border-border/40">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border/50 bg-muted/30 text-left text-[11px] uppercase tracking-wide text-muted-foreground">
+                    <th className="px-3 py-2 font-medium">Role</th>
+                    <th className="px-3 py-2 font-medium">Family</th>
+                    <th className="px-3 py-2 font-medium">CSS var</th>
+                    <th className="px-3 py-2 font-medium hidden sm:table-cell">Utility</th>
+                    <th className="px-3 py-2 font-medium hidden md:table-cell">Weights</th>
+                    <th className="px-3 py-2 font-medium hidden lg:table-cell">Use</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {TYPE_FONTS.map((font) => (
+                    <tr key={font.cssVar} className="border-b border-border/30 last:border-0 align-top">
+                      <td className="px-3 py-3 font-medium text-neon-green whitespace-nowrap">{font.role}</td>
+                      <td className="px-3 py-3 font-hero text-foreground">{font.family}</td>
+                      <td className="px-3 py-3 font-mono text-xs text-signal-purple-bright/90">{font.cssVar}</td>
+                      <td className="px-3 py-3 font-mono text-xs text-muted-foreground hidden sm:table-cell">
+                        {font.utility}
+                      </td>
+                      <td className="px-3 py-3 text-xs text-muted-foreground hidden md:table-cell">{font.weights}</td>
+                      <td className="px-3 py-3 text-xs text-muted-foreground hidden lg:table-cell max-w-[14rem]">
+                        {font.use}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="mb-6 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-lg border border-border/40 bg-muted/15 px-4 py-3">
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-2">Display sample</p>
+                <p className={cn('font-hero type-display-section tracking-tight text-hot-pink-bright')}>
+                  Discography
+                </p>
+                <p className="mt-1 text-[11px] text-muted-foreground">Syne · titleSectionAccent</p>
+              </div>
+              <div className="rounded-lg border border-border/40 bg-muted/15 px-4 py-3">
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-2">Body sample</p>
+                <p className="font-body type-body text-foreground">
+                  Sound from the void — editorial body in Instrument Sans.
+                </p>
+                <p className="mt-1 text-[11px] text-muted-foreground">Instrument Sans · body</p>
+              </div>
+            </div>
             <div className="overflow-x-auto rounded-lg border border-border/40">
               <table className="w-full text-sm">
                 <thead>

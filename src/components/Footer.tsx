@@ -1,8 +1,9 @@
 import { Facebook, Instagram, Twitter, Youtube, Music } from 'lucide-react';
 import { useEditMode } from '../contexts/EditModeContext';
 import { useDescentSectionLiftClass } from '../hooks/useDescentSectionStacking';
+import { ambientClass } from '../lib/colors';
 import { brandSectionWashClass } from '../lib/brandClasses';
-import { caption, gradientText, displayWordmark, subheading } from '../lib/typography';
+import { caption, gradientText, displayWordmark, subheading, bodySecondary } from '../lib/typography';
 import { cn } from './ui/utils';
 import { FooterEditDialog } from './FooterEditDialog';
 
@@ -15,22 +16,21 @@ export function Footer() {
   const footer = content.footer;
 
   return (
-    <footer className={cn('py-12 px-4 border-t border-border relative', brandSectionWashClass)}>
-      <div className={cn('max-w-6xl mx-auto', sectionLift)}>
+    <footer className="relative overflow-hidden border-t border-signal-purple/35 px-4 py-16 sm:py-20">
+      <div className={cn('pointer-events-none absolute inset-0', brandSectionWashClass)} aria-hidden />
+      <div className="pointer-events-none absolute inset-0 section-cosmic-grain" aria-hidden />
+      <div className={cn('pointer-events-none absolute inset-0', ambientClass.editorial)} aria-hidden />
+      <div className={cn('relative mx-auto max-w-6xl', sectionLift)}>
         {isEditMode && (
           <div className="absolute top-4 right-4">
             <FooterEditDialog />
           </div>
         )}
         
-        <div className="grid md:grid-cols-3 gap-8 mb-8">
-          <div>
-            <h3 className={cn(displayWordmark, gradientText, 'mb-4')}>
-              {footer.bandName}
-            </h3>
-            <p className={caption}>
-              {footer.description}
-            </p>
+        <div className="mb-10 grid gap-10 md:grid-cols-3 md:gap-8">
+          <div className="space-y-4">
+            <h3 className={cn(displayWordmark, gradientText)}>{footer.bandName}</h3>
+            <p className={cn(bodySecondary, 'max-w-sm leading-relaxed')}>{footer.description}</p>
           </div>
 
           <div>

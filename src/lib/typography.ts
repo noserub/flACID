@@ -11,11 +11,25 @@ export const gradientText = gradient.brandText;
 /** Footer wordmark, compact brand moments */
 export const displayWordmark = 'font-hero type-display-wordmark tracking-tight';
 
-/** Section H1 — centered pages (Gallery, Listen, Tour, Albums) */
+/** Display font — section titles, headings, viz names */
 export const titleSection = 'font-hero type-display-section tracking-tight';
+
+/** Section H1 — hot pink accent (default live site sections) */
+export const titleSectionAccent =
+  'font-hero type-display-section tracking-tight text-hot-pink-bright';
+
+/** Section H1 — full brand gradient (reserve for Visuals + wordmark moments) */
+export const titleSectionGradient = cn(titleSection, gradient.brandText);
 
 /** Section H1 — editorial layout (About) */
 export const titleEditorial = 'font-hero type-display-editorial tracking-tight';
+
+/** About title — pink accent to match live editorial header */
+export const titleEditorialAccent =
+  'font-hero type-display-editorial tracking-tight text-hot-pink-bright';
+
+/** About / editorial — full brand gradient (rare) */
+export const titleEditorialGradient = cn(titleEditorial, gradient.brandText);
 
 /** H2 — modals, tour venue, empty states */
 export const heading = 'font-hero type-heading text-foreground';
@@ -69,10 +83,10 @@ export const miniPlayerTitle = 'text-sm font-semibold truncate leading-tight tex
 export const miniPlayerTitleOnDark = 'text-sm font-semibold truncate leading-tight text-white';
 
 /** Mini player chip — album / artist line */
-export const miniPlayerMeta = 'text-xs truncate leading-tight mt-0.5 text-muted-foreground';
+export const miniPlayerMeta = 'text-xs truncate leading-snug text-muted-foreground';
 
 /** Mini player chip — meta on hero viz */
-export const miniPlayerMetaOnDark = 'text-xs truncate leading-tight mt-0.5 text-white/55';
+export const miniPlayerMetaOnDark = 'text-xs truncate leading-snug text-white/55';
 
 /** Player overlay — compact chrome */
 export const playerTrackTitle = cn('font-hero type-player-title', onDark.heading);
