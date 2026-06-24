@@ -21,6 +21,13 @@ import { cn } from './ui/utils';
 import { DESCENT_MENU_PORTAL_LIFT } from '../lib/descentContentLayer';
 import { TRY_DESCENT_CLICKED_EVENT } from '../lib/descentHelp';
 import { registerAudioContext } from '../lib/audioContextManager';
+import {
+  brandActiveAccentClass,
+  brandControlClass,
+  brandIconButtonClass,
+  brandSpinnerClass,
+  brandVizSurfaceClass,
+} from '../lib/brandClasses';
 import { motion, AnimatePresence } from 'motion/react';
 
 /** Shared AudioContext so analyser stays valid across StrictMode remounts */
@@ -389,7 +396,7 @@ export function MusicPlayer() {
                   className="absolute inset-0 flex items-center justify-center z-[59] bg-black/30"
                 >
                   <div className="text-center space-y-3">
-                    <Loader2 className="h-10 w-10 text-cyan-400 animate-spin mx-auto" />
+                    <Loader2 className="h-10 w-10 text-signal-purple-bright animate-spin mx-auto" />
                     <p className="text-white/70 text-sm">Buffering...</p>
                   </div>
                 </motion.div>
@@ -428,7 +435,7 @@ export function MusicPlayer() {
               }}
               exit={{ scale: 0.98, opacity: 0 }}
               transition={{ duration: 0.35, ease: 'easeOut' }}
-              className="relative h-full w-full bg-gradient-to-br from-cyan-900/20 to-fuchsia-900/20"
+              className={cn('relative h-full w-full', brandVizSurfaceClass)}
             >
               <PsychedelicVisualizer 
                 key={`fullscreen-viz-${currentTrack}-${tracks[currentTrack]?.visualizationId ?? 0}`}
@@ -529,17 +536,17 @@ export function MusicPlayer() {
                       collisionPadding={16}
                       className={cn(
                         DESCENT_MENU_PORTAL_LIFT,
-                        'rounded-lg border border-cyan-500/30 bg-background/95 backdrop-blur-md shadow-xl shadow-fuchsia-950/20 p-4 text-sm text-foreground'
+                        'rounded-lg border border-signal-purple/30 bg-background/95 backdrop-blur-md shadow-xl shadow-[rgba(88,28,135,0.2)] p-4 text-sm text-foreground'
                       )}
                       onOpenAutoFocus={(e) => e.preventDefault()}
                     >
                       <div className="space-y-3">
-                        <p className="text-cyan-100">Play music for the full experience</p>
+                        <p className="text-signal-purple-bright/90">Play music for the full experience</p>
                         <Button
                           type="button"
                           variant="ghost"
                           size="sm"
-                          className="border border-cyan-500/25 text-cyan-200/90 hover:bg-cyan-500/10 hover:text-cyan-100"
+                          className="border border-signal-purple/25 text-signal-purple-bright/90 hover:bg-signal-purple/10 hover:text-neon-green"
                           onClick={() => setShowPlayHint(false)}
                         >
                           Got it
@@ -674,7 +681,7 @@ export function MusicPlayer() {
                   variant="outline"
                   size="icon"
                   onClick={toggleFullscreen}
-                  className="h-10 w-10 bg-background/80 text-cyan-400 border border-cyan-400/30 hover:border-fuchsia-400/50 hover:text-fuchsia-400 hover:bg-transparent hover:shadow-lg hover:shadow-fuchsia-500/20 transition-all duration-300"
+                  className={cn('h-10 w-10', brandControlClass)}
                   aria-label="Exit fullscreen"
                 >
                   <X className="h-5 w-5" />
@@ -687,9 +694,9 @@ export function MusicPlayer() {
 
       {/* Normal player view */}
       {!isFullscreen && (
-      <div className="bg-card/80 backdrop-blur-md border-2 border-border rounded-lg overflow-hidden shadow-2xl shadow-cyan-500/10">
+      <div className="bg-card/80 backdrop-blur-md border-2 border-border rounded-lg overflow-hidden shadow-2xl shadow-[rgba(147,51,234,0.12)]">
         {/* Visualizer */}
-        <div className="relative h-64 md:h-96 bg-gradient-to-br from-cyan-900/20 to-fuchsia-900/20">
+        <div className={cn('relative h-64 md:h-96', brandVizSurfaceClass)}>
           <AnimatePresence>
             {isBuffering && (
               <motion.div
@@ -700,7 +707,7 @@ export function MusicPlayer() {
                 className="absolute inset-0 flex items-center justify-center z-10 bg-black/20"
               >
                 <div className="text-center space-y-2">
-                  <Loader2 className="h-8 w-8 text-cyan-400 animate-spin mx-auto" />
+                  <Loader2 className="h-8 w-8 text-signal-purple-bright animate-spin mx-auto" />
                   <p className="text-white/70 text-sm">Buffering...</p>
                 </div>
               </motion.div>
@@ -751,7 +758,7 @@ export function MusicPlayer() {
                   size="icon"
                   onClick={skipBack}
                   disabled={currentTrack === 0}
-                  className="text-cyan-400 hover:text-fuchsia-400 hover:bg-transparent hover:shadow-lg hover:shadow-fuchsia-500/20 disabled:text-muted-foreground transition-all duration-300"
+                  className={cn(brandIconButtonClass)}
                   aria-label="Previous track"
                 >
                   <SkipBack className="h-6 w-6" aria-hidden />
@@ -760,7 +767,7 @@ export function MusicPlayer() {
                   size="icon"
                   onClick={handleTogglePlay}
                   disabled={!tracks[currentTrack].url || (!isAudioReady && !isPlaying)}
-                  className="h-12 w-12 rounded-full bg-fuchsia-600 hover:bg-fuchsia-500 text-white shadow-lg shadow-fuchsia-900/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
+                  className="h-12 w-12 rounded-full bg-primary hover:bg-signal-purple-bright text-primary-foreground shadow-lg shadow-[rgba(147,51,234,0.45)] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
                   aria-label={isPlaying ? 'Pause' : 'Play'}
                 >
                   {isPlaying ? <Pause className="h-6 w-6" aria-hidden /> : <Play className="h-6 w-6 ml-0.5" aria-hidden />}
@@ -770,7 +777,7 @@ export function MusicPlayer() {
                   size="icon"
                   onClick={skipForward}
                   disabled={currentTrack === tracks.length - 1}
-                  className="text-cyan-400 hover:text-fuchsia-400 hover:bg-transparent hover:shadow-lg hover:shadow-fuchsia-500/20 disabled:text-muted-foreground transition-all duration-300"
+                  className={cn(brandIconButtonClass)}
                   aria-label="Next track"
                 >
                   <SkipForward className="h-6 w-6" aria-hidden />
@@ -784,7 +791,7 @@ export function MusicPlayer() {
                   variant="ghost"
                   size="icon"
                   onClick={toggleMute}
-                  className="text-cyan-400 hover:text-fuchsia-400 hover:bg-transparent hover:shadow-lg hover:shadow-fuchsia-500/20 transition-all duration-300 shrink-0"
+                  className={cn(brandIconButtonClass, 'shrink-0')}
                   aria-label={isMuted ? 'Unmute' : 'Mute'}
                 >
                   {isMuted ? <VolumeX className="h-5 w-5" aria-hidden /> : <Volume2 className="h-5 w-5" aria-hidden />}
@@ -824,7 +831,7 @@ export function MusicPlayer() {
                       variant="ghost"
                       size="icon"
                       onClick={showAirPlayPicker}
-                      className="text-cyan-400 hover:text-fuchsia-400 hover:bg-transparent hover:shadow-lg hover:shadow-fuchsia-500/20 transition-all duration-300"
+                      className={cn(brandIconButtonClass)}
                       aria-label="Open AirPlay devices"
                       title="AirPlay"
                     >
@@ -837,7 +844,10 @@ export function MusicPlayer() {
                         variant="ghost"
                         size="icon"
                         onClick={() => void showRemotePlaybackPicker()}
-                        className={`text-cyan-400 hover:text-fuchsia-400 hover:bg-transparent hover:shadow-lg hover:shadow-fuchsia-500/20 transition-all duration-300 ${isRemotePlaybackConnected ? 'text-fuchsia-400' : ''}`}
+                        className={cn(
+                          brandIconButtonClass,
+                          isRemotePlaybackConnected && brandActiveAccentClass
+                        )}
                         aria-label={isRemotePlaybackConnected ? 'Casting connected' : 'Open cast devices'}
                         title={isRemotePlaybackConnected ? 'Casting connected' : 'Cast'}
                       >
@@ -851,7 +861,7 @@ export function MusicPlayer() {
                             animate={{ opacity: 1, x: 0 }}
                             exit={{ opacity: 0, x: -4 }}
                             transition={{ duration: 0.18, ease: 'easeOut' }}
-                            className="max-w-28 truncate text-xs text-cyan-200/80"
+                            className="max-w-28 truncate text-xs text-signal-purple-bright/80"
                           >
                             {remotePlaybackDeviceName ?? 'Connected'}
                           </motion.span>
@@ -865,7 +875,7 @@ export function MusicPlayer() {
                 variant="ghost"
                 size="icon"
                 onClick={toggleFullscreen}
-                className="text-cyan-400 hover:text-fuchsia-400 hover:bg-transparent hover:shadow-lg hover:shadow-fuchsia-500/20 transition-all duration-300"
+                className={cn(brandIconButtonClass)}
                 title="Enter fullscreen mode"
                 aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
               >
@@ -875,7 +885,7 @@ export function MusicPlayer() {
                 variant="ghost"
                 size="icon"
                 onClick={() => setShowPlaylist(!showPlaylist)}
-                className="text-cyan-400 hover:text-fuchsia-400 hover:bg-transparent hover:shadow-lg hover:shadow-fuchsia-500/20 transition-all duration-300"
+                className={cn(brandIconButtonClass)}
                 aria-label={showPlaylist ? 'Hide playlist' : 'Show playlist'}
               >
                 <List className="h-5 w-5" aria-hidden />

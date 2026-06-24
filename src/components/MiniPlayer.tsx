@@ -3,6 +3,7 @@ import { Play, Pause, SkipBack, SkipForward, Maximize } from 'lucide-react';
 import { usePlayback } from '../contexts/PlaybackContext';
 import { useDescentMode } from '../contexts/DescentModeContext';
 import { DESCENT_CHROME_LIFT } from '../lib/descentContentLayer';
+import { brandIconButtonClass } from '../lib/brandClasses';
 import { cn } from './ui/utils';
 import { generateEQData } from '../lib/eqSimulator';
 import { motion } from 'motion/react';
@@ -61,8 +62,8 @@ function MiniEQ({ isPlaying, currentTrack }: { isPlaying: boolean; currentTrack:
         const x = i * (barWidth + 2) + 1;
         const barH = Math.min((val / 255) * h * 0.9, h - 2);
         const gradient = ctx.createLinearGradient(x, h, x + barWidth, 0);
-        gradient.addColorStop(0, 'rgba(34, 211, 238, 0.5)');
-        gradient.addColorStop(1, 'rgba(217, 70, 239, 0.5)');
+        gradient.addColorStop(0, 'rgba(147, 51, 234, 0.55)');
+        gradient.addColorStop(1, 'rgba(74, 222, 128, 0.5)');
         ctx.fillStyle = gradient;
         ctx.fillRect(x, h - barH, barWidth, barH);
       });
@@ -142,7 +143,7 @@ export function MiniPlayer() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2 }}
       className={cn(
-        'fixed lg:relative lg:justify-self-center left-1/2 lg:left-auto bottom-2 lg:bottom-auto -translate-x-1/2 lg:translate-x-0 flex h-fit shrink-0 items-center gap-2 lg:gap-3 px-3 lg:px-4 py-2 rounded-xl bg-background/90 backdrop-blur-md border border-cyan-500/20 shadow-lg w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] lg:w-auto lg:min-w-[280px] lg:max-w-[420px]',
+        'fixed lg:relative lg:justify-self-center left-1/2 lg:left-auto bottom-2 lg:bottom-auto -translate-x-1/2 lg:translate-x-0 flex h-fit shrink-0 items-center gap-2 lg:gap-3 px-3 lg:px-4 py-2 rounded-xl bg-background/90 backdrop-blur-md border border-signal-purple/25 shadow-lg w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] lg:w-auto lg:min-w-[280px] lg:max-w-[420px]',
         isDescentMode ? DESCENT_CHROME_LIFT : 'z-[45]'
       )}
       style={{ bottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
@@ -152,7 +153,7 @@ export function MiniPlayer() {
             type="button"
             onClick={skipBack}
             disabled={currentTrack === 0}
-            className="hidden sm:inline-flex p-1.5 rounded-md text-cyan-400 hover:bg-cyan-500/20 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+            className={cn('hidden sm:inline-flex p-1.5 rounded-md disabled:opacity-40 disabled:pointer-events-none', brandIconButtonClass)}
             aria-label="Previous track"
           >
             <SkipBack className="h-4 w-4" />
@@ -161,7 +162,7 @@ export function MiniPlayer() {
             type="button"
             onClick={togglePlay}
             disabled={!currentTrackData?.url}
-            className="p-2 rounded-full bg-fuchsia-600 hover:bg-fuchsia-500 text-white disabled:opacity-50 transition-colors"
+            className="p-2 rounded-full bg-primary hover:bg-signal-purple-bright text-primary-foreground disabled:opacity-50 transition-colors"
             aria-label={isPlaying ? 'Pause' : 'Play'}
           >
             {isPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5 ml-0.5" />}
@@ -170,7 +171,7 @@ export function MiniPlayer() {
             type="button"
             onClick={skipForward}
             disabled={currentTrack === tracks.length - 1}
-            className="hidden sm:inline-flex p-1.5 rounded-md text-cyan-400 hover:bg-cyan-500/20 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+            className={cn('hidden sm:inline-flex p-1.5 rounded-md disabled:opacity-40 disabled:pointer-events-none', brandIconButtonClass)}
             aria-label="Next track"
           >
             <SkipForward className="h-4 w-4" />
@@ -183,7 +184,7 @@ export function MiniPlayer() {
         <button
           type="button"
           onClick={() => setIsFullscreen(true)}
-          className="flex-shrink-0 p-1.5 rounded-md text-cyan-400 hover:bg-cyan-500/20 transition-colors"
+          className={cn('flex-shrink-0 p-1.5 rounded-md', brandIconButtonClass)}
           aria-label="Enter fullscreen"
           title="Full screen"
         >
@@ -192,7 +193,7 @@ export function MiniPlayer() {
         <button
           type="button"
           onClick={scrollToFullPlayer}
-          className="flex-shrink-0 rounded overflow-hidden cursor-pointer hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-cyan-400/50"
+          className="flex-shrink-0 rounded overflow-hidden cursor-pointer hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-signal-purple/50"
           aria-label="Go to full player"
           title="Go to main player"
         >

@@ -65,7 +65,7 @@ export function NewsletterSignup({
         variant={triggerVariant}
         className={
           triggerClassName ??
-          'border-cyan-500/40 text-cyan-200 hover:bg-cyan-500/10 hover:border-fuchsia-500/50 hover:text-fuchsia-100 shadow-sm shadow-cyan-900/20'
+          'border-signal-purple/40 text-signal-purple-bright hover:bg-signal-purple/10 hover:border-neon-green/50 hover:text-neon-green shadow-sm shadow-[rgba(88,28,135,0.15)]'
         }
         onClick={() => setOpen(true)}
       >
@@ -74,12 +74,12 @@ export function NewsletterSignup({
       </Button>
 
       <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent className="sm:max-w-md border border-cyan-500/25 bg-gradient-to-b from-background via-background to-cyan-950/20 shadow-xl shadow-cyan-950/40 overflow-hidden">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_120%_80%_at_50%_-20%,rgba(34,211,238,0.12),transparent)]" />
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_100%_100%,rgba(217,70,239,0.08),transparent)]" />
+        <DialogContent className="sm:max-w-md border border-signal-purple/25 bg-gradient-to-b from-background via-background to-[rgba(88,28,135,0.12)] shadow-xl shadow-[rgba(88,28,135,0.25)] overflow-hidden">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_120%_80%_at_50%_-20%,rgba(147,51,234,0.12),transparent)]" />
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_100%_100%,rgba(74,222,128,0.08),transparent)]" />
 
           <DialogHeader className="relative z-10">
-            <DialogTitle className="text-xl font-semibold tracking-tight bg-gradient-to-r from-cyan-300 to-fuchsia-300 bg-clip-text text-transparent">
+            <DialogTitle className="font-hero text-xl font-semibold tracking-tight bg-gradient-to-r from-signal-purple-bright via-hot-pink to-neon-green bg-clip-text text-transparent">
               Stay in the loop
             </DialogTitle>
             <DialogDescription className="text-muted-foreground text-sm leading-relaxed">
@@ -101,8 +101,8 @@ export function NewsletterSignup({
                   aria-live="polite"
                 >
                   <div className="relative">
-                    <div className="absolute inset-0 rounded-full bg-cyan-500/20 blur-xl scale-150" />
-                    <CheckCircle2 className="relative w-16 h-16 text-cyan-400" strokeWidth={1.25} />
+                    <div className="absolute inset-0 rounded-full bg-signal-purple/20 blur-xl scale-150" />
+                    <CheckCircle2 className="relative w-16 h-16 text-neon-green" strokeWidth={1.25} />
                   </div>
                   <div className="space-y-2">
                     <p className="text-lg font-medium text-foreground">
@@ -114,7 +114,7 @@ export function NewsletterSignup({
                         : "We'll only email you when there's something worth the signal — tours, releases, and announcements."}
                     </p>
                   </div>
-                  <Sparkles className="w-5 h-5 text-fuchsia-400/80" aria-hidden />
+                  <Sparkles className="w-5 h-5 text-hot-pink/80" aria-hidden />
                   <Button
                     type="button"
                     variant="secondary"
@@ -147,7 +147,7 @@ export function NewsletterSignup({
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       disabled={phase === 'submitting'}
-                      className="border-border/80 bg-background/80 focus-visible:ring-cyan-500/40"
+                      className="border-border/80 bg-background/80 focus-visible:ring-signal-purple/40"
                       aria-invalid={phase === 'error' && errorMessage ? true : undefined}
                       aria-describedby={errorMessage ? 'newsletter-error' : undefined}
                     />
@@ -172,7 +172,7 @@ export function NewsletterSignup({
                   <Button
                     type="submit"
                     disabled={phase === 'submitting' || !email.trim()}
-                    className="w-full bg-gradient-to-r from-cyan-600 to-fuchsia-600 hover:from-cyan-500 hover:to-fuchsia-500 text-white shadow-lg shadow-fuchsia-950/30"
+                    className="w-full bg-gradient-to-r from-signal-purple to-hot-pink-bright hover:from-signal-purple-bright hover:to-hot-pink text-primary-foreground shadow-lg shadow-[rgba(88,28,135,0.3)]"
                   >
                     {phase === 'submitting' ? (
                       <>

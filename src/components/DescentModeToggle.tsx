@@ -5,6 +5,7 @@ import { useDescentMode } from '../contexts/DescentModeContext';
 import { usePlayback } from '../contexts/PlaybackContext';
 import { OPEN_DESCENT_HELP_EVENT, TRY_DESCENT_CLICKED_EVENT } from '../lib/descentHelp';
 import { DESCENT_MENU_PORTAL_LIFT } from '../lib/descentContentLayer';
+import { brandControlClass } from '../lib/brandClasses';
 import { Popover, PopoverAnchor, PopoverContent } from './ui/popover';
 import { Button } from './ui/button';
 import { cn } from './ui/utils';
@@ -18,8 +19,8 @@ export const descentToggleButtonClass = (isDescentMode: boolean) =>
     'relative rounded-lg font-medium transition-all duration-300 touch-manipulation',
     'flex items-center justify-center min-h-11 px-3 sm:px-4 text-sm shrink-0',
     isDescentMode
-      ? 'bg-fuchsia-600 text-white shadow-lg shadow-fuchsia-900/50 hover:bg-fuchsia-500'
-      : 'bg-background/80 text-cyan-400 border border-cyan-400/30 hover:border-fuchsia-400/50 hover:text-fuchsia-400 hover:shadow-lg hover:shadow-fuchsia-500/20'
+      ? 'bg-primary text-primary-foreground shadow-lg shadow-[rgba(147,51,234,0.45)] hover:bg-signal-purple-bright'
+      : brandControlClass
   );
 
 type DescentToggleButtonProps = {
@@ -70,7 +71,7 @@ export function DescentToggleButton({
       </div>
       {isDescentMode && (
         <motion.div
-          className="absolute inset-0 bg-fuchsia-500 rounded-lg blur-xl opacity-50 -z-10"
+          className="absolute inset-0 bg-signal-purple rounded-lg blur-xl opacity-50 -z-10"
           animate={{
             scale: [1, 1.2, 1],
             opacity: [0.5, 0.3, 0.5],
@@ -181,8 +182,8 @@ export function DescentModeToggle() {
         aria-labelledby="descent-onboarding-title"
         className={cn(
           DESCENT_MENU_PORTAL_LIFT,
-          'relative w-[min(20rem,calc(100vw-2rem))] sm:w-80 rounded-lg border border-cyan-500/30',
-          'bg-background/95 backdrop-blur-md shadow-xl shadow-fuchsia-950/20 p-4 text-sm text-foreground'
+          'relative w-[min(20rem,calc(100vw-2rem))] sm:w-80 rounded-lg border border-signal-purple/30',
+          'bg-background/95 backdrop-blur-md shadow-xl shadow-[rgba(88,28,135,0.2)] p-4 text-sm text-foreground'
         )}
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
@@ -192,11 +193,11 @@ export function DescentModeToggle() {
         />
         <div className="space-y-3 pt-0.5">
           <div>
-            <p id="descent-onboarding-title" className="font-semibold text-cyan-100 tracking-tight">
+            <p id="descent-onboarding-title" className="font-semibold text-signal-purple-bright tracking-tight">
               Turn the site into the show
             </p>
             <p className="mt-2 text-muted-foreground leading-relaxed text-[13px] sm:text-sm">
-              <span className="text-cyan-400/90">Descend</span> turns the page into the stage—full-screen visuals
+              <span className="text-neon-green/90">Descend</span> turns the page into the stage—full-screen visuals
               and motion that move with the music.{' '}
               <span className="text-muted-foreground/95">Best on desktop with the in-site player playing. Go fullscreen for the full show.</span>
             </p>

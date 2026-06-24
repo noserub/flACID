@@ -40,6 +40,7 @@ import { useDescentMode } from '../contexts/DescentModeContext';
 import { usePlayback } from '../contexts/PlaybackContext';
 import { useAuth, useInstallPwa } from '../hooks';
 import { DESCENT_CHROME_LIFT, DESCENT_MENU_PORTAL_LIFT } from '../lib/descentContentLayer';
+import { brandControlClass } from '../lib/brandClasses';
 import { cn } from './ui/utils';
 import { DescentModeToggle } from './DescentModeToggle';
 import { SignInDialog } from './SignInDialog';
@@ -198,7 +199,7 @@ export function SiteHeader() {
           <DropdownMenuTrigger asChild>
             <Button
               size="icon"
-              className="size-11 min-h-11 min-w-11 touch-manipulation bg-background/80 text-cyan-400 border border-cyan-400/30 hover:border-fuchsia-400/50 hover:text-fuchsia-400 hover:bg-transparent hover:shadow-lg hover:shadow-fuchsia-500/20 transition-all duration-300"
+              className={cn('size-11 min-h-11 min-w-11 touch-manipulation', brandControlClass)}
             >
               <MoreHorizontal className="h-6 w-6" aria-hidden />
               <span className="sr-only">Site menu</span>
@@ -215,7 +216,7 @@ export function SiteHeader() {
             {descentSupported && (
               <DropdownMenuItem
                 onClick={() => requestDescentHelp()}
-                className="text-cyan-400/95 focus:text-cyan-300 focus:bg-cyan-500/10"
+                className="text-signal-purple-bright/95 focus:text-neon-green focus:bg-signal-purple/10"
               >
                 <CircleHelp className="mr-2 h-4 w-4 shrink-0" />
                 <span>What is Descend?</span>
@@ -231,7 +232,7 @@ export function SiteHeader() {
                     onClick={() => {
                       void promptInstall();
                     }}
-                    className="text-cyan-400/95 focus:text-cyan-300 focus:bg-cyan-500/10"
+                    className="text-signal-purple-bright/95 focus:text-neon-green focus:bg-signal-purple/10"
                   >
                     <Smartphone className="mr-2 h-4 w-4 shrink-0" />
                     <span>Install app</span>
@@ -239,7 +240,7 @@ export function SiteHeader() {
                 ) : (
                   <DropdownMenuItem
                     onClick={() => setInstallIosOpen(true)}
-                    className="text-cyan-400/95 focus:text-cyan-300 focus:bg-cyan-500/10"
+                    className="text-signal-purple-bright/95 focus:text-neon-green focus:bg-signal-purple/10"
                   >
                     <Smartphone className="mr-2 h-4 w-4 shrink-0" />
                     <span>Add to Home Screen</span>
@@ -357,9 +358,9 @@ export function SiteHeader() {
 
           {isDraft && isEditMode && (
             <div className="absolute right-0 top-full z-10 mt-1.5 flex justify-end lg:right-full lg:top-1/2 lg:mt-0 lg:mr-3 lg:-translate-y-1/2">
-              <div className="flex items-center gap-2 bg-cyan-600/90 backdrop-blur-sm border border-cyan-400/50 rounded-lg px-3 py-2 shadow-lg whitespace-nowrap">
-                <div className="w-2 h-2 bg-cyan-300 rounded-full animate-pulse shrink-0" />
-                <span className="text-sm text-cyan-100 font-medium">Unsaved Changes</span>
+              <div className="flex items-center gap-2 bg-signal-purple/90 backdrop-blur-sm border border-signal-purple-bright/40 rounded-lg px-3 py-2 shadow-lg whitespace-nowrap">
+                <div className="w-2 h-2 bg-neon-green rounded-full animate-pulse shrink-0" />
+                <span className="text-sm text-primary-foreground font-medium">Unsaved Changes</span>
               </div>
             </div>
           )}

@@ -2,6 +2,18 @@
 
 :root {
   --font-size: 16px;
+  --font-hero: "Syne", system-ui, sans-serif;
+  /* Cosmic signal palette (live site) */
+  --void: #050508;
+  --signal-purple: #9333ea;
+  --signal-purple-bright: #c084fc;
+  --signal-purple-glow: rgba(147, 51, 234, 0.35);
+  --neon-green: #4ade80;
+  --neon-green-dim: #22c55e;
+  --neon-green-glow: rgba(74, 222, 128, 0.22);
+  --hot-pink: #f472b6;
+  --hot-pink-bright: #ec4899;
+  --hot-pink-glow: rgba(244, 114, 182, 0.2);
   --background: #0a0a0f;
   --foreground: #e8e8f0;
   --card: #1a1a24;
@@ -15,8 +27,8 @@
   --secondary-foreground: #e8e8f0;
   --muted: #2a2a3a;
   --muted-foreground: #a0a0b0;
-  --accent: #22d3ee;
-  --accent-foreground: #0a0a0f;
+  --accent: var(--neon-green);
+  --accent-foreground: var(--void);
   --destructive: #dc2626;
   --destructive-foreground: #ffffff;
   --border: rgba(139, 92, 246, 0.2);
@@ -81,6 +93,7 @@
 
 @theme inline {
   --color-background: var(--background);
+  --color-void: var(--void);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
@@ -118,6 +131,13 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-signal-purple: var(--signal-purple);
+  --color-signal-purple-bright: var(--signal-purple-bright);
+  --color-neon-green: var(--neon-green);
+  --color-neon-green-dim: var(--neon-green-dim);
+  --color-hot-pink: var(--hot-pink);
+  --color-hot-pink-bright: var(--hot-pink-bright);
+  --font-hero: var(--font-hero);
 }
 
 @layer base {
@@ -240,4 +260,68 @@ img, picture, video, canvas, svg {
 
 .animate-glitch {
   animation: glitch 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+
+/* Hero — cosmic illustration treatment */
+.font-hero {
+  font-family: var(--font-hero);
+}
+
+.hero-cosmic-grain {
+  pointer-events: none;
+  opacity: 0.06;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 180px 180px;
+}
+
+@keyframes hero-nebula-drift {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.55;
+  }
+  50% {
+    transform: translate(2%, -1.5%) scale(1.04);
+    opacity: 0.75;
+  }
+}
+
+.hero-nebula-drift {
+  animation: hero-nebula-drift 28s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-nebula-drift {
+    animation: none;
+  }
+}
+
+/* Hero copy — readable over busy illustration (subtitle + tagline only) */
+.hero-copy-subtitle {
+  color: #f4f4f8;
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.95),
+    0 0 24px rgba(0, 0, 0, 0.9),
+    0 0 48px rgba(0, 0, 0, 0.65);
+}
+
+.hero-copy-tagline {
+  color: rgba(232, 232, 240, 0.92);
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.9),
+    0 0 20px rgba(0, 0, 0, 0.85);
+}
+
+.hero-copy-scrim {
+  background: linear-gradient(
+    180deg,
+    rgba(5, 5, 8, 0.35) 0%,
+    rgba(5, 5, 8, 0.62) 45%,
+    rgba(5, 5, 8, 0.5) 100%
+  );
+  box-shadow:
+    0 0 0 1px rgba(147, 51, 234, 0.12),
+    0 8px 32px rgba(0, 0, 0, 0.45);
 }

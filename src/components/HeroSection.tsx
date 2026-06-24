@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Play } from 'lucide-react';
 import { useEditMode } from '../contexts/EditModeContext';
 import { useDescentOverlayZClass } from '../hooks/useDescentSectionStacking';
+import { HERO_COPY } from '../constants/brand';
 import { cn } from './ui/utils';
 import { EditableSection } from './EditableSection';
 import { HeroEditDialog } from './HeroEditDialog';
@@ -14,64 +15,56 @@ import heroBackground from 'figma:asset/410f7e9ef9caea1564a1bf87577512030154fe84
 const HERO_BG_WIDTH = 1920;
 const HERO_BG_HEIGHT = 1080;
 
-// Generate random stutter sequence - Multiple rapid flickers per second
+const STUTTER_INTERVAL_MS = 14_000;
+
 const generateStutterSequence = () => {
   const sequences = [
-    // Rapid multi-glitch (1.0s) - 20 rapid flickers
     {
-      opacity: [1, 0, 1, 0, 1, 0.3, 1, 0, 1, 0.5, 1, 0, 1, 0.2, 1, 0, 1, 0.4, 1, 0, 1, 0, 1, 0.6, 1, 0, 1, 0.1, 1, 0, 1],
-      duration: 0.8,
+      opacity: [1, 0.15, 1, 0, 1, 0.4, 1, 0.1, 1, 0, 1, 0.55, 1, 0, 1],
+      duration: 0.55,
     },
-    // Ultra strobe (0.6s) - 12 flickers
     {
-      opacity: [1, 0, 1, 0, 1, 0, 1, 0.3, 1, 0, 1, 0, 1, 0.5, 1, 0, 1, 0, 1],
-      duration: 0.6,
+      opacity: [1, 0, 1, 0.25, 1, 0, 1, 0.5, 1, 0, 1],
+      duration: 0.45,
     },
-    // Hyper flicker (1.2s) - 24 flickers
     {
-      opacity: [1, 0, 1, 0.2, 1, 0, 1, 0, 1, 0.4, 1, 0, 1, 0, 1, 0.3, 1, 0, 1, 0, 1, 0.6, 1, 0, 1, 0, 1, 0.1, 1, 0, 1, 0, 1, 0.5, 1, 0, 1],
-      duration: 1.2,
-    },
-    // Fast burst (0.5s) - 10 flickers
-    {
-      opacity: [1, 0, 1, 0, 1, 0.4, 1, 0, 1, 0, 1, 0.2, 1, 0, 1],
-      duration: 0.5,
-    },
-    // Machine glitch (0.9s) - 18 flickers
-    {
-      opacity: [1, 0, 1, 0, 1, 0, 1, 0.3, 1, 0, 1, 0, 1, 0, 1, 0.5, 1, 0, 1, 0.1, 1, 0, 1, 0, 1, 0.4, 1, 0, 1],
-      duration: 0.9,
+      opacity: [1, 0.1, 1, 0, 1, 0.35, 1, 0, 1, 0.2, 1, 0, 1],
+      duration: 0.65,
     },
   ];
-  
+
   return sequences[Math.floor(Math.random() * sequences.length)];
 };
 
-// Stuttering Logo Component - Uses content.hero.logoImage when set, fallback to bundled asset
 interface StutteringLogoProps {
   logoSrc: string;
   isInitialLoad: boolean;
 }
 
 function StutteringLogo({ logoSrc, isInitialLoad }: StutteringLogoProps) {
-  const [sequence] = useState(generateStutterSequence());
+  const [sequence] = useState(generateStutterSequence);
 
   return (
     <motion.div
       key={isInitialLoad ? 'initial-stutter' : 'stutter'}
-      initial={isInitialLoad ? { opacity: 0 } : undefined}
-      animate={{ opacity: sequence.opacity }}
-      transition={{
-        duration: sequence.duration,
-        ease: 'linear',
-        delay: isInitialLoad ? 0.2 : 0,
-      }}
-      className="flex justify-center mb-8 w-full max-w-2xl px-4"
+      initial={isInitialLoad ? { opacity: 0, y: 16 } : undefined}
+      animate={isInitialLoad ? { opacity: 1, y: 0 } : { opacity: sequence.opacity }}
+      transition={
+        isInitialLoad
+          ? { duration: 1.1, ease: [0.22, 1, 0.36, 1] }
+          : { duration: sequence.duration, ease: 'linear' }
+      }
+      className="flex justify-center w-full max-w-md sm:max-w-lg px-2"
     >
       <ImageWithFallback
         src={logoSrc}
-        alt="FLACID Logo"
-        className="w-full h-auto max-h-32 object-contain"
+        alt="flACID"
+        className={cn(
+          'w-full h-auto object-contain',
+          'max-h-[3.75rem] sm:max-h-20 md:max-h-24',
+          'drop-shadow-[0_4px_24px_rgba(0,0,0,0.85)]',
+          'drop-shadow-[0_0_48px_rgba(147,51,234,0.25)]'
+        )}
         fetchpriority="high"
         decoding="sync"
         width={800}
@@ -81,28 +74,70 @@ function StutteringLogo({ logoSrc, isInitialLoad }: StutteringLogoProps) {
   );
 }
 
+function HeroArtOverlays() {
+  return (
+    <>
+      {/* Keep upper art clear — vignette heavy at bottom for logo dock */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background: `
+            linear-gradient(to bottom,
+              rgba(5,5,8,0.12) 0%,
+              transparent 28%,
+              transparent 48%,
+              rgba(5,5,8,0.55) 72%,
+              rgba(5,5,8,0.92) 88%,
+              rgba(5,5,8,0.98) 100%
+            )`,
+        }}
+        aria-hidden
+      />
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background:
+            'radial-gradient(ellipse 90% 55% at 50% 88%, rgba(88,28,135,0.22) 0%, transparent 70%)',
+        }}
+        aria-hidden
+      />
+      <div className="absolute inset-0 hero-cosmic-grain" aria-hidden />
+    </>
+  );
+}
+
 export function HeroSection() {
   const { content, isEditMode, updateContent } = useEditMode();
   const scrollHintZ = useDescentOverlayZClass();
   const [stutterKey, setStutterKey] = useState(0);
   const isInitialLoad = stutterKey === 0;
-  
+  const hasCustomBackground = Boolean(content.hero.backgroundImage);
+
   useEffect(() => {
-    // Trigger new glitch sequence every 10 seconds
-    const triggerStutter = () => {
-      setTimeout(() => {
-        setStutterKey(prev => prev + 1);
-        triggerStutter();
-      }, 10000);
+    let timeoutId: ReturnType<typeof setTimeout>;
+
+    const scheduleStutter = () => {
+      timeoutId = setTimeout(() => {
+        setStutterKey((prev) => prev + 1);
+        scheduleStutter();
+      }, STUTTER_INTERVAL_MS);
     };
-    
-    triggerStutter();
+
+    scheduleStutter();
+    return () => clearTimeout(timeoutId);
   }, []);
-  
+
   const scrollToMusicPlayer = () => {
     const musicSection = document.getElementById('music-player');
     if (musicSection) {
       musicSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  const scrollToAbout = () => {
+    const aboutSection = document.querySelector('[data-section="about"]');
+    if (aboutSection) {
+      aboutSection.scrollIntoView({ behavior: 'smooth' });
     }
   };
 
@@ -117,151 +152,121 @@ export function HeroSection() {
         updateContent('hero', { ...content.hero, visible })
       }
     >
-      <div className="relative min-h-screen flex items-center justify-center overflow-hidden">
+      <div className="relative min-h-[100dvh] flex flex-col justify-end overflow-hidden bg-void">
         {isEditMode && <HeroEditDialog />}
-        
-        {/* Background Image - LCP optimized with dimensions to prevent CLS */}
-        <div className="absolute inset-0 bg-black">
-          <ImageWithFallback
-            src={displayBackground}
-            alt=""
-            aria-hidden
-            className="w-full h-full object-cover object-center"
-            fetchpriority="high"
-            loading="eager"
-            decoding="async"
-            width={HERO_BG_WIDTH}
-            height={HERO_BG_HEIGHT}
-          />
-        
-        {/* Panning Gradient Overlay - Creates transparency variation */}
-        <motion.div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            background: 'radial-gradient(ellipse 1000px 700px at 50% 50%, transparent 0%, rgba(10, 10, 15, 0.5) 80%)',
-          }}
-          animate={{
-            backgroundPosition: [
-              '0% 0%',
-              '100% 0%',
-              '100% 100%',
-              '0% 100%',
-              '0% 0%',
-            ],
-            backgroundSize: ['200% 200%', '250% 250%', '200% 200%'],
-          }}
-          transition={{
-            duration: 20,
-            repeat: Infinity,
-            ease: 'linear',
-          }}
-        />
-        
-        {/* Light darkened overlay for text readability - smooth gradient, no hard line */}
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            background: 'linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.25) 25%, rgba(10,10,15,0.4) 50%, rgba(10,10,15,0.5) 75%, rgba(10,10,15,0.6) 100%)',
-          }}
-        />
-      </div>
 
-      {/* Panning glow overlays - gradient position animated so the glow moves, element stays fixed (no moving rectangles) */}
-      <motion.div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background: 'radial-gradient(circle at 50% 50%, rgba(0, 255, 255, 0.2) 0%, transparent 70%)',
-          backgroundSize: '200% 200%',
-        }}
-        animate={{
-          backgroundPosition: ['0% 0%', '100% 20%', '80% 100%', '20% 80%', '0% 0%'],
-        }}
-        transition={{
-          duration: 25,
-          repeat: Infinity,
-          ease: 'easeInOut',
-        }}
-      />
-      <motion.div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background: 'radial-gradient(circle at 50% 50%, rgba(255, 0, 255, 0.16) 0%, transparent 70%)',
-          backgroundSize: '200% 200%',
-        }}
-        animate={{
-          backgroundPosition: ['100% 100%', '0% 80%', '20% 0%', '80% 20%', '100% 100%'],
-        }}
-        transition={{
-          duration: 30,
-          repeat: Infinity,
-          ease: 'easeInOut',
-          delay: 2,
-        }}
-      />
-
-      {/* Content */}
-      <div className="relative z-10 text-center px-4 max-w-5xl mx-auto">
-        <StutteringLogo
-          key={stutterKey}
-          logoSrc={displayLogo}
-          isInitialLoad={isInitialLoad}
-        />
-        
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1, delay: 0.3 }}
-          className="space-y-3"
-        >
-          <p className="text-xl md:text-2xl text-cyan-300/90 tracking-wide">
-            {content.hero.subtitle}
-          </p>
-          {content.hero.tagline && (
-            <p className="text-base md:text-lg text-fuchsia-300/70 tracking-wide">
-              {content.hero.tagline}
-            </p>
-          )}
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 1, delay: 0.6 }}
-          className="mt-12"
-        >
-          <div className="inline-block relative">
-            <div className="absolute inset-0 bg-fuchsia-500 blur-2xl opacity-50 animate-pulse" />
-            <button 
-              onClick={scrollToMusicPlayer}
-              className="relative px-8 py-4 bg-fuchsia-500 hover:bg-fuchsia-600 rounded-lg transition-all duration-300 shadow-lg shadow-fuchsia-900/50"
-            >
-              <span className="tracking-wider">Experience</span>
-            </button>
-          </div>
-        </motion.div>
-      </div>
-
-      {/* Scroll Indicator */}
-      <motion.button
-        type="button"
-        aria-label="Scroll to about section"
-        className={cn(
-          'absolute bottom-8 left-1/2 -translate-x-1/2 cursor-pointer border-0 bg-transparent p-0',
-          scrollHintZ
-        )}
-        animate={{ y: [0, 10, 0] }}
-        transition={{ duration: 2, repeat: Infinity }}
-        onClick={() => {
-          const aboutSection = document.querySelector('[data-section="about"]');
-          if (aboutSection) {
-            aboutSection.scrollIntoView({ behavior: 'smooth' });
-          }
-        }}
-      >
-        <div className="w-12 h-16 border-2 border-cyan-400/50 rounded-full flex items-center justify-center hover:border-fuchsia-400/70 hover:shadow-lg hover:shadow-fuchsia-500/20 transition-all duration-300">
-          <ChevronDown className="w-6 h-6 text-cyan-400/70" aria-hidden />
+        <div className="absolute inset-0 bg-void">
+          <motion.div
+            className="absolute inset-0 will-change-transform"
+            initial={{ scale: 1.02 }}
+            animate={{
+              scale: [1.02, 1.06, 1.03],
+              x: ['0%', '-1%', '-0.25%'],
+              y: ['0%', '-0.5%', '0%'],
+            }}
+            transition={{
+              duration: 40,
+              repeat: Infinity,
+              repeatType: 'mirror',
+              ease: 'easeInOut',
+            }}
+          >
+            <ImageWithFallback
+              src={displayBackground}
+              alt=""
+              aria-hidden
+              className={cn(
+                'w-full h-full object-cover',
+                hasCustomBackground ? 'object-[center_32%]' : 'object-center'
+              )}
+              fetchpriority="high"
+              loading="eager"
+              decoding="async"
+              width={HERO_BG_WIDTH}
+              height={HERO_BG_HEIGHT}
+            />
+          </motion.div>
+          <HeroArtOverlays />
         </div>
-      </motion.button>
+
+        {/* Bottom dock — Listen first, logo signs the poster */}
+        <div
+          className={cn(
+            'relative z-10 w-full font-hero',
+            'pb-[max(5.5rem,calc(env(safe-area-inset-bottom)+4.25rem))]',
+            'md:pb-[max(6rem,calc(env(safe-area-inset-bottom)+4.75rem))]'
+          )}
+        >
+          <div className="mx-auto flex w-full max-w-2xl flex-col items-center px-4 sm:px-6">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.9, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
+              className="flex w-full flex-col items-center gap-7 sm:gap-9 md:gap-10"
+            >
+              <div className="relative group">
+                <div
+                  className="absolute -inset-2 rounded-2xl opacity-70 blur-2xl transition-opacity duration-500 group-hover:opacity-100"
+                  style={{
+                    background:
+                      'linear-gradient(105deg, var(--signal-purple) 0%, var(--hot-pink-bright) 50%, var(--neon-green-dim) 100%)',
+                  }}
+                  aria-hidden
+                />
+                <button
+                  type="button"
+                  onClick={scrollToMusicPlayer}
+                  className={cn(
+                    'relative inline-flex items-center justify-center gap-2.5',
+                    'min-h-12 px-10 py-3.5 rounded-xl',
+                    'bg-primary text-primary-foreground',
+                    'text-sm sm:text-base font-semibold tracking-[0.2em] uppercase',
+                    'shadow-lg shadow-[rgba(147,51,234,0.5)]',
+                    'ring-1 ring-white/10',
+                    'transition-all duration-300',
+                    'hover:bg-[var(--signal-purple-bright)] hover:scale-[1.02]',
+                    'hover:shadow-[rgba(192,132,252,0.55)]',
+                    'active:scale-[0.98]',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-purple-bright focus-visible:ring-offset-2 focus-visible:ring-offset-void'
+                  )}
+                >
+                  <Play className="w-4 h-4 fill-current" aria-hidden />
+                  {HERO_COPY.ctaLabel}
+                </button>
+              </div>
+
+              <StutteringLogo
+                key={stutterKey}
+                logoSrc={displayLogo}
+                isInitialLoad={isInitialLoad}
+              />
+            </motion.div>
+          </div>
+        </div>
+
+        <motion.button
+          type="button"
+          aria-label="Scroll to about section"
+          className={cn(
+            'absolute left-1/2 -translate-x-1/2 cursor-pointer border-0 bg-transparent p-0',
+            'bottom-[max(1.25rem,env(safe-area-inset-bottom))]',
+            scrollHintZ
+          )}
+          animate={{ y: [0, 8, 0] }}
+          transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
+          onClick={scrollToAbout}
+        >
+          <div
+            className={cn(
+              'w-11 h-14 rounded-full flex items-center justify-center',
+              'border border-signal-purple/40',
+              'hover:border-neon-green/50 hover:shadow-[0_0_24px_rgba(74,222,128,0.2)]',
+              'transition-all duration-300'
+            )}
+          >
+            <ChevronDown className="w-5 h-5 text-signal-purple-bright/70" aria-hidden />
+          </div>
+        </motion.button>
       </div>
     </EditableSection>
   );

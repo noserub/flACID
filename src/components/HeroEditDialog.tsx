@@ -67,12 +67,12 @@ export function HeroEditDialog() {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="tagline">Tagline</Label>
+        <Label htmlFor="tagline">Phonetic / tagline</Label>
         <Input
           id="tagline"
           value={tagline}
           onChange={(e) => setTagline(e.target.value)}
-          placeholder="Live from the basement"
+          placeholder="/flæs'id/"
         />
       </div>
     </EditDialog>

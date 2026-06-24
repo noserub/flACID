@@ -351,7 +351,8 @@ export function MusicPlayerEditDialog() {
                         <SelectItem value="15">16. Pulse Horizon</SelectItem>
                         <SelectItem value="16">17. Light Speed Warp</SelectItem>
                         <SelectItem value="17">18. Tron Corridor</SelectItem>
-                        <SelectItem value="18">19. Neon Tunnel 3D</SelectItem>
+                        <SelectItem value="18">19. Lite-Brite Magic</SelectItem>
+                        <SelectItem value="19">20. Neon Tunnel 3D</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

@@ -121,7 +121,7 @@ const defaultContent: SiteContent = {
   hero: {
     logoImage: '',
     subtitle: 'The Fragile Sphere',
-    tagline: '',
+    tagline: "/flæs'id/",
     backgroundImage: '',
     visible: true,
   },

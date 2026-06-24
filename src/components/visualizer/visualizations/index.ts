@@ -15,6 +15,7 @@ import { drawReactionDiffusion } from './reactionDiffusion';
 import { drawPulseHorizon } from './pulseHorizon';
 import { drawLightSpeedWarp } from './lightSpeedWarp';
 import { drawTronCorridor } from './tronCorridor';
+import { drawLiteBriteMagic } from './liteBriteMagic';
 import { drawThreeNeonTunnelStub } from './threeNeonTunnel';
 
 // Re-export for use in main component
@@ -28,6 +29,7 @@ export { drawReactionDiffusion } from './reactionDiffusion';
 export { drawPulseHorizon } from './pulseHorizon';
 export { drawLightSpeedWarp } from './lightSpeedWarp';
 export { drawTronCorridor } from './tronCorridor';
+export { drawLiteBriteMagic } from './liteBriteMagic';
 export { drawThreeNeonTunnelStub, createNeonTunnelRenderer } from './threeNeonTunnel';
 export type { ThreeTunnelHandle, ThreeTunnelFrameArgs } from './threeNeonTunnel';
 
@@ -63,6 +65,7 @@ const VISUALIZATIONS: DrawFn[] = [
   drawPulseHorizon,
   drawLightSpeedWarp,
   drawTronCorridor,
+  drawLiteBriteMagic,
   drawThreeNeonTunnelStub,
 ];
 
