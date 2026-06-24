@@ -1,7 +1,11 @@
 import { MusicPlayer } from './MusicPlayer';
 import { useEditMode } from '../contexts/EditModeContext';
+import { brandSectionWashClass } from '../lib/brandClasses';
+import { SECTION_SCROLL_MARGIN_PX } from '../lib/sectionNav';
+import { cn } from './ui/utils';
 import { EditableSection } from './EditableSection';
 import { ListenNowEditDialog } from './ListenNowEditDialog';
+import { SectionTitle } from './SectionTitle';
 
 export function ListenNowSection() {
   const { content, updateContent, isEditMode } = useEditMode();
@@ -17,15 +21,13 @@ export function ListenNowSection() {
       {/* Intentionally no DESCENT_CONTENT_LIFT: whole section stays under Descend effects (z-9990+) */}
       <section
         id="music-player"
-        className="relative z-0 py-20 px-4 bg-gradient-to-b from-background via-fuchsia-950/5 to-background"
+        className={cn('relative z-0 py-20 px-4 scroll-mt-28', brandSectionWashClass)}
+        style={{ scrollMarginTop: SECTION_SCROLL_MARGIN_PX }}
       >
-        <div className="max-w-6xl mx-auto mb-12 text-center">
-          <h2 className="text-5xl md:text-6xl mb-4 bg-gradient-to-r from-cyan-400 to-fuchsia-400 bg-clip-text text-transparent">
+        <div id="listen-section-head" className="max-w-6xl mx-auto mb-12 text-center scroll-mt-28">
+          <SectionTitle subtitle={content.listenNow.description}>
             {content.listenNow.title}
-          </h2>
-          <p className="text-muted-foreground text-lg">
-            {content.listenNow.description}
-          </p>
+          </SectionTitle>
           {isEditMode && (
             <div className="mt-4 flex justify-center">
               <ListenNowEditDialog />

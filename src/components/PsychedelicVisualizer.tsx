@@ -37,6 +37,7 @@ const BACKGROUND_BASE = [
   { h: 265, s: 40, l1: 7, l2: 4, l3: 2 },
   { h: 300, s: 36, l1: 8, l2: 5, l3: 2 },
   { h: 300, s: 55, l1: 7, l2: 4, l3: 2 },
+  { h: 285, s: 55, l1: 10, l2: 6, l3: 3 },
 ];
 
 export function PsychedelicVisualizer({

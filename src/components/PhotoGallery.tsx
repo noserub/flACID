@@ -7,9 +7,11 @@ import { ImageWithFallback } from './figma/ImageWithFallback';
 import Masonry, { ResponsiveMasonry } from 'react-responsive-masonry';
 import { useEditMode } from '../contexts/EditModeContext';
 import { useDescentSectionLiftClass } from '../hooks/useDescentSectionStacking';
+import { brandSectionWashClass } from '../lib/brandClasses';
 import { cn } from './ui/utils';
 import { EditableSection } from './EditableSection';
 import { GalleryEditDialog } from './GalleryEditDialog';
+import { SectionTitle } from './SectionTitle';
 
 export function PhotoGallery() {
   const { content, isEditMode, updateContent } = useEditMode();
@@ -77,29 +79,19 @@ export function PhotoGallery() {
         updateContent('gallery', { ...content.gallery, visible })
       }
     >
-      <section className="py-20 px-4 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-background via-purple-950/10 to-background" />
+      <section className={cn('py-20 px-4 relative overflow-hidden', brandSectionWashClass)}>
         
         <div className={cn('max-w-7xl mx-auto', sectionLift)}>
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.8 }}
-            className="text-center mb-12"
-          >
-            <h2 className="text-5xl md:text-6xl mb-4 bg-gradient-to-r from-purple-400 to-fuchsia-400 bg-clip-text text-transparent">
+          <div className="text-center mb-12">
+            <SectionTitle subtitle={content.gallery.subtitle || undefined}>
               {content.gallery.title}
-            </h2>
-            {content.gallery.subtitle && (
-              <p className="text-muted-foreground text-lg max-w-2xl mx-auto">{content.gallery.subtitle}</p>
-            )}
+            </SectionTitle>
             {isEditMode && (
               <div className="mt-4 flex justify-center">
                 <GalleryEditDialog />
               </div>
             )}
-          </motion.div>
+          </div>
 
           {/* Gallery Tabs */}
           {visibleTabs.length > 0 && (

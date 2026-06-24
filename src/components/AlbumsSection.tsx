@@ -4,9 +4,11 @@ import { ImageWithFallback } from './figma/ImageWithFallback';
 import { Calendar, Music } from 'lucide-react';
 import { useEditMode } from '../contexts/EditModeContext';
 import { useDescentSectionLiftClass } from '../hooks/useDescentSectionStacking';
+import { brandSectionWashClass } from '../lib/brandClasses';
 import { cn } from './ui/utils';
 import { EditableSection } from './EditableSection';
 import { DiscographyEditDialog } from './DiscographyEditDialog';
+import { SectionTitle } from './SectionTitle';
 
 const defaultAlbumImage = 'https://images.unsplash.com/photo-1564178413634-1ec30062c5e2?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx2aW55bCUyMHJlY29yZCUyMGFsYnVtfGVufDF8fHx8MTc2MDIyOTk5N3ww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral';
 
@@ -23,8 +25,8 @@ const AlbumCard = memo(function AlbumCard({ album, index }: AlbumCardProps) {
       viewport={{ once: true }}
       transition={{ duration: 0.6, delay: index * 0.1 }}
     >
-      <div className="group relative bg-card border border-border rounded-lg overflow-hidden hover:border-primary/50 transition-all duration-300 shadow-lg hover:shadow-cyan-900/30">
-        <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-cyan-900/20 to-fuchsia-900/20">
+      <div className="group relative bg-card border border-border rounded-lg overflow-hidden hover:border-primary/50 transition-all duration-300 shadow-lg hover:shadow-[rgba(88,28,135,0.2)]">
+        <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-[rgba(88,28,135,0.2)] to-[rgba(74,222,128,0.08)]">
           <ImageWithFallback
             src={album.coverImage || defaultAlbumImage}
             alt={album.title}
@@ -74,25 +76,18 @@ export function AlbumsSection() {
         updateContent('discography', { ...content.discography, visible })
       }
     >
-      <section className="py-20 px-4 bg-gradient-to-b from-background to-cyan-950/5">
+      <section className={cn('py-20 px-4', brandSectionWashClass)}>
         <div className={cn('max-w-7xl mx-auto', sectionLift)}>
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.8 }}
-            className="text-center mb-16"
-          >
-            <h2 className="text-5xl md:text-6xl mb-4 bg-gradient-to-r from-cyan-400 to-fuchsia-400 bg-clip-text text-transparent">
+          <div id="journey-section-head" className="text-center mb-16 scroll-mt-28">
+            <SectionTitle subtitle="Chronicles of sound and consciousness">
               {content.discography.title}
-            </h2>
-            <p className="text-muted-foreground text-lg">Chronicles of sound and consciousness</p>
+            </SectionTitle>
             {isEditMode && (
               <div className="mt-4 flex justify-center">
                 <DiscographyEditDialog />
               </div>
             )}
-          </motion.div>
+          </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             {albums.map((album, index) => (

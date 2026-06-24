@@ -7,7 +7,6 @@ import { Slider } from './ui/slider';
 import { PsychedelicVisualizer } from './PsychedelicVisualizer';
 import { useEditMode } from '../contexts/EditModeContext';
 import { useDescentMode } from '../contexts/DescentModeContext';
-import { useDescentIntensity } from '../contexts/DescentIntensityContext';
 import { usePlayback } from '../contexts/PlaybackContext';
 import {
   useVizSensitivity,
@@ -20,19 +19,19 @@ import { Popover, PopoverAnchor, PopoverContent } from './ui/popover';
 import { cn } from './ui/utils';
 import { DESCENT_MENU_PORTAL_LIFT } from '../lib/descentContentLayer';
 import { TRY_DESCENT_CLICKED_EVENT } from '../lib/descentHelp';
-import { registerAudioContext } from '../lib/audioContextManager';
+import {
+  brandActiveAccentClass,
+  brandControlClass,
+  brandIconButtonClass,
+  brandPrimaryButtonClass,
+  brandSpinnerClass,
+  brandVizSurfaceClass,
+} from '../lib/brandClasses';
 import { motion, AnimatePresence } from 'motion/react';
-
-/** Shared AudioContext so analyser stays valid across StrictMode remounts */
-let sharedAudioContext: AudioContext | null = null;
-
-/** createMediaElementSource may only be called once per HTMLMediaElement */
-const mediaElementSourceByAudio = new WeakMap<HTMLMediaElement, MediaElementAudioSourceNode>();
 
 export function MusicPlayer() {
   const { isEditMode } = useEditMode();
   const { isDescentMode, descentSupported, toggleDescentMode } = useDescentMode();
-  const { registerAnalyser, registerPlaybackState } = useDescentIntensity();
   const {
     tracks,
     currentTrack,
@@ -44,7 +43,6 @@ export function MusicPlayer() {
     isAudioReady,
     isBuffering,
     currentTrackData,
-    audioRef,
     togglePlay,
     skipForward,
     skipBack,
@@ -55,6 +53,8 @@ export function MusicPlayer() {
     selectTrack,
     isFullscreen,
     setIsFullscreen,
+    isHeroStage,
+    analyser: analyserForViz,
     isAirPlayAvailable,
     isRemotePlaybackAvailable,
     isRemotePlaybackConnected,
@@ -75,7 +75,7 @@ export function MusicPlayer() {
 
   const canShowRemoteTargets = isAirPlayAvailable || isRemotePlaybackAvailable;
 
-  const [showPlaylist, setShowPlaylist] = useState(true);
+  const [showPlaylist, setShowPlaylist] = useState(false);
   const [isVisualizerLoading, setIsVisualizerLoading] = useState(false);
   const [showPlayHint, setShowPlayHint] = useState(false);
   const [showFullscreenControls, setShowFullscreenControls] = useState(true);
@@ -84,102 +84,6 @@ export function MusicPlayer() {
   const justShowedFromActivityRef = useRef(0);
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
   const [touchCurrentY, setTouchCurrentY] = useState<number | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
-  const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
-  const [analyserForViz, setAnalyserForViz] = useState<AnalyserNode | null>(null);
-
-  // AudioContext/analyser for visualizer + DescentIntensity (shared so source stays valid)
-  useEffect(() => {
-    if (audioContextRef.current && analyserRef.current) return;
-    const AudioContextConstructor = window.AudioContext ?? (window as Window & { webkitAudioContext?: typeof window.AudioContext }).webkitAudioContext;
-    if (!AudioContextConstructor) return;
-    const ctx = sharedAudioContext && sharedAudioContext.state !== 'closed'
-      ? sharedAudioContext
-      : new AudioContextConstructor();
-    sharedAudioContext = ctx;
-    registerAudioContext(ctx);
-    const analyser = ctx.createAnalyser();
-    analyser.fftSize = 2048;
-    audioContextRef.current = ctx;
-    analyserRef.current = analyser;
-    audioContextRef.current = ctx;
-    analyserRef.current = analyser;
-    return () => {
-      try {
-        if (analyserRef.current) analyserRef.current.disconnect();
-      } catch {
-        /* ignore */
-      }
-      registerAudioContext(null);
-      // StrictMode remount: clear refs so a fresh analyser is created on the next mount.
-      audioContextRef.current = null;
-      analyserRef.current = null;
-    };
-  }, []);
-
-  // Route playback through Web Audio (analyser → destination). Volume uses element.volume from PlaybackContext.
-  // captureStream was unreliable for audible output in Chrome; MediaElementSource is the standard path.
-  useEffect(() => {
-    const audio = audioRef?.current;
-    const url = currentTrackData?.url?.trim();
-    if (!audio || !url || !analyserRef.current || !audioContextRef.current) {
-      setAnalyserForViz(null);
-      return;
-    }
-    const ctx = audioContextRef.current;
-    const analyser = analyserRef.current;
-
-    let source = mediaElementSourceByAudio.get(audio) ?? null;
-    if (!source) {
-      try {
-        source = ctx.createMediaElementSource(audio);
-        mediaElementSourceByAudio.set(audio, source);
-      } catch {
-        setAnalyserForViz(null);
-        return;
-      }
-    }
-
-    try {
-      source.connect(analyser);
-      analyser.connect(ctx.destination);
-    } catch {
-      setAnalyserForViz(null);
-      return;
-    }
-    sourceRef.current = source;
-    setAnalyserForViz(analyser);
-
-    return () => {
-      try {
-        source?.disconnect();
-      } catch {
-        /* ignore */
-      }
-      try {
-        analyser.disconnect();
-      } catch {
-        /* ignore */
-      }
-      sourceRef.current = null;
-    };
-  }, [audioRef, currentTrackData?.url, isAudioReady]);
-
-  // Resume AudioContext on first play (browser autoplay policy)
-  useEffect(() => {
-    if (isPlaying && audioContextRef.current?.state === 'suspended') {
-      audioContextRef.current.resume();
-    }
-  }, [isPlaying]);
-
-  useEffect(() => {
-    registerAnalyser(analyserForViz ?? analyserRef.current, isPlaying);
-  }, [isPlaying, registerAnalyser, analyserForViz]);
-
-  useEffect(() => {
-    registerPlaybackState(currentTime, currentTrack);
-  }, [currentTime, currentTrack, registerPlaybackState]);
 
   // Auto-hide fullscreen controls after 3s inactivity — only when playing (keep visible if paused so user can hit play)
   useEffect(() => {
@@ -389,7 +293,7 @@ export function MusicPlayer() {
                   className="absolute inset-0 flex items-center justify-center z-[59] bg-black/30"
                 >
                   <div className="text-center space-y-3">
-                    <Loader2 className="h-10 w-10 text-cyan-400 animate-spin mx-auto" />
+                    <Loader2 className="h-10 w-10 text-signal-purple-bright animate-spin mx-auto" />
                     <p className="text-white/70 text-sm">Buffering...</p>
                   </div>
                 </motion.div>
@@ -428,7 +332,7 @@ export function MusicPlayer() {
               }}
               exit={{ scale: 0.98, opacity: 0 }}
               transition={{ duration: 0.35, ease: 'easeOut' }}
-              className="relative h-full w-full bg-gradient-to-br from-cyan-900/20 to-fuchsia-900/20"
+              className={cn('relative h-full w-full', brandVizSurfaceClass)}
             >
               <PsychedelicVisualizer 
                 key={`fullscreen-viz-${currentTrack}-${tracks[currentTrack]?.visualizationId ?? 0}`}
@@ -529,17 +433,17 @@ export function MusicPlayer() {
                       collisionPadding={16}
                       className={cn(
                         DESCENT_MENU_PORTAL_LIFT,
-                        'rounded-lg border border-cyan-500/30 bg-background/95 backdrop-blur-md shadow-xl shadow-fuchsia-950/20 p-4 text-sm text-foreground'
+                        'rounded-lg border border-signal-purple/30 bg-background/95 backdrop-blur-md shadow-xl shadow-[rgba(88,28,135,0.2)] p-4 text-sm text-foreground'
                       )}
                       onOpenAutoFocus={(e) => e.preventDefault()}
                     >
                       <div className="space-y-3">
-                        <p className="text-cyan-100">Play music for the full experience</p>
+                        <p className="text-signal-purple-bright/90">Play music for the full experience</p>
                         <Button
                           type="button"
                           variant="ghost"
                           size="sm"
-                          className="border border-cyan-500/25 text-cyan-200/90 hover:bg-cyan-500/10 hover:text-cyan-100"
+                          className="border border-signal-purple/25 text-signal-purple-bright/90 hover:bg-signal-purple/10 hover:text-neon-green"
                           onClick={() => setShowPlayHint(false)}
                         >
                           Got it
@@ -674,7 +578,7 @@ export function MusicPlayer() {
                   variant="outline"
                   size="icon"
                   onClick={toggleFullscreen}
-                  className="h-10 w-10 bg-background/80 text-cyan-400 border border-cyan-400/30 hover:border-fuchsia-400/50 hover:text-fuchsia-400 hover:bg-transparent hover:shadow-lg hover:shadow-fuchsia-500/20 transition-all duration-300"
+                  className={cn('h-10 w-10', brandControlClass)}
                   aria-label="Exit fullscreen"
                 >
                   <X className="h-5 w-5" />
@@ -687,9 +591,9 @@ export function MusicPlayer() {
 
       {/* Normal player view */}
       {!isFullscreen && (
-      <div className="bg-card/80 backdrop-blur-md border-2 border-border rounded-lg overflow-hidden shadow-2xl shadow-cyan-500/10">
+      <div className="bg-card/80 backdrop-blur-md border-2 border-border rounded-lg overflow-hidden shadow-2xl shadow-[rgba(147,51,234,0.12)]">
         {/* Visualizer */}
-        <div className="relative h-64 md:h-96 bg-gradient-to-br from-cyan-900/20 to-fuchsia-900/20">
+        <div className={cn('relative h-64 md:h-96', brandVizSurfaceClass)}>
           <AnimatePresence>
             {isBuffering && (
               <motion.div
@@ -700,12 +604,22 @@ export function MusicPlayer() {
                 className="absolute inset-0 flex items-center justify-center z-10 bg-black/20"
               >
                 <div className="text-center space-y-2">
-                  <Loader2 className="h-8 w-8 text-cyan-400 animate-spin mx-auto" />
+                  <Loader2 className="h-8 w-8 text-signal-purple-bright animate-spin mx-auto" />
                   <p className="text-white/70 text-sm">Buffering...</p>
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
+          {isHeroStage ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-void/90 px-6 text-center">
+              <p className="text-sm font-medium uppercase tracking-[0.2em] text-signal-purple-bright/90">
+                Hero Stage
+              </p>
+              <p className="text-white/60 text-sm max-w-xs">
+                Visualizer is live at the top. Use the now playing bar for transport and tracks.
+              </p>
+            </div>
+          ) : (
           <PsychedelicVisualizer 
             key={`normal-viz-${currentTrack}-${tracks[currentTrack]?.visualizationId ?? 0}`}
             analyser={analyserForViz} 
@@ -713,6 +627,7 @@ export function MusicPlayer() {
             currentTrack={currentTrack}
             visualizationId={tracks[currentTrack]?.visualizationId}
           />
+          )}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="text-center">
               <h3 className={`text-white/90 mb-2 ${isFullscreen ? 'text-4xl md:text-5xl' : ''}`}>{tracks[currentTrack].title}</h3>
@@ -751,7 +666,7 @@ export function MusicPlayer() {
                   size="icon"
                   onClick={skipBack}
                   disabled={currentTrack === 0}
-                  className="text-cyan-400 hover:text-fuchsia-400 hover:bg-transparent hover:shadow-lg hover:shadow-fuchsia-500/20 disabled:text-muted-foreground transition-all duration-300"
+                  className={cn(brandIconButtonClass)}
                   aria-label="Previous track"
                 >
                   <SkipBack className="h-6 w-6" aria-hidden />
@@ -760,7 +675,10 @@ export function MusicPlayer() {
                   size="icon"
                   onClick={handleTogglePlay}
                   disabled={!tracks[currentTrack].url || (!isAudioReady && !isPlaying)}
-                  className="h-12 w-12 rounded-full bg-fuchsia-600 hover:bg-fuchsia-500 text-white shadow-lg shadow-fuchsia-900/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
+                  className={cn(
+                    'h-12 w-12 rounded-full disabled:opacity-50 disabled:cursor-not-allowed',
+                    brandPrimaryButtonClass
+                  )}
                   aria-label={isPlaying ? 'Pause' : 'Play'}
                 >
                   {isPlaying ? <Pause className="h-6 w-6" aria-hidden /> : <Play className="h-6 w-6 ml-0.5" aria-hidden />}
@@ -770,7 +688,7 @@ export function MusicPlayer() {
                   size="icon"
                   onClick={skipForward}
                   disabled={currentTrack === tracks.length - 1}
-                  className="text-cyan-400 hover:text-fuchsia-400 hover:bg-transparent hover:shadow-lg hover:shadow-fuchsia-500/20 disabled:text-muted-foreground transition-all duration-300"
+                  className={cn(brandIconButtonClass)}
                   aria-label="Next track"
                 >
                   <SkipForward className="h-6 w-6" aria-hidden />
@@ -784,7 +702,7 @@ export function MusicPlayer() {
                   variant="ghost"
                   size="icon"
                   onClick={toggleMute}
-                  className="text-cyan-400 hover:text-fuchsia-400 hover:bg-transparent hover:shadow-lg hover:shadow-fuchsia-500/20 transition-all duration-300 shrink-0"
+                  className={cn(brandIconButtonClass, 'shrink-0')}
                   aria-label={isMuted ? 'Unmute' : 'Mute'}
                 >
                   {isMuted ? <VolumeX className="h-5 w-5" aria-hidden /> : <Volume2 className="h-5 w-5" aria-hidden />}
@@ -824,7 +742,7 @@ export function MusicPlayer() {
                       variant="ghost"
                       size="icon"
                       onClick={showAirPlayPicker}
-                      className="text-cyan-400 hover:text-fuchsia-400 hover:bg-transparent hover:shadow-lg hover:shadow-fuchsia-500/20 transition-all duration-300"
+                      className={cn(brandIconButtonClass)}
                       aria-label="Open AirPlay devices"
                       title="AirPlay"
                     >
@@ -837,7 +755,10 @@ export function MusicPlayer() {
                         variant="ghost"
                         size="icon"
                         onClick={() => void showRemotePlaybackPicker()}
-                        className={`text-cyan-400 hover:text-fuchsia-400 hover:bg-transparent hover:shadow-lg hover:shadow-fuchsia-500/20 transition-all duration-300 ${isRemotePlaybackConnected ? 'text-fuchsia-400' : ''}`}
+                        className={cn(
+                          brandIconButtonClass,
+                          isRemotePlaybackConnected && brandActiveAccentClass
+                        )}
                         aria-label={isRemotePlaybackConnected ? 'Casting connected' : 'Open cast devices'}
                         title={isRemotePlaybackConnected ? 'Casting connected' : 'Cast'}
                       >
@@ -851,7 +772,7 @@ export function MusicPlayer() {
                             animate={{ opacity: 1, x: 0 }}
                             exit={{ opacity: 0, x: -4 }}
                             transition={{ duration: 0.18, ease: 'easeOut' }}
-                            className="max-w-28 truncate text-xs text-cyan-200/80"
+                            className="max-w-28 truncate text-xs text-signal-purple-bright/80"
                           >
                             {remotePlaybackDeviceName ?? 'Connected'}
                           </motion.span>
@@ -865,7 +786,7 @@ export function MusicPlayer() {
                 variant="ghost"
                 size="icon"
                 onClick={toggleFullscreen}
-                className="text-cyan-400 hover:text-fuchsia-400 hover:bg-transparent hover:shadow-lg hover:shadow-fuchsia-500/20 transition-all duration-300"
+                className={cn(brandIconButtonClass)}
                 title="Enter fullscreen mode"
                 aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
               >
@@ -875,7 +796,7 @@ export function MusicPlayer() {
                 variant="ghost"
                 size="icon"
                 onClick={() => setShowPlaylist(!showPlaylist)}
-                className="text-cyan-400 hover:text-fuchsia-400 hover:bg-transparent hover:shadow-lg hover:shadow-fuchsia-500/20 transition-all duration-300"
+                className={cn(brandIconButtonClass)}
                 aria-label={showPlaylist ? 'Hide playlist' : 'Show playlist'}
               >
                 <List className="h-5 w-5" aria-hidden />

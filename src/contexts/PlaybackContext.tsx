@@ -65,6 +65,15 @@ interface PlaybackContextType {
   remotePlaybackDeviceName: string | null;
   showAirPlayPicker: () => void;
   showRemotePlaybackPicker: () => Promise<void>;
+  /** Hero Stage: immersive viz in the hero viewport */
+  isHeroStage: boolean;
+  heroInView: boolean;
+  setHeroInView: (inView: boolean) => void;
+  setHeroStageActive: (active: boolean) => void;
+  playFromHero: () => void;
+  /** Shared Web Audio analyser for visualizers (PlaybackAnalyserBridge) */
+  analyser: AnalyserNode | null;
+  setAnalyser: (node: AnalyserNode | null) => void;
 }
 
 const PlaybackContext = createContext<PlaybackContextType | undefined>(undefined);
@@ -116,6 +125,13 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   const [isBuffering, setIsBuffering] = useState(false);
   const [shouldAutoPlay, setShouldAutoPlay] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isHeroStage, setIsHeroStage] = useState(false);
+  const [heroInView, setHeroInView] = useState(true);
+  const [pageVisible, setPageVisible] = useState(
+    () => typeof document === 'undefined' || document.visibilityState === 'visible'
+  );
+  const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
+  const isPlayingRef = useRef(isPlaying);
   const [isAirPlayAvailable, setIsAirPlayAvailable] = useState(false);
   const [isRemotePlaybackAvailable, setIsRemotePlaybackAvailable] = useState(false);
   const [isRemotePlaybackConnected, setIsRemotePlaybackConnected] = useState(false);
@@ -131,6 +147,16 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   const currentTrackUrl = tracks[currentTrack]?.url?.trim() ?? '';
   const currentTrackData = tracks[currentTrack];
   const castReceiverAppId = String(import.meta.env.VITE_GOOGLE_CAST_APP_ID ?? '').trim() || 'CC1AD845';
+
+  useEffect(() => {
+    isPlayingRef.current = isPlaying;
+  }, [isPlaying]);
+
+  useEffect(() => {
+    const onVisibility = () => setPageVisible(document.visibilityState === 'visible');
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, []);
 
   // Load / reset audio when the track (or its URL) changes.
   // Single element: audible output stays on the element; analyser uses captureStream in MusicPlayer (no handoff).
@@ -212,6 +238,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
 
   const handleError = useCallback(() => {
     setIsAudioReady(false);
+    setIsHeroStage(false);
     setIsPlaying(false);
   }, []);
 
@@ -222,6 +249,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       if (next.url) setShouldAutoPlay(true);
       else setIsPlaying(false);
     } else {
+      setIsHeroStage(false);
       setIsPlaying(false);
     }
   }, [currentTrack, tracks]);
@@ -315,6 +343,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       ms.playbackState = 'playing';
     });
     ms.setActionHandler('pause', () => {
+      setIsHeroStage(false);
       setIsPlaying(false);
       ms.playbackState = 'paused';
     });
@@ -323,7 +352,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
         setCurrentTrackState(currentTrack - 1);
         setCurrentTime(0);
         const prev = tracks[currentTrack - 1];
-        if (prev?.url) setShouldAutoPlay(true);
+        if (prev?.url && isPlayingRef.current) setShouldAutoPlay(true);
       }
     });
     ms.setActionHandler('nexttrack', () => {
@@ -331,7 +360,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
         setCurrentTrackState(currentTrack + 1);
         setCurrentTime(0);
         const next = tracks[currentTrack + 1];
-        if (next?.url) setShouldAutoPlay(true);
+        if (next?.url && isPlayingRef.current) setShouldAutoPlay(true);
       }
     });
     ms.setActionHandler('seekto', (details) => {
@@ -354,7 +383,10 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   // Sync UI to paused when AudioContext suspends — only when using visualizer (visible)
   useEffect(() => {
     registerOnSuspend(() => {
-      if (document.visibilityState === 'visible') setIsPlaying(false);
+      if (document.visibilityState === 'visible') {
+        setIsHeroStage(false);
+        setIsPlaying(false);
+      }
     });
     return () => registerOnSuspend(null);
   }, []);
@@ -601,35 +633,45 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     }
   }, [isPlaying, shouldAutoPlay, loadCurrentTrackOnCast]);
 
-  const togglePlay = useCallback(() => {
-    const track = tracks[currentTrack];
-    if (!track?.url) return;
-    const el = visualizerAudioRef.current;
-    if (!castSessionRef.current && !isAudioReady && el) {
-      el.load();
-      return;
-    }
-    resumeAudioContextIfNeeded();
-    setIsPlaying((p) => !p);
-  }, [tracks, currentTrack, isAudioReady, resumeAudioContextIfNeeded]);
-
   const skipForward = useCallback(() => {
     if (currentTrack >= tracks.length - 1) return;
-    setIsPlaying(false);
+    const wasPlaying = isPlaying;
     setCurrentTime(0);
     setCurrentTrackState(currentTrack + 1);
     const next = tracks[currentTrack + 1];
-    if (next?.url) setShouldAutoPlay(true);
-  }, [currentTrack, tracks]);
+    if (!next?.url) {
+      setIsPlaying(false);
+      setShouldAutoPlay(false);
+      return;
+    }
+    if (wasPlaying) {
+      setIsPlaying(false);
+      setShouldAutoPlay(true);
+    } else {
+      setIsPlaying(false);
+      setShouldAutoPlay(false);
+    }
+  }, [currentTrack, tracks, isPlaying]);
 
   const skipBack = useCallback(() => {
     if (currentTrack <= 0) return;
-    setIsPlaying(false);
+    const wasPlaying = isPlaying;
     setCurrentTime(0);
     setCurrentTrackState(currentTrack - 1);
     const prev = tracks[currentTrack - 1];
-    if (prev?.url) setShouldAutoPlay(true);
-  }, [currentTrack, tracks]);
+    if (!prev?.url) {
+      setIsPlaying(false);
+      setShouldAutoPlay(false);
+      return;
+    }
+    if (wasPlaying) {
+      setIsPlaying(false);
+      setShouldAutoPlay(true);
+    } else {
+      setIsPlaying(false);
+      setShouldAutoPlay(false);
+    }
+  }, [currentTrack, tracks, isPlaying]);
 
   const handleSeek = useCallback((value: number[]) => {
     const t = value[0];
@@ -686,6 +728,97 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     setCurrentTrackState(index);
   }, []);
 
+  const setHeroStageActive = useCallback((active: boolean) => {
+    setIsHeroStage(active);
+  }, []);
+
+  const beginPlayback = useCallback(
+    (opts?: { forceHero?: boolean }) => {
+      const playableIndex = tracks[currentTrack]?.url?.trim()
+        ? currentTrack
+        : tracks.findIndex((t) => t.url?.trim());
+
+      if (playableIndex < 0) {
+        alert('No audio file uploaded for this track. Please upload an audio file in edit mode.');
+        return;
+      }
+
+      const useHero = opts?.forceHero ?? heroInView;
+      if (opts?.forceHero && pageVisible && !isFullscreen) {
+        setIsHeroStage(true);
+      } else if (useHero && heroInView && pageVisible && !isFullscreen) {
+        setIsHeroStage(true);
+      }
+
+      resumeAudioContextIfNeeded();
+
+      if (currentTrack !== playableIndex) {
+        setIsPlaying(false);
+        setCurrentTime(0);
+        setCurrentTrackState(playableIndex);
+        setShouldAutoPlay(true);
+        return;
+      }
+
+      const track = tracks[currentTrack];
+      if (!track?.url) return;
+
+      const el = visualizerAudioRef.current;
+      if (!castSessionRef.current && !isAudioReady && el) {
+        el.load();
+        setShouldAutoPlay(true);
+        return;
+      }
+
+      setIsPlaying(true);
+    },
+    [tracks, currentTrack, isAudioReady, heroInView, pageVisible, isFullscreen, resumeAudioContextIfNeeded]
+  );
+
+  const playFromHero = useCallback(() => {
+    beginPlayback({ forceHero: true });
+  }, [beginPlayback]);
+
+  const togglePlay = useCallback(() => {
+    const track = tracks[currentTrack];
+    if (!track?.url) return;
+
+    if (isPlaying) {
+      setIsHeroStage(false);
+      resumeAudioContextIfNeeded();
+      setIsPlaying(false);
+      return;
+    }
+
+    beginPlayback({ forceHero: heroInView || isHeroStage });
+  }, [tracks, currentTrack, isPlaying, beginPlayback, resumeAudioContextIfNeeded, heroInView, isHeroStage]);
+
+  // Fullscreen takes over the viz surface; hero stage yields
+  useEffect(() => {
+    if (isFullscreen && isHeroStage) {
+      setIsHeroStage(false);
+    }
+  }, [isFullscreen, isHeroStage]);
+
+  /** While playing: hero viz follows viewport visibility (audio keeps playing). */
+  useEffect(() => {
+    if (!isPlaying || isFullscreen) return;
+
+    if (!pageVisible) {
+      setIsHeroStage(false);
+      return;
+    }
+
+    const delayMs = heroInView ? 150 : 450;
+
+    const timer = window.setTimeout(() => {
+      setIsHeroStage(heroInView);
+      if (heroInView) void resumeAudioContextIfNeeded();
+    }, delayMs);
+
+    return () => window.clearTimeout(timer);
+  }, [isPlaying, heroInView, pageVisible, isFullscreen, resumeAudioContextIfNeeded]);
+
   const value: PlaybackContextType = useMemo(
     () => ({
       tracks,
@@ -717,12 +850,22 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       remotePlaybackDeviceName,
       showAirPlayPicker,
       showRemotePlaybackPicker,
+      isHeroStage,
+      heroInView,
+      setHeroInView,
+      setHeroStageActive,
+      playFromHero,
+      analyser,
+      setAnalyser,
     }),
     [
       tracks,
       currentTrack,
       isPlaying,
       isFullscreen,
+      isHeroStage,
+      heroInView,
+      analyser,
       currentTime,
       duration,
       volume,
@@ -746,6 +889,9 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       remotePlaybackDeviceName,
       showAirPlayPicker,
       showRemotePlaybackPicker,
+      setHeroStageActive,
+      playFromHero,
+      setAnalyser,
     ]
   );
 

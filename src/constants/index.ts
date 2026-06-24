@@ -70,3 +70,5 @@ export const VISUALIZATION_TYPES = [
   'radial',
   'waveform',
 ] as const;
+
+export { BRAND_COLORS, HERO_COPY } from './brand';

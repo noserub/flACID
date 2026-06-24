@@ -40,6 +40,10 @@ import { useDescentMode } from '../contexts/DescentModeContext';
 import { usePlayback } from '../contexts/PlaybackContext';
 import { useAuth, useInstallPwa } from '../hooks';
 import { DESCENT_CHROME_LIFT, DESCENT_MENU_PORTAL_LIFT } from '../lib/descentContentLayer';
+import {
+  brandMenuItemDestructiveClass,
+  brandMenuItemSuccessClass,
+} from '../lib/brandClasses';
 import { cn } from './ui/utils';
 import { DescentModeToggle } from './DescentModeToggle';
 import { SignInDialog } from './SignInDialog';
@@ -181,8 +185,8 @@ export function SiteHeader() {
       {/* lg+: mini in header with balanced flex; below lg mini stays bottom-fixed so Descend + ⋯ never wrap */}
       <div className="relative flex w-full min-h-[44px] lg:min-h-[52px] flex-row items-center justify-end lg:justify-start">
         <div className="hidden min-w-0 flex-1 lg:block" aria-hidden />
-        <div className="flex min-w-0 shrink-0 items-center justify-center self-center">
-          <MiniPlayer />
+        <div className="flex min-w-0 shrink-0 items-center justify-center self-center lg:h-11">
+          <MiniPlayer dock="chrome" />
         </div>
         <div className="relative flex min-w-0 flex-1 flex-row flex-nowrap items-center justify-end gap-3 self-center pl-2 sm:gap-4 lg:pl-4">
           {exportSuccess && (
@@ -197,8 +201,9 @@ export function SiteHeader() {
             <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
             <Button
+              variant="brand"
               size="icon"
-              className="size-11 min-h-11 min-w-11 touch-manipulation bg-background/80 text-cyan-400 border border-cyan-400/30 hover:border-fuchsia-400/50 hover:text-fuchsia-400 hover:bg-transparent hover:shadow-lg hover:shadow-fuchsia-500/20 transition-all duration-300"
+              className="size-11 min-h-11 min-w-11 touch-manipulation"
             >
               <MoreHorizontal className="h-6 w-6" aria-hidden />
               <span className="sr-only">Site menu</span>
@@ -213,10 +218,7 @@ export function SiteHeader() {
             onCloseAutoFocus={(e) => e.preventDefault()}
           >
             {descentSupported && (
-              <DropdownMenuItem
-                onClick={() => requestDescentHelp()}
-                className="text-cyan-400/95 focus:text-cyan-300 focus:bg-cyan-500/10"
-              >
+              <DropdownMenuItem onClick={() => requestDescentHelp()}>
                 <CircleHelp className="mr-2 h-4 w-4 shrink-0" />
                 <span>What is Descend?</span>
               </DropdownMenuItem>
@@ -231,16 +233,12 @@ export function SiteHeader() {
                     onClick={() => {
                       void promptInstall();
                     }}
-                    className="text-cyan-400/95 focus:text-cyan-300 focus:bg-cyan-500/10"
                   >
                     <Smartphone className="mr-2 h-4 w-4 shrink-0" />
                     <span>Install app</span>
                   </DropdownMenuItem>
                 ) : (
-                  <DropdownMenuItem
-                    onClick={() => setInstallIosOpen(true)}
-                    className="text-cyan-400/95 focus:text-cyan-300 focus:bg-cyan-500/10"
-                  >
+                  <DropdownMenuItem onClick={() => setInstallIosOpen(true)}>
                     <Smartphone className="mr-2 h-4 w-4 shrink-0" />
                     <span>Add to Home Screen</span>
                   </DropdownMenuItem>
@@ -293,12 +291,12 @@ export function SiteHeader() {
                       alert(`Publish failed: ${msg}`);
                     }
                   }}
-                  className="text-green-400"
+                  className={brandMenuItemSuccessClass}
                 >
                   <CheckCircle className="mr-2 h-4 w-4" />
                   <span>Publish Changes</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleDiscardDraftClick} className="text-red-400">
+                <DropdownMenuItem onClick={handleDiscardDraftClick} className={brandMenuItemDestructiveClass}>
                   <XCircle className="mr-2 h-4 w-4" />
                   <span>Discard Draft</span>
                 </DropdownMenuItem>
@@ -357,9 +355,9 @@ export function SiteHeader() {
 
           {isDraft && isEditMode && (
             <div className="absolute right-0 top-full z-10 mt-1.5 flex justify-end lg:right-full lg:top-1/2 lg:mt-0 lg:mr-3 lg:-translate-y-1/2">
-              <div className="flex items-center gap-2 bg-cyan-600/90 backdrop-blur-sm border border-cyan-400/50 rounded-lg px-3 py-2 shadow-lg whitespace-nowrap">
-                <div className="w-2 h-2 bg-cyan-300 rounded-full animate-pulse shrink-0" />
-                <span className="text-sm text-cyan-100 font-medium">Unsaved Changes</span>
+              <div className="flex items-center gap-2 bg-signal-purple/90 backdrop-blur-sm border border-signal-purple-bright/40 rounded-lg px-3 py-2 shadow-lg whitespace-nowrap">
+                <div className="w-2 h-2 bg-neon-green rounded-full animate-pulse shrink-0" />
+                <span className="text-sm text-primary-foreground font-medium">Unsaved Changes</span>
               </div>
             </div>
           )}

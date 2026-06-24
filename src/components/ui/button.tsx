@@ -3,24 +3,33 @@ import { Slot } from "@radix-ui/react-slot@1.1.2";
 import { cva, type VariantProps } from "class-variance-authority@0.7.1";
 
 import { cn } from "./utils";
+import {
+  brandControlClass,
+  brandHoverInteractiveClass,
+  brandPrimaryButtonClass,
+} from "../../lib/brandClasses";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all duration-300 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
+        default: brandPrimaryButtonClass,
+        brand: cn('rounded-lg', brandControlClass),
         destructive:
           "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
-        outline:
-          "border border-cyan-500/40 bg-transparent text-cyan-200 hover:border-cyan-400 hover:bg-cyan-500/10 hover:text-cyan-100",
-        outlinePurple:
-          "border border-purple-500/40 bg-transparent text-purple-200 hover:border-purple-400 hover:bg-purple-500/10 hover:text-purple-100",
+        outline: cn(
+          'border border-signal-purple/40 bg-card/80',
+          brandHoverInteractiveClass
+        ),
+        outlinePurple: cn(
+          'border border-signal-purple/40 bg-card/80',
+          brandHoverInteractiveClass
+        ),
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        ghost:
-          "text-cyan-200 hover:bg-cyan-500/10 hover:text-cyan-100",
-        link: "text-primary underline-offset-4 hover:underline",
+        ghost: brandHoverInteractiveClass,
+        link: "text-signal-purple-bright underline-offset-4 hover:text-neon-green hover:underline",
       },
       size: {
         default: "h-9 px-4 py-2 has-[>svg]:px-3",

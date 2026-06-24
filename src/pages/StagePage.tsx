@@ -46,6 +46,7 @@ const VIZ_NAMES = [
   'Pulse Horizon',
   'Light Speed Warp',
   'Tron Corridor',
+  'Lite-Brite Magic',
   'Neon Tunnel 3D',
 ];
 
