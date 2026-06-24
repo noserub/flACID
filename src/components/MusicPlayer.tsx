@@ -7,7 +7,6 @@ import { Slider } from './ui/slider';
 import { PsychedelicVisualizer } from './PsychedelicVisualizer';
 import { useEditMode } from '../contexts/EditModeContext';
 import { useDescentMode } from '../contexts/DescentModeContext';
-import { useDescentIntensity } from '../contexts/DescentIntensityContext';
 import { usePlayback } from '../contexts/PlaybackContext';
 import {
   useVizSensitivity,
@@ -20,26 +19,19 @@ import { Popover, PopoverAnchor, PopoverContent } from './ui/popover';
 import { cn } from './ui/utils';
 import { DESCENT_MENU_PORTAL_LIFT } from '../lib/descentContentLayer';
 import { TRY_DESCENT_CLICKED_EVENT } from '../lib/descentHelp';
-import { registerAudioContext } from '../lib/audioContextManager';
 import {
   brandActiveAccentClass,
   brandControlClass,
   brandIconButtonClass,
+  brandPrimaryButtonClass,
   brandSpinnerClass,
   brandVizSurfaceClass,
 } from '../lib/brandClasses';
 import { motion, AnimatePresence } from 'motion/react';
 
-/** Shared AudioContext so analyser stays valid across StrictMode remounts */
-let sharedAudioContext: AudioContext | null = null;
-
-/** createMediaElementSource may only be called once per HTMLMediaElement */
-const mediaElementSourceByAudio = new WeakMap<HTMLMediaElement, MediaElementAudioSourceNode>();
-
 export function MusicPlayer() {
   const { isEditMode } = useEditMode();
   const { isDescentMode, descentSupported, toggleDescentMode } = useDescentMode();
-  const { registerAnalyser, registerPlaybackState } = useDescentIntensity();
   const {
     tracks,
     currentTrack,
@@ -51,7 +43,6 @@ export function MusicPlayer() {
     isAudioReady,
     isBuffering,
     currentTrackData,
-    audioRef,
     togglePlay,
     skipForward,
     skipBack,
@@ -62,6 +53,8 @@ export function MusicPlayer() {
     selectTrack,
     isFullscreen,
     setIsFullscreen,
+    isHeroStage,
+    analyser: analyserForViz,
     isAirPlayAvailable,
     isRemotePlaybackAvailable,
     isRemotePlaybackConnected,
@@ -82,7 +75,7 @@ export function MusicPlayer() {
 
   const canShowRemoteTargets = isAirPlayAvailable || isRemotePlaybackAvailable;
 
-  const [showPlaylist, setShowPlaylist] = useState(true);
+  const [showPlaylist, setShowPlaylist] = useState(false);
   const [isVisualizerLoading, setIsVisualizerLoading] = useState(false);
   const [showPlayHint, setShowPlayHint] = useState(false);
   const [showFullscreenControls, setShowFullscreenControls] = useState(true);
@@ -91,102 +84,6 @@ export function MusicPlayer() {
   const justShowedFromActivityRef = useRef(0);
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
   const [touchCurrentY, setTouchCurrentY] = useState<number | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
-  const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
-  const [analyserForViz, setAnalyserForViz] = useState<AnalyserNode | null>(null);
-
-  // AudioContext/analyser for visualizer + DescentIntensity (shared so source stays valid)
-  useEffect(() => {
-    if (audioContextRef.current && analyserRef.current) return;
-    const AudioContextConstructor = window.AudioContext ?? (window as Window & { webkitAudioContext?: typeof window.AudioContext }).webkitAudioContext;
-    if (!AudioContextConstructor) return;
-    const ctx = sharedAudioContext && sharedAudioContext.state !== 'closed'
-      ? sharedAudioContext
-      : new AudioContextConstructor();
-    sharedAudioContext = ctx;
-    registerAudioContext(ctx);
-    const analyser = ctx.createAnalyser();
-    analyser.fftSize = 2048;
-    audioContextRef.current = ctx;
-    analyserRef.current = analyser;
-    audioContextRef.current = ctx;
-    analyserRef.current = analyser;
-    return () => {
-      try {
-        if (analyserRef.current) analyserRef.current.disconnect();
-      } catch {
-        /* ignore */
-      }
-      registerAudioContext(null);
-      // StrictMode remount: clear refs so a fresh analyser is created on the next mount.
-      audioContextRef.current = null;
-      analyserRef.current = null;
-    };
-  }, []);
-
-  // Route playback through Web Audio (analyser → destination). Volume uses element.volume from PlaybackContext.
-  // captureStream was unreliable for audible output in Chrome; MediaElementSource is the standard path.
-  useEffect(() => {
-    const audio = audioRef?.current;
-    const url = currentTrackData?.url?.trim();
-    if (!audio || !url || !analyserRef.current || !audioContextRef.current) {
-      setAnalyserForViz(null);
-      return;
-    }
-    const ctx = audioContextRef.current;
-    const analyser = analyserRef.current;
-
-    let source = mediaElementSourceByAudio.get(audio) ?? null;
-    if (!source) {
-      try {
-        source = ctx.createMediaElementSource(audio);
-        mediaElementSourceByAudio.set(audio, source);
-      } catch {
-        setAnalyserForViz(null);
-        return;
-      }
-    }
-
-    try {
-      source.connect(analyser);
-      analyser.connect(ctx.destination);
-    } catch {
-      setAnalyserForViz(null);
-      return;
-    }
-    sourceRef.current = source;
-    setAnalyserForViz(analyser);
-
-    return () => {
-      try {
-        source?.disconnect();
-      } catch {
-        /* ignore */
-      }
-      try {
-        analyser.disconnect();
-      } catch {
-        /* ignore */
-      }
-      sourceRef.current = null;
-    };
-  }, [audioRef, currentTrackData?.url, isAudioReady]);
-
-  // Resume AudioContext on first play (browser autoplay policy)
-  useEffect(() => {
-    if (isPlaying && audioContextRef.current?.state === 'suspended') {
-      audioContextRef.current.resume();
-    }
-  }, [isPlaying]);
-
-  useEffect(() => {
-    registerAnalyser(analyserForViz ?? analyserRef.current, isPlaying);
-  }, [isPlaying, registerAnalyser, analyserForViz]);
-
-  useEffect(() => {
-    registerPlaybackState(currentTime, currentTrack);
-  }, [currentTime, currentTrack, registerPlaybackState]);
 
   // Auto-hide fullscreen controls after 3s inactivity — only when playing (keep visible if paused so user can hit play)
   useEffect(() => {
@@ -713,6 +610,16 @@ export function MusicPlayer() {
               </motion.div>
             )}
           </AnimatePresence>
+          {isHeroStage ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-void/90 px-6 text-center">
+              <p className="text-sm font-medium uppercase tracking-[0.2em] text-signal-purple-bright/90">
+                Hero Stage
+              </p>
+              <p className="text-white/60 text-sm max-w-xs">
+                Visualizer is live at the top. Use the now playing bar for transport and tracks.
+              </p>
+            </div>
+          ) : (
           <PsychedelicVisualizer 
             key={`normal-viz-${currentTrack}-${tracks[currentTrack]?.visualizationId ?? 0}`}
             analyser={analyserForViz} 
@@ -720,6 +627,7 @@ export function MusicPlayer() {
             currentTrack={currentTrack}
             visualizationId={tracks[currentTrack]?.visualizationId}
           />
+          )}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="text-center">
               <h3 className={`text-white/90 mb-2 ${isFullscreen ? 'text-4xl md:text-5xl' : ''}`}>{tracks[currentTrack].title}</h3>
@@ -767,7 +675,10 @@ export function MusicPlayer() {
                   size="icon"
                   onClick={handleTogglePlay}
                   disabled={!tracks[currentTrack].url || (!isAudioReady && !isPlaying)}
-                  className="h-12 w-12 rounded-full bg-primary hover:bg-signal-purple-bright text-primary-foreground shadow-lg shadow-[rgba(147,51,234,0.45)] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
+                  className={cn(
+                    'h-12 w-12 rounded-full disabled:opacity-50 disabled:cursor-not-allowed',
+                    brandPrimaryButtonClass
+                  )}
                   aria-label={isPlaying ? 'Pause' : 'Play'}
                 >
                   {isPlaying ? <Pause className="h-6 w-6" aria-hidden /> : <Play className="h-6 w-6 ml-0.5" aria-hidden />}

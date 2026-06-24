@@ -12,6 +12,7 @@ interface SectionTitleProps {
   subtitleClassName?: string;
   /** Motion on scroll into view */
   animate?: boolean;
+  align?: 'center' | 'left';
 }
 
 const titleVariants: Record<SectionTitleVariant, string> = {
@@ -27,6 +28,7 @@ export function SectionTitle({
   className,
   subtitleClassName,
   animate = true,
+  align = 'center',
 }: SectionTitleProps) {
   const heading = (
     <h2
@@ -41,12 +43,13 @@ export function SectionTitle({
   );
 
   const content = (
-    <div className="space-y-3 md:space-y-4">
+    <div className={cn('space-y-3 md:space-y-4', align === 'left' && 'text-left')}>
       {heading}
       {subtitle && (
         <p
           className={cn(
-            'text-muted-foreground text-base md:text-lg font-light max-w-2xl mx-auto',
+            'text-muted-foreground text-base md:text-lg font-light max-w-2xl',
+            align === 'center' ? 'mx-auto' : 'mx-0',
             subtitleClassName
           )}
         >

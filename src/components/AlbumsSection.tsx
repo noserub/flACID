@@ -78,7 +78,7 @@ export function AlbumsSection() {
     >
       <section className={cn('py-20 px-4', brandSectionWashClass)}>
         <div className={cn('max-w-7xl mx-auto', sectionLift)}>
-          <div className="text-center mb-16">
+          <div id="journey-section-head" className="text-center mb-16 scroll-mt-28">
             <SectionTitle subtitle="Chronicles of sound and consciousness">
               {content.discography.title}
             </SectionTitle>

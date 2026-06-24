@@ -40,7 +40,10 @@ import { useDescentMode } from '../contexts/DescentModeContext';
 import { usePlayback } from '../contexts/PlaybackContext';
 import { useAuth, useInstallPwa } from '../hooks';
 import { DESCENT_CHROME_LIFT, DESCENT_MENU_PORTAL_LIFT } from '../lib/descentContentLayer';
-import { brandControlClass } from '../lib/brandClasses';
+import {
+  brandMenuItemDestructiveClass,
+  brandMenuItemSuccessClass,
+} from '../lib/brandClasses';
 import { cn } from './ui/utils';
 import { DescentModeToggle } from './DescentModeToggle';
 import { SignInDialog } from './SignInDialog';
@@ -182,8 +185,8 @@ export function SiteHeader() {
       {/* lg+: mini in header with balanced flex; below lg mini stays bottom-fixed so Descend + ⋯ never wrap */}
       <div className="relative flex w-full min-h-[44px] lg:min-h-[52px] flex-row items-center justify-end lg:justify-start">
         <div className="hidden min-w-0 flex-1 lg:block" aria-hidden />
-        <div className="flex min-w-0 shrink-0 items-center justify-center self-center">
-          <MiniPlayer />
+        <div className="flex min-w-0 shrink-0 items-center justify-center self-center lg:h-11">
+          <MiniPlayer dock="chrome" />
         </div>
         <div className="relative flex min-w-0 flex-1 flex-row flex-nowrap items-center justify-end gap-3 self-center pl-2 sm:gap-4 lg:pl-4">
           {exportSuccess && (
@@ -198,8 +201,9 @@ export function SiteHeader() {
             <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
             <Button
+              variant="brand"
               size="icon"
-              className={cn('size-11 min-h-11 min-w-11 touch-manipulation', brandControlClass)}
+              className="size-11 min-h-11 min-w-11 touch-manipulation"
             >
               <MoreHorizontal className="h-6 w-6" aria-hidden />
               <span className="sr-only">Site menu</span>
@@ -214,10 +218,7 @@ export function SiteHeader() {
             onCloseAutoFocus={(e) => e.preventDefault()}
           >
             {descentSupported && (
-              <DropdownMenuItem
-                onClick={() => requestDescentHelp()}
-                className="text-signal-purple-bright/95 focus:text-neon-green focus:bg-signal-purple/10"
-              >
+              <DropdownMenuItem onClick={() => requestDescentHelp()}>
                 <CircleHelp className="mr-2 h-4 w-4 shrink-0" />
                 <span>What is Descend?</span>
               </DropdownMenuItem>
@@ -232,16 +233,12 @@ export function SiteHeader() {
                     onClick={() => {
                       void promptInstall();
                     }}
-                    className="text-signal-purple-bright/95 focus:text-neon-green focus:bg-signal-purple/10"
                   >
                     <Smartphone className="mr-2 h-4 w-4 shrink-0" />
                     <span>Install app</span>
                   </DropdownMenuItem>
                 ) : (
-                  <DropdownMenuItem
-                    onClick={() => setInstallIosOpen(true)}
-                    className="text-signal-purple-bright/95 focus:text-neon-green focus:bg-signal-purple/10"
-                  >
+                  <DropdownMenuItem onClick={() => setInstallIosOpen(true)}>
                     <Smartphone className="mr-2 h-4 w-4 shrink-0" />
                     <span>Add to Home Screen</span>
                   </DropdownMenuItem>
@@ -294,12 +291,12 @@ export function SiteHeader() {
                       alert(`Publish failed: ${msg}`);
                     }
                   }}
-                  className="text-green-400"
+                  className={brandMenuItemSuccessClass}
                 >
                   <CheckCircle className="mr-2 h-4 w-4" />
                   <span>Publish Changes</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleDiscardDraftClick} className="text-red-400">
+                <DropdownMenuItem onClick={handleDiscardDraftClick} className={brandMenuItemDestructiveClass}>
                   <XCircle className="mr-2 h-4 w-4" />
                   <span>Discard Draft</span>
                 </DropdownMenuItem>

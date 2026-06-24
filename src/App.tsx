@@ -6,9 +6,12 @@ import { EditModeProvider, useEditMode } from './contexts/EditModeContext';
 import { DescentModeProvider } from './contexts/DescentModeContext';
 import { DescentIntensityProvider } from './contexts/DescentIntensityContext';
 import { PlaybackProvider } from './contexts/PlaybackContext';
+import { PlaybackAnalyserBridge } from './components/PlaybackAnalyserBridge';
+import { HeroViewportBridge } from './components/HeroViewportBridge';
 import { VizSensitivityProvider } from './contexts/VizSensitivityContext';
 import { DescentModeWrapper } from './components/DescentModeEffects';
 import { SiteHeader } from './components/SiteHeader';
+import { SectionNavRail } from './components/SectionNavRail';
 import { StagePage } from './pages/StagePage';
 
 // Lazy load below-the-fold sections
@@ -77,6 +80,8 @@ function AppContent() {
 
   return (
     <PlaybackProvider>
+    <PlaybackAnalyserBridge />
+    <HeroViewportBridge />
     <div className="min-h-screen bg-background text-foreground pb-24 md:pb-0">
             <Analytics pageName="home" />
             {/* Descent Mode Effects Overlay */}
@@ -84,6 +89,7 @@ function AppContent() {
             
             {/* Site Header with Menu */}
             <SiteHeader />
+            <SectionNavRail />
             
             {/* Hero Section */}
             <HeroSection />

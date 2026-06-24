@@ -5,7 +5,7 @@ import { useDescentMode } from '../contexts/DescentModeContext';
 import { usePlayback } from '../contexts/PlaybackContext';
 import { OPEN_DESCENT_HELP_EVENT, TRY_DESCENT_CLICKED_EVENT } from '../lib/descentHelp';
 import { DESCENT_MENU_PORTAL_LIFT } from '../lib/descentContentLayer';
-import { brandControlClass } from '../lib/brandClasses';
+import { brandControlClass, brandPrimaryButtonClass } from '../lib/brandClasses';
 import { Popover, PopoverAnchor, PopoverContent } from './ui/popover';
 import { Button } from './ui/button';
 import { cn } from './ui/utils';
@@ -19,7 +19,7 @@ export const descentToggleButtonClass = (isDescentMode: boolean) =>
     'relative rounded-lg font-medium transition-all duration-300 touch-manipulation',
     'flex items-center justify-center min-h-11 px-3 sm:px-4 text-sm shrink-0',
     isDescentMode
-      ? 'bg-primary text-primary-foreground shadow-lg shadow-[rgba(147,51,234,0.45)] hover:bg-signal-purple-bright'
+      ? cn('rounded-lg', brandPrimaryButtonClass)
       : brandControlClass
   );
 
@@ -205,19 +205,13 @@ export function DescentModeToggle() {
           <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end pt-1">
             <Button
               type="button"
-              variant="ghost"
+              variant="outline"
               size="sm"
-              className="border border-cyan-500/25 text-cyan-200/90 hover:bg-cyan-500/10 hover:text-cyan-100"
               onClick={markOnboardingSeen}
             >
               Got it
             </Button>
-            <Button
-              type="button"
-              size="sm"
-              className="bg-fuchsia-600 text-white hover:bg-fuchsia-500 shadow-md shadow-fuchsia-900/40"
-              onClick={handleTryDescend}
-            >
+            <Button type="button" size="sm" onClick={handleTryDescend}>
               Try Descend
             </Button>
           </div>

@@ -1,6 +1,7 @@
 import { MusicPlayer } from './MusicPlayer';
 import { useEditMode } from '../contexts/EditModeContext';
 import { brandSectionWashClass } from '../lib/brandClasses';
+import { SECTION_SCROLL_MARGIN_PX } from '../lib/sectionNav';
 import { cn } from './ui/utils';
 import { EditableSection } from './EditableSection';
 import { ListenNowEditDialog } from './ListenNowEditDialog';
@@ -20,9 +21,10 @@ export function ListenNowSection() {
       {/* Intentionally no DESCENT_CONTENT_LIFT: whole section stays under Descend effects (z-9990+) */}
       <section
         id="music-player"
-        className={cn('relative z-0 py-20 px-4', brandSectionWashClass)}
+        className={cn('relative z-0 py-20 px-4 scroll-mt-28', brandSectionWashClass)}
+        style={{ scrollMarginTop: SECTION_SCROLL_MARGIN_PX }}
       >
-        <div className="max-w-6xl mx-auto mb-12 text-center">
+        <div id="listen-section-head" className="max-w-6xl mx-auto mb-12 text-center scroll-mt-28">
           <SectionTitle subtitle={content.listenNow.description}>
             {content.listenNow.title}
           </SectionTitle>
