@@ -95,7 +95,7 @@ export function PhotoGallery() {
 
         <div className={cn('relative max-w-7xl mx-auto', sectionLift)}>
           <div className="text-center mb-12">
-            <SectionTitle subtitle={content.gallery.subtitle || undefined}>
+            <SectionTitle variant="gradient" subtitle={content.gallery.subtitle || undefined}>
               {content.gallery.title}
             </SectionTitle>
             {isEditMode && (

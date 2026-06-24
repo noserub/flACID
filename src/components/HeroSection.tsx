@@ -11,6 +11,7 @@ import { HeroEditDialog } from './HeroEditDialog';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { PsychedelicVisualizer } from './PsychedelicVisualizer';
 import { MiniPlayer } from './MiniPlayer';
+import { HeroListenInvite } from './HeroListenInvite';
 import flacidLogo from 'figma:asset/5f0d31c1cb6fc26a3ff35f6c8e86953aaa84d0b7.png';
 import heroBackground from 'figma:asset/410f7e9ef9caea1564a1bf87577512030154fe84.png';
 
@@ -42,37 +43,49 @@ const generateStutterSequence = () => {
 interface StutteringLogoProps {
   logoSrc: string;
   isInitialLoad: boolean;
+  /** Custom hero art — stronger scrim + shadow for white-on-light suit */
+  contrastBoost?: boolean;
 }
 
-function StutteringLogo({ logoSrc, isInitialLoad }: StutteringLogoProps) {
+function StutteringLogo({ logoSrc, isInitialLoad, contrastBoost }: StutteringLogoProps) {
   const [sequence] = useState(generateStutterSequence);
 
   return (
-    <motion.div
-      key={isInitialLoad ? 'initial-stutter' : 'stutter'}
-      initial={isInitialLoad ? { opacity: 0, y: 16 } : undefined}
-      animate={isInitialLoad ? { opacity: 1, y: 0 } : { opacity: sequence.opacity }}
-      transition={
-        isInitialLoad
-          ? { duration: 1.1, ease: [0.22, 1, 0.36, 1] }
-          : { duration: sequence.duration, ease: 'linear' }
-      }
-      className="flex justify-center w-full max-w-lg px-2"
-    >
-      <ImageWithFallback
-        src={logoSrc}
-        alt="flACID"
-        className={cn(
-          'w-full h-auto object-contain',
-          'max-h-[4rem] sm:max-h-[5rem] md:max-h-24',
-          'drop-shadow-hero-logo'
+    <div className="flex justify-center w-full max-w-lg px-2">
+      <div className="relative w-full">
+        {contrastBoost && (
+          <div
+            className="pointer-events-none absolute inset-x-[-12%] inset-y-[-28%] bg-hero-logo-scrim"
+            aria-hidden
+          />
         )}
-        fetchpriority="high"
-        decoding="sync"
-        width={800}
-        height={200}
-      />
-    </motion.div>
+        <motion.div
+          key={isInitialLoad ? 'initial-stutter' : 'stutter'}
+          initial={isInitialLoad ? { opacity: 0, y: 16 } : undefined}
+          animate={isInitialLoad ? { opacity: 1, y: 0 } : { opacity: sequence.opacity }}
+          transition={
+            isInitialLoad
+              ? { duration: 1.1, ease: [0.22, 1, 0.36, 1] }
+              : { duration: sequence.duration, ease: 'linear' }
+          }
+          className="relative w-full"
+        >
+          <ImageWithFallback
+            src={logoSrc}
+            alt="flACID"
+            className={cn(
+              'w-full h-auto object-contain',
+              'max-h-[4rem] sm:max-h-[5rem] md:max-h-24',
+              contrastBoost ? 'drop-shadow-hero-logo-strong' : 'drop-shadow-hero-logo'
+            )}
+            fetchpriority="high"
+            decoding="sync"
+            width={800}
+            height={200}
+          />
+        </motion.div>
+      </div>
+    </div>
   );
 }
 
@@ -102,6 +115,8 @@ export function HeroSection() {
   const hasCustomBackground = Boolean(content.hero.backgroundImage);
 
   const showStage = isHeroStage && !isEditMode;
+  /** Hero transport only while stage is live or audio is loading/playing — pause returns to Listen now. */
+  const showTransport = showStage || isPlaying || isBuffering;
   const vizId = tracks[currentTrack]?.visualizationId ?? 0;
 
   useEffect(() => {
@@ -132,14 +147,14 @@ export function HeroSection() {
 
   const heroDockTransition = { duration: 0.55, ease: [0.22, 1, 0.36, 1] as const };
 
-  /** Idle — CMS art: logo + player on neck curve; default art: bottom stack */
+  /** Idle — CMS art: logo + player on chest panel; default art: bottom stack */
   const heroIdleDockClass = hasCustomBackground
     ? cn(
         'bottom-auto',
-        'top-[min(71%,calc(100dvh-12rem))]',
-        'sm:top-[min(69%,calc(100dvh-12rem))]',
-        'md:top-[min(67%,calc(100dvh-12.5rem))]',
-        'lg:top-[min(65%,calc(100dvh-13rem))]'
+        'top-[min(75%,calc(100dvh-11.5rem))]',
+        'sm:top-[min(73%,calc(100dvh-11.5rem))]',
+        'md:top-[min(71%,calc(100dvh-12rem))]',
+        'lg:top-[min(69%,calc(100dvh-12.5rem))]'
       )
     : cn(
         'top-auto',
@@ -162,25 +177,24 @@ export function HeroSection() {
       onVisibilityChange={(visible) =>
         updateContent('hero', { ...content.hero, visible })
       }
+      editSlot={<HeroEditDialog />}
     >
       <div
         id="hero-stage"
         className="relative min-h-[100dvh] overflow-hidden bg-void"
       >
-        {isEditMode && <HeroEditDialog />}
-
         {/* Poster art — fades when Hero Stage is active */}
         <AnimatePresence>
           {!showStage && (
             <motion.div
               key="hero-poster"
-              className="absolute inset-0 bg-void"
+              className={cn('absolute inset-0 bg-void', isEditMode && 'pointer-events-none')}
               initial={false}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.6, ease: 'easeOut' }}
             >
               <motion.div
-                className="absolute inset-0 will-change-transform"
+                className="absolute inset-0 h-full w-full will-change-transform"
                 initial={{ scale: 1.02 }}
                 animate={{
                   scale: [1.02, 1.06, 1.03],
@@ -199,7 +213,7 @@ export function HeroSection() {
                   alt=""
                   aria-hidden
                   className={cn(
-                    'w-full h-full object-cover',
+                    'absolute inset-0 h-full w-full object-cover',
                     hasCustomBackground ? 'object-[center_32%]' : 'object-center'
                   )}
                   fetchpriority="high"
@@ -276,6 +290,7 @@ export function HeroSection() {
                     key={stutterKey}
                     logoSrc={displayLogo}
                     isInitialLoad={isInitialLoad}
+                    contrastBoost={hasCustomBackground}
                   />
                 </motion.div>
               )}
@@ -283,7 +298,8 @@ export function HeroSection() {
 
             {!isEditMode && (
               <motion.div layout className="w-full">
-                <MiniPlayer dock="hero" />
+                {!showTransport && <HeroListenInvite />}
+                {showTransport && <MiniPlayer dock="hero" />}
               </motion.div>
             )}
           </div>

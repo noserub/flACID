@@ -13,7 +13,7 @@ import {
 } from './ui/dialog';
 import { subscribeToNewsletter } from '../services/newsletter.service';
 import { cn } from './ui/utils';
-import { gradientText, heading } from '../lib/typography';
+import { heading } from '../lib/typography';
 import { border, gradient, interactive, shadow, surface } from '../lib/colors';
 
 type Phase = 'form' | 'submitting' | 'success' | 'error';
@@ -97,11 +97,11 @@ export function NewsletterSignup({
           <div className="pointer-events-none absolute inset-0 bg-radial-green-bottom" />
 
           <DialogHeader className="relative z-10">
-            <DialogTitle className={cn(heading, gradientText)}>
+            <DialogTitle className={heading}>
               Stay in the loop
             </DialogTitle>
             <DialogDescription className="text-muted-foreground text-sm leading-relaxed">
-              Tour drops, releases, and rare transmissions — no spam, unsubscribe anytime.
+              Tour drops, releases, and rare transmissions. No spam, unsubscribe anytime.
             </DialogDescription>
           </DialogHeader>
 
@@ -129,7 +129,7 @@ export function NewsletterSignup({
                     <p className="text-sm text-muted-foreground max-w-xs mx-auto">
                       {wasAlreadySubscribed
                         ? 'This email was already registered. We only send the good stuff when it matters.'
-                        : "We'll only email you when there's something worth the signal — tours, releases, and announcements."}
+                        : "We'll only email you when there's something worth the signal: tours, releases, and announcements."}
                     </p>
                   </div>
                   <Sparkles className="w-5 h-5 text-hot-pink/80" aria-hidden />

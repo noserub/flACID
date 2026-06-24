@@ -14,6 +14,7 @@ import {
   Mic,
   Smartphone,
   Palette,
+  Loader2,
 } from 'lucide-react';
 import {
   AlertDialog,
@@ -48,9 +49,11 @@ import { DescentModeToggle } from './DescentModeToggle';
 import { SignInDialog } from './SignInDialog';
 import { MiniPlayer } from './MiniPlayer';
 import { requestDescentHelp } from '../lib/descentHelp';
+import { toast } from '../lib/toast';
 
 export function SiteHeader() {
-  const { isEditMode, isDraft, toggleEditMode, publishChanges, discardDraft, content } = useEditMode();
+  const { isEditMode, isDraft, publishLoading, toggleEditMode, publishChanges, discardDraft, content } =
+    useEditMode();
   const { isDescentMode, descentSupported } = useDescentMode();
   const { isFullscreen } = usePlayback();
   const { isAuthenticated, isAdmin, signOut } = useAuth();
@@ -117,7 +120,7 @@ export function SiteHeader() {
       const link = document.createElement('a');
       link.href = url;
       const stateLabel = isDraft ? 'draft' : 'published';
-      link.download = `3i-atlas-${stateLabel}-${Date.now()}.json`;
+      link.download = `flacid-${stateLabel}-${Date.now()}.json`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -129,7 +132,7 @@ export function SiteHeader() {
       console.log(`Site data exported successfully (${stateLabel})`);
     } catch (error) {
       console.error('Failed to export JSON:', error);
-      alert('Failed to export data. Check console for details.');
+      toast.error('Failed to export site data. Check the console for details.');
     }
   };
 
@@ -155,14 +158,14 @@ export function SiteHeader() {
         if (isSupabaseConfigured) {
           await publishContentToSupabase(importedData as Parameters<typeof publishContentToSupabase>[0]);
         } else {
-          alert('Supabase not configured. Import will sync when configured.');
+          toast.info('Supabase not configured. Import will sync when configured.');
         }
 
-        alert('Data imported successfully! Refreshing page...');
+        toast.success('Import complete. Reloading…');
         window.location.reload();
       } catch (error) {
         console.error('Failed to import JSON:', error);
-        alert('Failed to import data. Please ensure the file is a valid FLACID site export.');
+        toast.error('Import failed. Use a valid flACID site export JSON file.');
       }
     };
     input.click();
@@ -171,7 +174,7 @@ export function SiteHeader() {
   return (
     <header
       className={cn(
-        'fixed top-0 left-0 right-0 pointer-events-none [&>*]:pointer-events-auto',
+        'fixed top-0 left-0 right-0 pointer-events-none',
         /* PWA / iOS: clear notch + Dynamic Island; horizontal insets in landscape */
         'pt-[max(1rem,env(safe-area-inset-top,0px))]',
         'pl-[max(1rem,env(safe-area-inset-left,0px))]',
@@ -181,12 +184,12 @@ export function SiteHeader() {
       )}
     >
       {/* lg+: mini in header with balanced flex; below lg mini stays bottom-fixed so Descend + ⋯ never wrap */}
-      <div className="relative flex w-full min-h-[44px] lg:min-h-[52px] flex-row items-center justify-end lg:justify-start">
-        <div className="hidden min-w-0 flex-1 lg:block" aria-hidden />
-        <div className="flex min-w-0 shrink-0 items-center justify-center self-center lg:h-11">
+      <div className="relative flex w-full min-h-[44px] lg:min-h-[52px] flex-row items-center justify-end lg:justify-start pointer-events-none">
+        <div className="hidden min-w-0 flex-1 lg:block pointer-events-none" aria-hidden />
+        <div className="pointer-events-auto flex min-w-0 shrink-0 items-center justify-center self-center lg:h-11">
           <MiniPlayer dock="chrome" />
         </div>
-        <div className="relative flex min-w-0 flex-1 flex-row flex-nowrap items-center justify-end gap-3 self-center pl-2 sm:gap-4 lg:pl-4">
+        <div className="pointer-events-auto relative flex min-w-0 flex-1 flex-row flex-nowrap items-center justify-end gap-3 self-center pl-2 sm:gap-4 lg:pl-4">
           {exportSuccess && (
             <div className="flex shrink-0 items-center gap-2 bg-green-600/90 backdrop-blur-sm border border-green-400/50 rounded-lg px-3 py-2 shadow-lg">
               <CheckCircle className="h-4 w-4 text-green-300" />
@@ -289,21 +292,31 @@ export function SiteHeader() {
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
+                  disabled={publishLoading}
                   onClick={async () => {
                     try {
                       await publishChanges();
+                      toast.success('Changes published to the live site.');
                     } catch (e) {
                       const msg = e instanceof Error ? e.message : String(e);
                       console.error(e);
-                      alert(`Publish failed: ${msg}`);
+                      toast.error(`Publish failed: ${msg}`);
                     }
                   }}
                   className={brandMenuItemSuccessClass}
                 >
-                  <CheckCircle className="mr-2 h-4 w-4" />
-                  <span>Publish Changes</span>
+                  {publishLoading ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <CheckCircle className="mr-2 h-4 w-4" />
+                  )}
+                  <span>{publishLoading ? 'Publishing…' : 'Publish Changes'}</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleDiscardDraftClick} className={brandMenuItemDestructiveClass}>
+                <DropdownMenuItem
+                  disabled={publishLoading}
+                  onClick={handleDiscardDraftClick}
+                  className={brandMenuItemDestructiveClass}
+                >
                   <XCircle className="mr-2 h-4 w-4" />
                   <span>Discard Draft</span>
                 </DropdownMenuItem>
@@ -349,8 +362,14 @@ export function SiteHeader() {
           {isDraft && isEditMode && (
             <div className="absolute right-0 top-full z-10 mt-1.5 flex justify-end lg:right-full lg:top-1/2 lg:mt-0 lg:mr-3 lg:-translate-y-1/2">
               <div className="flex items-center gap-2 bg-signal-purple/90 backdrop-blur-sm border border-signal-purple-bright/40 rounded-lg px-3 py-2 shadow-lg whitespace-nowrap">
-                <div className="w-2 h-2 bg-neon-green rounded-full animate-pulse shrink-0" />
-                <span className="text-sm text-primary-foreground font-medium">Unsaved Changes</span>
+                {publishLoading ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-neon-green shrink-0" />
+                ) : (
+                  <div className="w-2 h-2 bg-neon-green rounded-full animate-pulse shrink-0" />
+                )}
+                <span className="text-sm text-primary-foreground font-medium">
+                  {publishLoading ? 'Publishing…' : 'Unsaved Changes'}
+                </span>
               </div>
             </div>
           )}
@@ -417,11 +436,11 @@ export function SiteHeader() {
               <span className="block">
                 <strong className="text-foreground">Chrome:</strong> tap <strong className="text-foreground">Share</strong>{' '}
                 in the toolbar, then <strong className="text-foreground">Add to Home Screen</strong> (you may need to scroll
-                the actions list). If it doesn&apos;t appear, open this page in Safari and use Share there—Apple is stricter
+                the actions list). If it doesn&apos;t appear, open this page in Safari and use Share there. Apple is stricter
                 in third-party browsers.
               </span>
               <span className="block text-muted-foreground">
-                The home screen icon opens full screen without the browser chrome—best for mirroring to a TV.
+                The home screen icon opens full screen without the browser chrome, best for mirroring to a TV.
               </span>
             </AlertDialogDescription>
           </AlertDialogHeader>

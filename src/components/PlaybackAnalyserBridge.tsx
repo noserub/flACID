@@ -10,7 +10,7 @@ import { registerAudioContext } from '../lib/audioContextManager';
 
 /**
  * Always-mounted bridge: wires the global audio element to a Web Audio analyser
- * so Hero Stage and MusicPlayer can share visualization before Listen Now lazy-loads.
+ * so Hero Stage can share visualization before Discography lazy-loads.
  */
 export function PlaybackAnalyserBridge() {
   const { audioRef, currentTrackData, isAudioReady, isPlaying, currentTime, currentTrack, setAnalyser } =

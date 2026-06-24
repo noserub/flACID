@@ -16,13 +16,13 @@ import { SectionNavMobile } from './components/SectionNavMobile';
 import { StagePage } from './pages/StagePage';
 import { VizCapturePage } from './pages/VizCapturePage';
 import { DesignSystemPage } from './pages/DesignSystemPage';
+import { Toaster } from './components/ui/sonner';
 
 // Lazy load below-the-fold sections
 const VercelAnalytics = lazy(() =>
   import('@vercel/analytics/react').then((m) => ({ default: m.Analytics }))
 );
 const AboutSection = lazy(() => import('./components/AboutSection').then(m => ({ default: m.AboutSection })));
-const ListenNowSection = lazy(() => import('./components/ListenNowSection').then(m => ({ default: m.ListenNowSection })));
 const AlbumsSection = lazy(() => import('./components/AlbumsSection').then(m => ({ default: m.AlbumsSection })));
 const PhotoGallery = lazy(() => import('./components/PhotoGallery').then(m => ({ default: m.PhotoGallery })));
 const TourSection = lazy(() => import('./components/TourSection').then(m => ({ default: m.TourSection })));
@@ -102,12 +102,7 @@ function AppContent() {
               <AboutSection />
             </Suspense>
 
-            {/* Listen Now Section - Lazy Loaded */}
-            <Suspense fallback={<SectionLoader />}>
-              <ListenNowSection />
-            </Suspense>
-
-            {/* Discography Section - Lazy Loaded */}
+            {/* Discography — albums with streamable track lists */}
             <Suspense fallback={<SectionLoader />}>
               <AlbumsSection />
             </Suspense>
@@ -138,6 +133,7 @@ export default function App() {
 
   return (
     <VizSensitivityProvider>
+      <Toaster position="top-center" richColors closeButton />
       {pathname === '/stage' ? (
         <StagePage />
       ) : pathname === '/capture-viz' ? (

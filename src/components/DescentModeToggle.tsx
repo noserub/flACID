@@ -198,7 +198,7 @@ export function DescentModeToggle() {
               Turn the site into the show
             </p>
             <p className="mt-2 text-muted-foreground leading-relaxed text-[13px] sm:text-sm">
-              <span className="text-neon-green/90">Descend</span> turns the page into the stage—full-screen visuals
+              <span className="text-neon-green/90">Descend</span> turns the page into the stage with full-screen visuals
               and motion that move with the music.{' '}
               <span className="text-muted-foreground/95">Best on desktop with the in-site player playing. Go fullscreen for the full show.</span>
             </p>

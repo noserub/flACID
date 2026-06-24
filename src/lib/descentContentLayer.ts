@@ -13,6 +13,9 @@ export const DESCENT_CHROME_LIFT = 'z-[10020]';
 /** Portaled menus & popovers from header (must beat effects; typically above chrome) */
 export const DESCENT_MENU_PORTAL_LIFT = 'z-[10030]';
 
+/** In-section edit chrome (visibility, Edit Hero, etc.) — above fixed header (10020) */
+export const EDITOR_CHROME_LIFT = 'z-[10050]';
+
 /** Modals (e.g. NewsletterSignup) — above section content (10000), menus (10030), fullscreen controls (10100) */
 export const MODAL_PORTAL_LIFT = 'z-[10200]';
 

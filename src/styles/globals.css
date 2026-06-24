@@ -3,7 +3,7 @@
 :root {
   --font-size: 16px;
   --font-hero: "Syne", system-ui, sans-serif;
-  --font-body: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-body: "Instrument Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 
   /* ── Type scale — major third (1.25) from 16px base ── */
   --type-xs: 0.75rem;
@@ -601,6 +601,23 @@ img, picture, video, canvas, svg {
 .drop-shadow-hero-logo {
   filter: drop-shadow(0 4px 24px rgba(0, 0, 0, 0.85))
     drop-shadow(0 0 48px var(--signal-purple-glow));
+}
+
+/* Custom hero art — white wordmark on light suit */
+.bg-hero-logo-scrim {
+  background: radial-gradient(
+    ellipse 88% 72% at 50% 50%,
+    rgba(0, 0, 0, 0.58) 0%,
+    rgba(0, 0, 0, 0.28) 42%,
+    transparent 72%
+  );
+}
+
+.drop-shadow-hero-logo-strong {
+  filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.95))
+    drop-shadow(0 4px 18px rgba(0, 0, 0, 0.82))
+    drop-shadow(0 8px 32px rgba(0, 0, 0, 0.65))
+    drop-shadow(0 0 36px var(--signal-purple-glow));
 }
 
 /* Newsletter / dialog decorative radials */

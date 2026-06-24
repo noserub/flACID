@@ -6,11 +6,13 @@ A psychedelic, performance-optimized band website for **flACID**. Fans get an im
 
 ### Music Player
 
-- Full playback controls: play/pause, skip, seek, volume, shuffle, repeat, and playlist management
+- **Hero-first playback** — the hero stage is the primary listening surface: logo + mini player when idle, full visualizer + docked transport when a track is playing
+- **Discography** lists each release with its tracks; streamable songs (matched to the audio catalog) play on the hero without leaving the page
+- Full playback controls on the hero dock and header mini player: play/pause, skip, seek, volume, and playlist panel
 - **7-band EQ analysis** (sub bass through brilliance) drives every visualization in real time via the Web Audio API
 - **20 visualization modes** — assign a different visual to each track
-- Fullscreen player with a persistent mini-player on mobile
 - Adjustable visualization sensitivity
+- Legacy fullscreen player UI remains in the codebase for the standalone player reference; it is not part of the default fan scroll path
 
 ### Visualizations (20)
 
@@ -56,8 +58,7 @@ Built for projecting visuals at live shows:
 |---------|--------------|
 | **Hero** | Landing with glitch effects and band branding |
 | **About** | Band bio and story |
-| **Listen Now** | Featured tracks with the music player |
-| **Discography** | Albums with streaming links (Spotify, Apple Music, Bandcamp) |
+| **Discography** | Albums with track lists — streamable tracks play on the hero stage |
 | **Photo Gallery** | Masonry layout with lazy-loaded images |
 | **Tour** | Upcoming show dates |
 | **Footer** | Social links and newsletter signup |

@@ -59,11 +59,33 @@ export const DESIGN_INTENT = {
     'Cosmic Signal is flACID’s visual language: void depth, purple signal, neon green life, and gradient voice on a music-driven canvas.',
   principles: [
     'Void base: depth without flat gray',
-    'Syne for display, system sans for body. Fluid clamp scale in globals.css',
+    'Syne (display) + Instrument Sans (body). See TYPE_FONTS — fluid clamp scale in globals.css',
     'Purple at rest → green on hover: one interactive language',
-    'Gradient reserved for section titles and wordmark',
+    'Gradient reserved for Gallery title + footer wordmark; other section titles use pink accent',
   ],
 } as const;
+
+/** Font stacks loaded in index.html and referenced via CSS variables */
+export const TYPE_FONTS = [
+  {
+    role: 'Display',
+    family: 'Syne',
+    cssVar: '--font-hero',
+    utility: 'font-hero',
+    weights: '400, 500, 600',
+    source: 'Google Fonts',
+    use: 'Section titles, headings, viz card names, ticket numerals',
+  },
+  {
+    role: 'Body & UI',
+    family: 'Instrument Sans',
+    cssVar: '--font-body',
+    utility: 'font-body',
+    weights: '400, 500, 600',
+    source: 'Google Fonts',
+    use: 'About prose, captions, subtitles, player artist/album lines',
+  },
+] as const;
 
 /** Case-study framing for reviewers and portfolio readers */
 export const CASE_STUDY = {
@@ -82,7 +104,7 @@ export const CASE_STUDY = {
     'Live specimens in this doc, pulled from production components',
   ],
   shipped: [
-    'Public band site with 20 audio-reactive visualizations and fullscreen player',
+    'Public band site with hero-stage playback, discography track lists, and 20 audio-reactive visualizations',
     'Descent Mode (desktop psychedelic overlay) and Stage Mode (/stage) for venues',
     'Authenticated edit workflow with draft/publish and section visibility',
     'This design system: reviewer path + Foundation token reference',
@@ -95,15 +117,15 @@ export const EXPERIENCE_MODES = [
     id: 'browse',
     name: 'Browse',
     summary: 'Default scroll through sections: hero viz, editorial content, tour, gallery.',
-    chrome: 'Site header, section nav rail (lg+) or bottom bar (mobile), mini player in header when past hero.',
+    chrome: 'Site header, section nav rail (lg+) or bottom bar (mobile), header mini player when past hero (never simultaneous with hero dock).',
     tokens: 'Section washes, card surfaces, purple→green interactive rest.',
   },
   {
-    id: 'player-fullscreen',
-    name: 'Player fullscreen',
-    summary: 'Immersive playback: viz fills the viewport, transport overlays on dark.',
-    chrome: 'Header and section nav hidden. onDark.* type, void scrims, auto-hiding controls.',
-    tokens: 'overlay.fullscreen, onDark.heading/body, brandOverlayChromeButtonClass.',
+    id: 'hero-stage',
+    name: 'Hero stage',
+    summary: 'Primary fan playback: visualizer fills the hero, mini player dock animates to the bottom of the stage.',
+    chrome: 'Hero logo hidden; hero dock only (no header mini player). Discography track rows send playback here.',
+    tokens: 'brandPrimaryButtonClass on transport, onDark mini player copy, void scrims on viz.',
   },
   {
     id: 'descent',
@@ -126,13 +148,13 @@ export const RESPONSIVE_BEHAVIOR = [
     pattern: 'Section navigation',
     mobile: 'SectionNavMobile: labeled bottom bar, green active label.',
     desktop: 'SectionNavRail: right-edge dots with tooltips, scroll-spy.',
-    hidden: 'Descent on, player fullscreen, hero stage viewport.',
+    hidden: 'Descent on, hero stage viewport.',
   },
   {
     pattern: 'Mini player',
     mobile: 'Full-width strip above section nav: 44px transport, skip, progress sliver.',
-    desktop: 'Header chip when past hero; hero dock on viz surface at top.',
-    hidden: 'Player fullscreen (replaced by fullscreen transport).',
+    desktop: 'Header chip when past hero; hero dock on viz surface (idle: below logo, stage: bottom of viz).',
+    hidden: 'Hero dock and header chip never shown together.',
   },
   {
     pattern: 'Descend toggle',
@@ -254,20 +276,36 @@ export const TYPE_RAMP_HIERARCHY = [
     where: 'Footer band name',
   },
   {
+    level: 'H1 accent',
+    html: 'h2',
+    token: 'titleSectionAccent',
+    classes: typography.titleSectionAccent,
+    sample: 'Discography',
+    where: 'Default section titles (pink)',
+  },
+  {
+    level: 'H1 gradient',
+    html: 'h2',
+    token: 'titleSectionGradient',
+    classes: typography.titleSectionGradient,
+    sample: 'Gallery',
+    where: 'Visuals / gallery section only',
+  },
+  {
     level: 'H1',
     html: 'h2',
     token: 'titleSection',
     classes: typography.titleSection,
     sample: 'Gallery',
-    where: 'Section titles: Gallery, Listen, Tour, Albums',
+    where: 'Base display size (pair with accent or gradient)',
   },
   {
     level: 'H1 editorial',
     html: 'h2',
-    token: 'titleEditorial',
-    classes: typography.titleEditorial,
-    sample: 'The Journey',
-    where: 'About section title (left-aligned)',
+    token: 'titleEditorialAccent',
+    classes: typography.titleEditorialAccent,
+    sample: 'flACID',
+    where: 'About section title (left-aligned, pink)',
   },
   {
     level: 'H2',
@@ -375,7 +413,8 @@ export const COLOR_ROLE_NOTES = [
   { role: 'Interactive rest', token: 'signal-purple-bright', where: 'Header, player chrome, links' },
   { role: 'Interactive hover', token: 'neon-green', where: 'Buttons, menu rows, card hovers' },
   { role: 'CTAs', token: 'primary', where: 'Play, tickets, newsletter submit' },
-  { role: 'Titles', token: 'gradient', where: 'Section h2, footer wordmark' },
+  { role: 'Titles (accent)', token: 'hot-pink-bright', where: 'Discography, Tour, About section h2' },
+  { role: 'Titles (gradient)', token: 'gradient', where: 'Gallery h2, footer wordmark only' },
   { role: 'Meta', token: 'muted-foreground', where: 'Dates, captions, tour city' },
 ] as const;
 
@@ -406,8 +445,12 @@ type TypographyKey = keyof typeof typography;
 const TYPOGRAPHY_META: Record<TypographyKey, { sample: string; role: string; production?: boolean }> = {
   gradientText: { sample: 'n/a', role: 'Brand gradient layer', production: true },
   displayWordmark: { sample: 'flACID', role: 'Footer wordmark', production: true },
-  titleSection: { sample: 'Gallery', role: 'Section H1, centered', production: true },
-  titleEditorial: { sample: 'The Journey', role: 'Section H1, About', production: true },
+  titleSection: { sample: 'Gallery', role: 'Section H1 base size', production: false },
+  titleSectionAccent: { sample: 'Discography', role: 'Section H1, centered (default)', production: true },
+  titleSectionGradient: { sample: 'Gallery', role: 'Section H1, Visuals tab only', production: true },
+  titleEditorial: { sample: 'The Journey', role: 'Section H1 base, About', production: false },
+  titleEditorialAccent: { sample: 'flACID', role: 'About title (default)', production: true },
+  titleEditorialGradient: { sample: 'The Journey', role: 'About title, gradient (rare)', production: false },
   heading: { sample: 'Neon Tunnel', role: 'H2, modals and tour venue', production: true },
   cardTitle: { sample: 'Album title', role: 'H3, discography cards', production: true },
   subheading: { sample: 'Connect', role: 'H4, footer columns', production: true },
@@ -491,7 +534,7 @@ export const PRODUCTION_PATTERNS = [
   {
     id: 'gallery',
     where: 'Gallery · section header',
-    description: 'Gradient title, green eyebrow, muted subtitle',
+    description: 'Gradient title (Gallery only), green eyebrow, muted subtitle',
   },
   {
     id: 'about',
@@ -512,6 +555,11 @@ export const PRODUCTION_PATTERNS = [
     id: 'player',
     where: 'Hero · mini player',
     description: 'Chip transport on viz + header chrome: ghost skip, primary play, now playing panel',
+  },
+  {
+    id: 'listen',
+    where: 'Discography · album track rows',
+    description: 'Play affordance when audio exists; title + duration; active track highlight; no scroll hijack',
   },
   {
     id: 'section-nav',

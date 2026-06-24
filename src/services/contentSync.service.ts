@@ -41,19 +41,13 @@ function normalizeTourDateForDb(raw: string): string {
 }
 
 function tourRowFromSiteDate(d: SiteContent['tour']['dates'][number]) {
-  let status =
+  const status =
     d.status === 'sold_out' ||
     d.status === 'cancelled' ||
     d.status === 'selling_fast' ||
     d.status === 'upcoming'
       ? d.status
       : 'upcoming';
-
-  // Backward compatibility: projects without migration 004 reject "selling_fast".
-  // Downgrade to "upcoming" so tour edits still persist instead of failing publish.
-  if (status === 'selling_fast') {
-    status = 'upcoming';
-  }
 
   return {
     date: normalizeTourDateForDb(d.date),
@@ -64,6 +58,67 @@ function tourRowFromSiteDate(d: SiteContent['tour']['dates'][number]) {
       d.ticketUrl && d.ticketUrl.trim() && d.ticketUrl !== '#' ? d.ticketUrl.trim() : null,
     status,
   };
+}
+
+function isTourStatusConstraintError(error: {
+  message?: string;
+  code?: string;
+  details?: string;
+} | null): boolean {
+  if (!error) return false;
+  const blob = `${error.message ?? ''} ${error.details ?? ''} ${error.code ?? ''}`.toLowerCase();
+  return (
+    blob.includes('tour_dates_status_check') ||
+    (blob.includes('status') && blob.includes('check constraint'))
+  );
+}
+
+function downgradeSellingFastStatus<T extends { status?: string }>(rows: T[]): T[] {
+  return rows.map((row) =>
+    row.status === 'selling_fast' ? { ...row, status: 'upcoming' } : row
+  );
+}
+
+async function upsertTourDateBatch(
+  rows: Array<{ id: string; date: string; venue: string; city: string; country: string; ticket_url: string | null; status: string }>
+) {
+  let result = await supabase.from('tour_dates').upsert(rows, { onConflict: 'id' }).select('id');
+  if (
+    result.error &&
+    isTourStatusConstraintError(result.error) &&
+    rows.some((row) => row.status === 'selling_fast')
+  ) {
+    console.warn(
+      '[contentSync] selling_fast rejected by DB; saved as upcoming. Run migration 004_tour_gallery_subtitles_newsletter.sql.'
+    );
+    result = await supabase
+      .from('tour_dates')
+      .upsert(downgradeSellingFastStatus(rows), { onConflict: 'id' })
+      .select('id');
+  }
+  if (result.error) throw result.error;
+  return result.data ?? [];
+}
+
+async function insertTourDateRow(
+  row: ReturnType<typeof tourRowFromSiteDate>
+): Promise<string | undefined> {
+  let result = await supabase.from('tour_dates').insert(row).select('id');
+  if (
+    result.error &&
+    isTourStatusConstraintError(result.error) &&
+    row.status === 'selling_fast'
+  ) {
+    console.warn(
+      '[contentSync] selling_fast rejected by DB; saved as upcoming. Run migration 004_tour_gallery_subtitles_newsletter.sql.'
+    );
+    result = await supabase
+      .from('tour_dates')
+      .insert({ ...row, status: 'upcoming' })
+      .select('id');
+  }
+  if (result.error) throw result.error;
+  return result.data?.[0]?.id;
 }
 
 /**
@@ -79,8 +134,7 @@ async function replaceTourDatesFromSiteContent(content: SiteContent): Promise<vo
 
   if (withId.length > 0) {
     const rows = withId.map((d) => ({ id: d.id, ...tourRowFromSiteDate(d) }));
-    const { data, error } = await supabase.from('tour_dates').upsert(rows, { onConflict: 'id' }).select('id');
-    if (error) throw error;
+    const data = await upsertTourDateBatch(rows);
     // If RETURNING is empty (RLS/PostgREST edge cases), still trust the ids we upserted so we don't orphan-delete everything
     if (data && data.length > 0) {
       keptIds.push(...data.map((r) => r.id));
@@ -90,12 +144,7 @@ async function replaceTourDatesFromSiteContent(content: SiteContent): Promise<vo
   }
 
   for (const d of withoutId) {
-    const { data: inserted, error } = await supabase
-      .from('tour_dates')
-      .insert(tourRowFromSiteDate(d))
-      .select('id');
-    if (error) throw error;
-    const newId = inserted?.[0]?.id;
+    const newId = await insertTourDateRow(tourRowFromSiteDate(d));
     if (newId) keptIds.push(newId);
   }
 

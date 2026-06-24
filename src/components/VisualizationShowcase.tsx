@@ -1,9 +1,15 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X } from 'lucide-react';
 import { PsychedelicVisualizer } from './PsychedelicVisualizer';
 import { usePlayback } from '../contexts/PlaybackContext';
-import { VISUALIZATION_NAMES } from '../lib/visualizationNames';
+import {
+  formatVizTrackCardLabel,
+  getTrackMappedVisualizationIds,
+  getTracksForVisualization,
+  type VizTrackRef,
+  VISUALIZATION_NAMES,
+} from '../lib/visualizationNames';
 import { vizPreviewPosterPath } from '../lib/vizPreviewPaths';
 import { Button } from './ui/button';
 import {
@@ -14,7 +20,7 @@ import {
 } from './ui/dialog';
 import { cn } from './ui/utils';
 import { TextLabel } from './TextLabel';
-import { heading, vizCardHint, vizCardName } from '../lib/typography';
+import { caption, heading, vizCardHint, vizCardName } from '../lib/typography';
 import { border, shadow } from '../lib/colors';
 
 function scrollToHero() {
@@ -24,16 +30,6 @@ function scrollToHero() {
     return;
   }
   window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-function findTrackForViz(
-  tracks: { visualizationId?: number }[],
-  vizId: number
-): number {
-  const exact = tracks.findIndex(
-    (t) => (t.visualizationId ?? 0) % VISUALIZATION_NAMES.length === vizId
-  );
-  return exact >= 0 ? exact : 0;
 }
 
 interface VisualizationShowcaseProps {
@@ -58,12 +54,14 @@ function VizLivePreview({ vizId, className }: { vizId: number; className?: strin
 function VizPreviewCard({
   vizId,
   name,
-  index,
+  trackLabel,
+  displayIndex,
   onOpen,
 }: {
   vizId: number;
   name: string;
-  index: number;
+  trackLabel: string;
+  displayIndex: number;
   onOpen: () => void;
 }) {
   const [isHovering, setIsHovering] = useState(false);
@@ -75,7 +73,7 @@ function VizPreviewCard({
       initial={{ opacity: 0, y: 12 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.2 }}
-      transition={{ duration: 0.4, delay: index * 0.02 }}
+      transition={{ duration: 0.4, delay: displayIndex * 0.02 }}
       onClick={onOpen}
       onMouseEnter={() => setIsHovering(true)}
       onMouseLeave={() => setIsHovering(false)}
@@ -108,13 +106,34 @@ function VizPreviewCard({
       />
 
       <div className="relative flex h-full flex-col justify-end p-3 sm:p-3.5 pointer-events-none">
-        <TextLabel as="span" className="mb-0.5 font-medium">
-          Viz {index + 1}
-        </TextLabel>
         <span className={vizCardName}>{name}</span>
+        {trackLabel && (
+          <span className={cn('mt-1 truncate', caption)}>
+            Seen on {trackLabel}
+          </span>
+        )}
         <span className={cn('mt-2', vizCardHint)}>Preview</span>
       </div>
     </motion.button>
+  );
+}
+
+function VizTrackList({ refs }: { refs: VizTrackRef[] }) {
+  if (refs.length === 0) return null;
+
+  return (
+    <div className="space-y-1.5">
+      <TextLabel as="p" className="font-medium">
+        Seen on
+      </TextLabel>
+      <ul className="space-y-1">
+        {refs.map((ref) => (
+          <li key={ref.index} className={cn(caption, 'text-foreground/90')}>
+            {ref.title}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -122,38 +141,70 @@ export function VisualizationShowcase({ className }: VisualizationShowcaseProps)
   const { tracks, selectTrack, playFromHero } = usePlayback();
   const [selectedViz, setSelectedViz] = useState<number | null>(null);
 
+  const mappedVizIds = useMemo(
+    () => getTrackMappedVisualizationIds(tracks),
+    [tracks]
+  );
+
+  const tracksByVizId = useMemo(() => {
+    const map = new Map<number, VizTrackRef[]>();
+    for (const vizId of mappedVizIds) {
+      map.set(vizId, getTracksForVisualization(tracks, vizId));
+    }
+    return map;
+  }, [tracks, mappedVizIds]);
+
   const selectedName =
     selectedViz !== null ? VISUALIZATION_NAMES[selectedViz] : '';
 
-  const seeItLive = useCallback(
-    (vizId: number) => {
-      const trackIndex = findTrackForViz(tracks, vizId);
+  const selectedTrackRefs =
+    selectedViz !== null ? tracksByVizId.get(selectedViz) ?? [] : [];
+
+  const selectedPlayableRefs = useMemo(
+    () => selectedTrackRefs.filter((ref) => Boolean(tracks[ref.index]?.url?.trim())),
+    [selectedTrackRefs, tracks]
+  );
+
+  const playTrackLive = useCallback(
+    (trackIndex: number) => {
       setSelectedViz(null);
       selectTrack(trackIndex);
       scrollToHero();
       window.setTimeout(() => playFromHero(), 650);
     },
-    [tracks, selectTrack, playFromHero]
+    [selectTrack, playFromHero]
   );
+
+  const selectedTrackSummary = selectedTrackRefs.map((ref) => ref.title).join(', ');
 
   return (
     <>
-      <div
-        className={cn(
-          'grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5',
-          className
-        )}
-      >
-        {VISUALIZATION_NAMES.map((name, index) => (
-          <VizPreviewCard
-            key={name}
-            vizId={index}
-            name={name}
-            index={index}
-            onOpen={() => setSelectedViz(index)}
-          />
-        ))}
-      </div>
+      {mappedVizIds.length === 0 ? (
+        <p className={cn('text-sm text-muted-foreground', className)}>
+          Visualizations appear here when tracks are assigned a viz in the music player.
+        </p>
+      ) : (
+        <div
+          className={cn(
+            'grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5',
+            className
+          )}
+        >
+          {mappedVizIds.map((vizId, displayIndex) => {
+            const refs = tracksByVizId.get(vizId) ?? [];
+            return (
+              <VizPreviewCard
+                key={vizId}
+                vizId={vizId}
+                name={VISUALIZATION_NAMES[vizId]}
+                trackLabel={formatVizTrackCardLabel(refs)}
+                displayIndex={displayIndex}
+                onOpen={() => setSelectedViz(vizId)}
+              />
+            );
+          })}
+        </div>
+      )}
 
       <Dialog open={selectedViz !== null} onOpenChange={(open) => !open && setSelectedViz(null)}>
         <DialogContent className="max-w-4xl border-signal-purple/40 bg-void p-0 overflow-hidden gap-0">
@@ -161,7 +212,9 @@ export function VisualizationShowcase({ className }: VisualizationShowcaseProps)
             {selectedName} visualization preview
           </DialogTitle>
           <DialogDescription className="sr-only">
-            Live preview for {selectedName}. Open the hero player to experience this visualization with music.
+            Live preview for {selectedName}
+            {selectedTrackSummary ? `, used on ${selectedTrackSummary}` : ''}.
+            Open the hero player to experience this visualization with music.
           </DialogDescription>
 
           <AnimatePresence mode="wait">
@@ -187,20 +240,40 @@ export function VisualizationShowcase({ className }: VisualizationShowcaseProps)
 
                 <div className="space-y-4 p-5 sm:p-6">
                   <div>
-                    <TextLabel as="span" className="font-medium">
-                      Viz {selectedViz + 1}
-                    </TextLabel>
-                    <h3 className={cn(heading, 'mt-1')}>{selectedName}</h3>
+                    <h3 className={heading}>{selectedName}</h3>
                   </div>
 
-                  {tracks.some((t) => t.url) && (
+                  <VizTrackList refs={selectedTrackRefs} />
+
+                  {selectedPlayableRefs.length === 1 && (
                     <Button
                       type="button"
                       className="w-full bg-primary hover:bg-signal-purple-bright"
-                      onClick={() => seeItLive(selectedViz)}
+                      onClick={() => playTrackLive(selectedPlayableRefs[0].index)}
                     >
-                      See it live
+                      See it live: {selectedPlayableRefs[0].title}
                     </Button>
+                  )}
+
+                  {selectedPlayableRefs.length > 1 && (
+                    <div className="space-y-2">
+                      <TextLabel as="p" className="font-medium">
+                        Play with track
+                      </TextLabel>
+                      <div className="flex flex-col gap-2">
+                        {selectedPlayableRefs.map((ref) => (
+                          <Button
+                            key={ref.index}
+                            type="button"
+                            variant="outline"
+                            className="w-full justify-start border-signal-purple/40 hover:border-neon-green/50"
+                            onClick={() => playTrackLive(ref.index)}
+                          >
+                            {ref.title}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
                   )}
                 </div>
               </motion.div>

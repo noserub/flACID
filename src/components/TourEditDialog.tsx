@@ -164,7 +164,7 @@ export function TourEditDialog() {
                     <SelectTrigger>
                       <SelectValue placeholder="Select status" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent modal={false} className="z-[10250]">
                       {STATUS_OPTIONS.map((opt) => (
                         <SelectItem key={opt.value} value={opt.value}>
                           {opt.label}
