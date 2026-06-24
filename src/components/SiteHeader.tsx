@@ -14,6 +14,7 @@ import {
   Mic,
   Smartphone,
   Palette,
+  ExternalLink,
   Loader2,
 } from 'lucide-react';
 import {
@@ -250,9 +251,15 @@ export function SiteHeader() {
             <DropdownMenuSeparator />
             <DropdownMenuLabel className="text-xs text-muted-foreground">Design</DropdownMenuLabel>
             <DropdownMenuItem asChild>
+              <a href="/case-study" target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="mr-2 h-4 w-4" />
+                <span>Case study</span>
+              </a>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
               <a href="/design-system" target="_blank" rel="noopener noreferrer">
                 <Palette className="mr-2 h-4 w-4" />
-                <span>Design System</span>
+                <span>Design system</span>
               </a>
             </DropdownMenuItem>
 

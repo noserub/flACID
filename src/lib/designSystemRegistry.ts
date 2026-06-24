@@ -59,7 +59,7 @@ export const DESIGN_INTENT = {
     'Cosmic Signal is flACID’s visual language: void depth, purple signal, neon green life, and gradient voice on a music-driven canvas.',
   principles: [
     'Void base: depth without flat gray',
-    'Syne (display) + Instrument Sans (body). See TYPE_FONTS — fluid clamp scale in globals.css',
+    'Syne (display) + Instrument Sans (body). See TYPE_FONTS: fluid clamp scale in globals.css',
     'Purple at rest → green on hover: one interactive language',
     'Gradient reserved for Gallery title + footer wordmark; other section titles use pink accent',
   ],

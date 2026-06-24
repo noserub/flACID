@@ -191,6 +191,18 @@ export function DesignSystemContent({ embed = false }: DesignSystemContentProps)
                 <div>
                   <p className={cn(titleSection, gradientText)}>Start here</p>
                   <p className="text-sm text-foreground/75 mt-2">{DESIGN_INTENT.product}</p>
+                  <p className="text-xs text-muted-foreground mt-3">
+                    Portfolio narrative:{' '}
+                    <a
+                      href="/case-study"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-neon-green hover:underline"
+                    >
+                      Read the case study
+                    </a>
+                    {' (decisions, AI builder process, and outcomes).'}
+                  </p>
                 </div>
 
                 <div>
