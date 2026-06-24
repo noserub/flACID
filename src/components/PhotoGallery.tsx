@@ -28,7 +28,9 @@ export function PhotoGallery() {
   const visibleTabs = useMemo(() => {
     const byVisibility = tabs.filter((tab) => tab.visible || isEditMode);
     if (isEditMode) return byVisibility;
-    return byVisibility.filter((tab) => tab.images.length > 0);
+    return byVisibility.filter(
+      (tab) => tab.images.length > 0 || isVisualsTab(tab.name, tab.id)
+    );
   }, [tabs, isEditMode]);
   useEffect(() => {
     if (activeTab >= visibleTabs.length && visibleTabs.length > 0) {
