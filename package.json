@@ -80,6 +80,7 @@
     "analyze": "vite build --mode analyze",
     "test": "vitest",
     "test:run": "vitest run",
-    "capture:viz-previews": "node scripts/capture-viz-previews.mjs"
+    "capture:viz-previews": "node scripts/capture-viz-previews.mjs",
+    "generate:favicons": "node scripts/generate-favicons.mjs"
   }
 }

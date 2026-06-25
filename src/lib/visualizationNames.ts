@@ -11,7 +11,7 @@ export const VISUALIZATION_NAMES = [
   'Spiral Galaxy',
   'Crystal Lattice',
   'Breathing Mandala',
-  'IFS Kaleidoscope',
+  'Resonant Cymatics',
   'Prism Spectrum',
   'Metaballs',
   'Reaction Diffusion',
