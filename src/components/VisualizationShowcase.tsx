@@ -10,7 +10,7 @@ import {
   type VizTrackRef,
   VISUALIZATION_NAMES,
 } from '../lib/visualizationNames';
-import { vizPreviewPosterPath } from '../lib/vizPreviewPaths';
+import { vizPreviewPosterFallbackPath, vizPreviewPosterPath } from '../lib/vizPreviewPaths';
 import { Button } from './ui/button';
 import {
   Dialog,
@@ -65,7 +65,7 @@ function VizPreviewCard({
   onOpen: () => void;
 }) {
   const [isHovering, setIsHovering] = useState(false);
-  const poster = vizPreviewPosterPath(vizId);
+  const [poster, setPoster] = useState(() => vizPreviewPosterPath(vizId));
 
   return (
     <motion.button
@@ -97,6 +97,10 @@ function VizPreviewCard({
           decoding="async"
           className="absolute inset-0 h-full w-full object-cover"
           aria-hidden
+          onError={() => {
+            const fallback = vizPreviewPosterFallbackPath(vizId);
+            if (fallback && poster !== fallback) setPoster(fallback);
+          }}
         />
       )}
       {isHovering && <VizLivePreview vizId={vizId} />}

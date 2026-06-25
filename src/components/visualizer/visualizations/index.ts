@@ -8,7 +8,7 @@ import type { DrawVisualization, EQBands, VisualizerDrawOptions } from '../types
 import { drawOrganicFlow } from './organicFlow';
 import { drawBreathingMandala } from './breathingMandala';
 import { drawNeonGrid } from './neonGrid';
-import { drawIfsKaleidoscope } from './ifsKaleidoscope';
+import { drawResonantCymatics } from './resonantCymatics';
 import { drawSpectrumBars } from './spectrumBars';
 import { drawMetaballs } from './metaballs';
 import { drawReactionDiffusion } from './reactionDiffusion';
@@ -22,7 +22,7 @@ import { drawThreeNeonTunnelStub } from './threeNeonTunnel';
 export { drawOrganicFlow } from './organicFlow';
 export { drawBreathingMandala } from './breathingMandala';
 export { drawNeonGrid } from './neonGrid';
-export { drawIfsKaleidoscope } from './ifsKaleidoscope';
+export { drawResonantCymatics } from './resonantCymatics';
 export { drawSpectrumBars } from './spectrumBars';
 export { drawMetaballs } from './metaballs';
 export { drawReactionDiffusion } from './reactionDiffusion';
@@ -58,7 +58,7 @@ const VISUALIZATIONS: DrawFn[] = [
   drawSpiralGalaxy,
   drawCrystalLattice,
   drawBreathingMandala,
-  drawIfsKaleidoscope,
+  drawResonantCymatics,
   drawSpectrumBars,
   drawMetaballs,
   drawReactionDiffusion,

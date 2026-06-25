@@ -34,7 +34,7 @@ Each mode reacts to frequency bands, waveform data, and track energy:
 | # | Name | # | Name |
 |---|------|---|------|
 | 1 | Organic Flow Field | 11 | Breathing Mandala |
-| 2 | Depth Layers | 12 | IFS Kaleidoscope |
+| 2 | Depth Layers | 12 | Resonant Cymatics |
 | 3 | Waveform Interference | 13 | Prism Spectrum |
 | 4 | Minimal Geometric | 14 | Metaballs |
 | 5 | Atmospheric Noise | 15 | Reaction Diffusion |

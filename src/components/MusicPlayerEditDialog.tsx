@@ -343,7 +343,7 @@ export function MusicPlayerEditDialog() {
                         <SelectItem value="8">9. Spiral Galaxy</SelectItem>
                         <SelectItem value="9">10. Crystal Lattice</SelectItem>
                         <SelectItem value="10">11. Breathing Mandala</SelectItem>
-                        <SelectItem value="11">12. IFS Kaleidoscope</SelectItem>
+                        <SelectItem value="11">12. Resonant Cymatics</SelectItem>
                         <SelectItem value="12">13. Prism Spectrum</SelectItem>
                         <SelectItem value="13">14. Metaballs</SelectItem>
                         <SelectItem value="14">15. Reaction Diffusion</SelectItem>

@@ -34,7 +34,7 @@ const SLUGS = [
   '08-spiral-galaxy',
   '09-crystal-lattice',
   '10-breathing-mandala',
-  '11-ifs-kaleidoscope',
+  '11-resonant-cymatics',
   '12-prism-spectrum',
   '13-metaballs',
   '14-reaction-diffusion',
