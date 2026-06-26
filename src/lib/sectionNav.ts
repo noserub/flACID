@@ -10,7 +10,7 @@ export interface SectionNavItem {
 export const SECTION_NAV_ITEMS: SectionNavItem[] = [
   {
     id: 'hero',
-    label: 'Top',
+    label: 'Home',
     resolve: () => document.getElementById('hero-stage'),
     isVisible: (c) => c.hero.visible,
   },
@@ -22,7 +22,7 @@ export const SECTION_NAV_ITEMS: SectionNavItem[] = [
   },
   {
     id: 'journey',
-    label: 'Discography',
+    label: 'Journey',
     resolve: () =>
       document.getElementById('journey-section-head') ??
       document.querySelector('[data-section="journey"]'),
@@ -36,11 +36,32 @@ export const SECTION_NAV_ITEMS: SectionNavItem[] = [
   },
   {
     id: 'tour',
-    label: 'Tour',
+    label: 'Tour Dates',
     resolve: () => document.querySelector('[data-section="tour"]'),
     isVisible: (c) => c.tour.visible,
   },
 ];
+
+/** Nav labels match on-page section headings (from CMS content). */
+export function getSectionNavLabel(
+  item: SectionNavItem,
+  content: SiteContent
+): string {
+  switch (item.id) {
+    case 'hero':
+      return 'Home';
+    case 'about':
+      return 'About';
+    case 'journey':
+      return content.discography.title;
+    case 'gallery':
+      return content.gallery.title;
+    case 'tour':
+      return content.tour.title;
+    default:
+      return item.label;
+  }
+}
 
 /** Offset for fixed header when scrolling to a section. */
 export const SECTION_SCROLL_MARGIN_PX = 112;

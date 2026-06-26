@@ -120,14 +120,14 @@ export function AtomsSpecimens() {
 
       <PatternFrame
         where="Atom · desktop rail dot"
-        description="SectionNavRailDot: fixed right rail, scroll-spy (lg+)"
+        description="SectionNavRailDot: fixed right rail, scroll-spy (lg+); persistent label chips"
       >
         <div className="flex items-start gap-6">
           <nav
             aria-label="Section rail demo"
             className="flex flex-col items-center gap-2.5 rounded-xl border border-signal-purple/25 bg-void/60 px-3 py-4"
           >
-            {(['Top', 'About', 'Listen', 'Gallery', 'Tour'] as const).map((label, i) => (
+            {(['Home', 'About', 'Listen', 'Gallery', 'Tour'] as const).map((label, i) => (
               <SectionNavRailDot key={label} label={label} isActive={i === 2} />
             ))}
           </nav>
@@ -189,9 +189,9 @@ export function MoleculesSpecimens() {
             <div className="relative min-h-[12rem] rounded-xl border border-dashed border-signal-purple/30 bg-muted/10">
               <nav
                 aria-label="Desktop section rail"
-                className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col items-center gap-2.5"
+                className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col items-stretch gap-0.5 py-2 pl-2"
               >
-                {(['Top', 'About', 'Listen', 'Gallery'] as const).map((label, i) => (
+                {(['Home', 'About', 'Listen', 'Gallery'] as const).map((label, i) => (
                   <SectionNavRailDot key={label} label={label} isActive={i === 2} />
                 ))}
               </nav>
@@ -206,7 +206,7 @@ export function MoleculesSpecimens() {
             </p>
             <div className="rounded-xl border border-signal-purple/30 bg-void/95 p-1">
               <div className="flex gap-1">
-                {['Top', 'About', 'Listen', 'Tour'].map((item, i) => (
+                {['Home', 'About', 'Listen', 'Tour'].map((item, i) => (
                   <SectionNavButton key={item} isActive={i === 2} className="flex-1">
                     {item}
                   </SectionNavButton>

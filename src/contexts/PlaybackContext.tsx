@@ -18,6 +18,7 @@ import { formatDuration } from '../utils';
 import { releaseScreenWakeLock, requestScreenWakeLock } from '../lib/screenWakeLock';
 import { scrollToHeroStage } from '../lib/albumTracks';
 import { toast } from '../lib/toast';
+import { siteIconUrl } from '../lib/siteIcons';
 
 export interface PlayerTrack {
   id: number;
@@ -312,7 +313,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       artwork.push({ src: art, sizes: '256x256' });
     } else {
       try {
-        const fallback = new URL('/android-chrome-192x192.png', window.location.origin).href;
+        const fallback = new URL(siteIconUrl('/android-chrome-192x192.png'), window.location.origin).href;
         artwork.push({ src: fallback, sizes: '192x192', type: 'image/png' });
       } catch {
         /* ignore */

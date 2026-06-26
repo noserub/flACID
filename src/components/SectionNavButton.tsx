@@ -17,7 +17,7 @@ export function SectionNavButton({
     <button
       type="button"
       className={cn(
-        'w-full rounded-lg px-1 py-2 text-[10px] font-medium uppercase tracking-wide transition-all duration-300',
+        'w-full rounded-lg px-1 py-2 text-[10px] font-medium uppercase tracking-wide transition-all duration-300 truncate',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-green/50',
         isActive
           ? cn('text-neon-green', shadow.glowGreenSm)
