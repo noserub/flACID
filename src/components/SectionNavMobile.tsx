@@ -4,6 +4,7 @@ import { useDescentMode } from '../contexts/DescentModeContext';
 import { usePlayback } from '../contexts/PlaybackContext';
 import {
   getActiveSectionId,
+  getSectionNavLabel,
   getVisibleSectionNavItems,
   SECTION_SCROLL_MARGIN_PX,
   type SectionNavItem,
@@ -24,14 +25,6 @@ function useMobileNav() {
   return mobile;
 }
 
-const SHORT_LABELS: Record<string, string> = {
-  hero: 'Top',
-  about: 'About',
-  listen: 'Listen',
-  journey: 'Albums',
-  gallery: 'Gallery',
-  tour: 'Tour',
-};
 
 export function SectionNavMobile() {
   const { content } = useEditMode();
@@ -133,11 +126,11 @@ export function SectionNavMobile() {
       <ul className="flex items-stretch justify-around gap-0.5 px-1 pt-1.5">
         {visibleItems.map((item) => {
           const isActive = activeId === item.id;
-          const label = SHORT_LABELS[item.id] ?? item.label;
+          const label = getSectionNavLabel(item, content);
           return (
             <li key={item.id} className="flex-1 min-w-0">
               <SectionNavButton
-                aria-label={`Go to ${item.label}`}
+                aria-label={`Go to ${label}`}
                 aria-current={isActive ? 'true' : undefined}
                 isActive={isActive}
                 onClick={() => scrollToSection(item)}

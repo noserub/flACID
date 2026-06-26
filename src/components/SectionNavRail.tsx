@@ -4,6 +4,7 @@ import { useDescentMode } from '../contexts/DescentModeContext';
 import { usePlayback } from '../contexts/PlaybackContext';
 import {
   getActiveSectionId,
+  getSectionNavLabel,
   getVisibleSectionNavItems,
   SECTION_SCROLL_MARGIN_PX,
   type SectionNavItem,
@@ -128,7 +129,7 @@ export function SectionNavRail() {
         return (
           <SectionNavRailDot
             key={item.id}
-            label={item.label}
+            label={getSectionNavLabel(item, content)}
             isActive={isActive}
             onClick={() => scrollToSection(item)}
           />

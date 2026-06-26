@@ -147,7 +147,7 @@ export const RESPONSIVE_BEHAVIOR = [
   {
     pattern: 'Section navigation',
     mobile: 'SectionNavMobile: labeled bottom bar, green active label.',
-    desktop: 'SectionNavRail: right-edge dots with tooltips, scroll-spy.',
+    desktop: 'SectionNavRail: right-edge dots; labels mirror section headings from CMS, scroll-spy.',
     hidden: 'Descent on, hero stage viewport.',
   },
   {
@@ -564,7 +564,7 @@ export const PRODUCTION_PATTERNS = [
   {
     id: 'section-nav',
     where: 'Section navigation',
-    description: 'Desktop: SectionNavRail dots (right). Mobile: SectionNavMobile labeled bar (bottom). Green active, purple rest.',
+    description: 'Desktop: SectionNavRail dots + labels (right). Mobile: SectionNavMobile labeled bar (bottom). Green active, purple rest.',
   },
 ] as const;
 

@@ -130,9 +130,9 @@ export function InteractionSpecimens() {
           <CompareCard
             verdict="use"
             title="Section rail"
-            description="Green dot + glow"
+            description="Persistent labels on void glass chips; dot grows on row hover"
           >
-            <nav className="flex flex-col items-center gap-2 py-2">
+            <nav className="flex flex-col items-stretch gap-0.5 py-2 pl-2">
               <SectionNavRailDot label="About" />
               <SectionNavRailDot label="Listen" isActive />
               <SectionNavRailDot label="Tour" />

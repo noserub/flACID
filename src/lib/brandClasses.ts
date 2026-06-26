@@ -140,8 +140,27 @@ export const sectionNavRailDotActiveClass = cn(
 
 export const sectionNavRailDotRestClass = cn(
   'h-2 w-2 border-signal-purple/40 bg-signal-purple/45',
-  'hover:h-2.5 hover:w-2.5 hover:border-neon-green/55 hover:bg-signal-purple-bright/90',
+  'group-hover/row:h-2.5 group-hover/row:w-2.5 group-hover/row:border-neon-green/55 group-hover/row:bg-signal-purple-bright/90',
+  'group-focus-visible/row:h-2.5 group-focus-visible/row:w-2.5 group-focus-visible/row:border-neon-green/55 group-focus-visible/row:bg-signal-purple-bright/90',
   shadow.hoverGreen
+);
+
+/** Desktop section nav rail labels — void glass chip for contrast over any section background */
+export const sectionNavRailLabelBaseClass = cn(
+  'section-nav-rail-label',
+  'relative z-10 text-[10px] font-medium uppercase tracking-wide whitespace-nowrap',
+  'rounded px-1.5 py-0.5 bg-void/75 backdrop-blur-sm border border-white/10'
+);
+
+export const sectionNavRailLabelActiveClass = cn(
+  sectionNavRailLabelBaseClass,
+  'text-neon-green',
+  shadow.glowGreenSm
+);
+
+export const sectionNavRailLabelRestClass = cn(
+  sectionNavRailLabelBaseClass,
+  'text-signal-purple-bright'
 );
 
 /** Stage / projection settings panel */

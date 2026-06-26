@@ -1,4 +1,4 @@
-/* Minimal service worker — enables installability criteria on Chromium browsers without offline caching. */
+/* Minimal service worker — enables installability; v20260625 */
 self.addEventListener('install', (event) => {
   event.waitUntil(self.skipWaiting());
 });
