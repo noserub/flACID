@@ -142,6 +142,9 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   );
   const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
   const isPlayingRef = useRef(isPlaying);
+  const shouldAutoPlayRef = useRef(false);
+  /** Track ended / skip while playing — keep media session active and avoid pause→play in background */
+  const autoAdvanceRef = useRef(false);
   const [isAirPlayAvailable, setIsAirPlayAvailable] = useState(false);
   const [isRemotePlaybackAvailable, setIsRemotePlaybackAvailable] = useState(false);
   const [isRemotePlaybackConnected, setIsRemotePlaybackConnected] = useState(false);
@@ -160,8 +163,11 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
 
   const currentTrackUrl = tracks[currentTrack]?.url?.trim() ?? '';
   const currentTrackData = tracks[currentTrack];
+  /** True once the user has started listening this visit — not on passive track preload. */
   const hasPlaybackSession =
-    playbackSessionActive && Boolean(currentTrackData?.url?.trim());
+    playbackSessionActive &&
+    Boolean(currentTrackData?.url?.trim()) &&
+    (isPlaying || currentTime > 0.5 || shouldAutoPlay);
 
   const activatePlaybackSession = useCallback(() => {
     setPlaybackSessionActive(true);
@@ -178,10 +184,14 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   }, [isPlaying]);
 
   useEffect(() => {
-    if (isPlaying || isBuffering) {
+    shouldAutoPlayRef.current = shouldAutoPlay;
+  }, [shouldAutoPlay]);
+
+  useEffect(() => {
+    if (isPlaying) {
       setPlaybackSessionActive(true);
     }
-  }, [isPlaying, isBuffering]);
+  }, [isPlaying]);
 
   useEffect(() => {
     if (currentTime > 0.5) {
@@ -195,35 +205,75 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     return () => document.removeEventListener('visibilitychange', onVisibility);
   }, []);
 
+  const beginAutoAdvance = useCallback(() => {
+    autoAdvanceRef.current = true;
+    shouldAutoPlayRef.current = true;
+    setShouldAutoPlay(true);
+  }, []);
+
+  const clearAutoAdvance = useCallback(() => {
+    autoAdvanceRef.current = false;
+    shouldAutoPlayRef.current = false;
+    setShouldAutoPlay(false);
+  }, []);
+
+  const tryStartPlayback = useCallback(() => {
+    const el = visualizerAudioRef.current;
+    if (!el || castSessionRef.current) return;
+    if (!shouldAutoPlayRef.current && !isPlayingRef.current) return;
+
+    const playPromise = el.play();
+    if (playPromise === undefined) return;
+
+    playPromise
+      .then(() => {
+        shouldAutoPlayRef.current = false;
+        setShouldAutoPlay(false);
+        setIsPlaying(true);
+        setIsBuffering(false);
+      })
+      .catch(() => {
+        if (el.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) return;
+        setIsPlaying(false);
+        setIsBuffering(false);
+        clearAutoAdvance();
+      });
+  }, [clearAutoAdvance]);
+
   // Load / reset audio when the track (or its URL) changes.
-  // Single element: audible output stays on the element; analyser uses captureStream in MusicPlayer (no handoff).
+  // Audible output stays on the element; analyser taps captureStream (see playbackAudioBridge).
   useEffect(() => {
+    const keepPlaying = autoAdvanceRef.current;
+    autoAdvanceRef.current = false;
+
     setIsAudioReady(false);
-    if (currentTrackUrl) {
-      setIsBuffering(true);
-    } else {
-      setIsBuffering(false);
+    setIsBuffering(keepPlaying || shouldAutoPlayRef.current);
+    if (!keepPlaying) {
+      setIsPlaying(false);
     }
-    setIsPlaying(false);
     if (!currentTrackData) return;
 
     const el = visualizerAudioRef.current;
     if (!el) return;
 
     if (currentTrackUrl) {
-      el.pause();
+      if (!keepPlaying) el.pause();
       el.currentTime = 0;
       el.crossOrigin = 'anonymous';
       el.src = currentTrackData.url;
       el.load();
+      if (keepPlaying) {
+        window.setTimeout(tryStartPlayback, 0);
+      }
     } else {
       el.pause();
       el.removeAttribute('src');
       el.load();
       setDuration(parseDurationStr(currentTrackData.duration));
       setCurrentTime(0);
+      clearAutoAdvance();
     }
-  }, [currentTrack, currentTrackUrl, currentTrackData]);
+  }, [currentTrack, currentTrackUrl, currentTrackData, tryStartPlayback, clearAutoAdvance]);
 
   // Drive play/pause and volume on the single element
   useEffect(() => {
@@ -250,7 +300,16 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     }
     if (isPlaying) {
       const p = el.play();
-      if (p !== undefined) p.catch(() => setIsPlaying(false));
+      if (p !== undefined) {
+        p.catch(() => {
+          if (el.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) {
+            shouldAutoPlayRef.current = true;
+            setShouldAutoPlay(true);
+            return;
+          }
+          setIsPlaying(false);
+        });
+      }
     } else {
       el.pause();
     }
@@ -267,36 +326,53 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
 
   const handleCanPlay = useCallback(() => {
     setIsAudioReady(true);
-    setIsBuffering(false);
-    if (shouldAutoPlay) {
-      setIsPlaying(true);
-      setShouldAutoPlay(false);
+    if (shouldAutoPlayRef.current) {
+      tryStartPlayback();
+      return;
     }
-  }, [shouldAutoPlay]);
+    setIsBuffering(false);
+    const el = visualizerAudioRef.current;
+    if (!isPlayingRef.current && (el?.currentTime ?? 0) <= 0.5) {
+      endPlaybackSession();
+    }
+  }, [tryStartPlayback, endPlaybackSession]);
 
-  const handleWaiting = useCallback(() => setIsBuffering(true), []);
+  const handleLoadedData = useCallback(() => {
+    if (shouldAutoPlayRef.current) tryStartPlayback();
+  }, [tryStartPlayback]);
+
+  const handleWaiting = useCallback(() => {
+    if (isPlaying || shouldAutoPlay) setIsBuffering(true);
+  }, [isPlaying, shouldAutoPlay]);
   const handlePlaying = useCallback(() => setIsBuffering(false), []);
 
   const handleError = useCallback(() => {
     setIsAudioReady(false);
     setIsBuffering(false);
-    setShouldAutoPlay(false);
+    clearAutoAdvance();
     catalogPlayPendingRef.current = false;
     endPlaybackSession();
     setIsPlaying(false);
-  }, [endPlaybackSession]);
+  }, [endPlaybackSession, clearAutoAdvance]);
 
   const handleEnded = useCallback(() => {
     if (currentTrack < tracks.length - 1) {
       const next = tracks[currentTrack + 1];
-      setCurrentTrackState(currentTrack + 1);
-      if (next.url) setShouldAutoPlay(true);
-      else setIsPlaying(false);
+      if (next.url) {
+        beginAutoAdvance();
+        setIsPlaying(true);
+        setCurrentTrackState(currentTrack + 1);
+      } else {
+        clearAutoAdvance();
+        setIsPlaying(false);
+        setCurrentTrackState(currentTrack + 1);
+      }
     } else {
+      clearAutoAdvance();
       endPlaybackSession();
       setIsPlaying(false);
     }
-  }, [currentTrack, tracks, endPlaybackSession]);
+  }, [currentTrack, tracks, endPlaybackSession, beginAutoAdvance, clearAutoAdvance]);
 
   // Media Session API: metadata for lock screen, car display, notification shade, etc.
   useEffect(() => {
@@ -393,18 +469,28 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     });
     ms.setActionHandler('previoustrack', () => {
       if (currentTrack > 0) {
-        setCurrentTrackState(currentTrack - 1);
         setCurrentTime(0);
         const prev = tracks[currentTrack - 1];
-        if (prev?.url && isPlayingRef.current) setShouldAutoPlay(true);
+        if (prev?.url && isPlayingRef.current) {
+          beginAutoAdvance();
+          setIsPlaying(true);
+        } else {
+          clearAutoAdvance();
+        }
+        setCurrentTrackState(currentTrack - 1);
       }
     });
     ms.setActionHandler('nexttrack', () => {
       if (currentTrack < tracks.length - 1) {
-        setCurrentTrackState(currentTrack + 1);
         setCurrentTime(0);
         const next = tracks[currentTrack + 1];
-        if (next?.url && isPlayingRef.current) setShouldAutoPlay(true);
+        if (next?.url && isPlayingRef.current) {
+          beginAutoAdvance();
+          setIsPlaying(true);
+        } else {
+          clearAutoAdvance();
+        }
+        setCurrentTrackState(currentTrack + 1);
       }
     });
     ms.setActionHandler('seekto', (details) => {
@@ -422,15 +508,12 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       ms.setActionHandler('nexttrack', null);
       ms.setActionHandler('seekto', null);
     };
-  }, [currentTrack, tracks]);
+  }, [currentTrack, tracks, beginAutoAdvance, clearAutoAdvance]);
 
-  // Sync UI to paused when AudioContext suspends — only when using visualizer (visible)
+  // AudioContext suspend only affects the visualizer tap, not native element output.
   useEffect(() => {
     registerOnSuspend(() => {
-      if (document.visibilityState === 'visible') {
-        setIsHeroStage(false);
-        setIsPlaying(false);
-      }
+      setIsHeroStage(false);
     });
     return () => registerOnSuspend(null);
   }, []);
@@ -681,41 +764,43 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     if (currentTrack >= tracks.length - 1) return;
     const wasPlaying = isPlaying;
     setCurrentTime(0);
-    setCurrentTrackState(currentTrack + 1);
     const next = tracks[currentTrack + 1];
     if (!next?.url) {
+      clearAutoAdvance();
       setIsPlaying(false);
-      setShouldAutoPlay(false);
+      setCurrentTrackState(currentTrack + 1);
       return;
     }
     if (wasPlaying) {
-      setIsPlaying(false);
-      setShouldAutoPlay(true);
+      beginAutoAdvance();
+      setIsPlaying(true);
     } else {
+      clearAutoAdvance();
       setIsPlaying(false);
-      setShouldAutoPlay(false);
     }
-  }, [currentTrack, tracks, isPlaying]);
+    setCurrentTrackState(currentTrack + 1);
+  }, [currentTrack, tracks, isPlaying, beginAutoAdvance, clearAutoAdvance]);
 
   const skipBack = useCallback(() => {
     if (currentTrack <= 0) return;
     const wasPlaying = isPlaying;
     setCurrentTime(0);
-    setCurrentTrackState(currentTrack - 1);
     const prev = tracks[currentTrack - 1];
     if (!prev?.url) {
+      clearAutoAdvance();
       setIsPlaying(false);
-      setShouldAutoPlay(false);
+      setCurrentTrackState(currentTrack - 1);
       return;
     }
     if (wasPlaying) {
-      setIsPlaying(false);
-      setShouldAutoPlay(true);
+      beginAutoAdvance();
+      setIsPlaying(true);
     } else {
+      clearAutoAdvance();
       setIsPlaying(false);
-      setShouldAutoPlay(false);
     }
-  }, [currentTrack, tracks, isPlaying]);
+    setCurrentTrackState(currentTrack - 1);
+  }, [currentTrack, tracks, isPlaying, beginAutoAdvance, clearAutoAdvance]);
 
   const handleSeek = useCallback((value: number[]) => {
     const t = value[0];
@@ -1024,11 +1109,12 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
         onCanPlay={handleCanPlay}
+        onLoadedData={handleLoadedData}
         onWaiting={handleWaiting}
         onPlaying={handlePlaying}
         onError={handleError}
         onEnded={handleEnded}
-        preload={currentTrackUrl ? 'metadata' : 'none'}
+        preload={currentTrackUrl ? 'auto' : 'none'}
         playsInline
         className="sr-only"
         aria-hidden
