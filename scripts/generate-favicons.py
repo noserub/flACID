@@ -2,6 +2,7 @@
 """Generate favicon PNG sizes from public/favicon-source.png."""
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from PIL import Image
@@ -9,6 +10,7 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parent.parent
 PUBLIC = ROOT / "public"
 SOURCE = PUBLIC / "favicon-source.png"
+SITE_ICONS_TS = ROOT / "src" / "lib" / "siteIcons.ts"
 
 SIZES: list[tuple[str, int]] = [
     ("favicon-16x16.png", 16),
@@ -17,6 +19,14 @@ SIZES: list[tuple[str, int]] = [
     ("android-chrome-192x192.png", 192),
     ("android-chrome-512x512.png", 512),
 ]
+
+
+def read_icon_version() -> str:
+    text = SITE_ICONS_TS.read_text(encoding="utf-8")
+    match = re.search(r"SITE_ICON_VERSION\s*=\s*'([^']+)'", text)
+    if not match:
+        raise SystemExit(f"Could not find SITE_ICON_VERSION in {SITE_ICONS_TS}")
+    return match.group(1)
 
 
 def sample_background(img: Image.Image) -> tuple[int, int, int, int]:
@@ -48,12 +58,21 @@ def main() -> None:
     if not SOURCE.is_file():
         raise SystemExit(f"Missing source image: {SOURCE}")
 
+    version = read_icon_version()
+    out_dir = PUBLIC / "icons" / version
+    out_dir.mkdir(parents=True, exist_ok=True)
+
     source = Image.open(SOURCE).convert("RGBA")
     bg = sample_background(source)
 
     for name, size in SIZES:
-        out = PUBLIC / name
-        render_icon(source, size, bg).save(out, format="PNG", optimize=True)
+        icon = render_icon(source, size, bg)
+        # Versioned path (PWA / Chrome path cache bust)
+        versioned = out_dir / name
+        icon.save(versioned, format="PNG", optimize=True)
+        print(f"Wrote icons/{version}/{name} ({size}x{size})")
+        # Root aliases for older bookmarks / unversioned references
+        icon.save(PUBLIC / name, format="PNG", optimize=True)
         print(f"Wrote {name} ({size}x{size})")
 
     print("Done.")
