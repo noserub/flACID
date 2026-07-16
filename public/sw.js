@@ -1,4 +1,4 @@
-/* Minimal service worker — enables installability; v20260625 */
+/* Minimal service worker — enables installability; v20260716e */
 self.addEventListener('install', (event) => {
   event.waitUntil(self.skipWaiting());
 });
