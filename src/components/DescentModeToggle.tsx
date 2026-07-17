@@ -2,8 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useDescentMode } from '../contexts/DescentModeContext';
-import { usePlayback } from '../contexts/PlaybackContext';
-import { OPEN_DESCENT_HELP_EVENT, TRY_DESCENT_CLICKED_EVENT } from '../lib/descentHelp';
+import { OPEN_DESCENT_HELP_EVENT } from '../lib/descentHelp';
 import { DESCENT_MENU_PORTAL_LIFT } from '../lib/descentContentLayer';
 import { brandControlClass, brandToggleActiveClass } from '../lib/brandClasses';
 import { border, shadow } from '../lib/colors';
@@ -98,7 +97,6 @@ const MIN_MS_BEFORE_OUTSIDE_DISMISS_COUNTS = 320;
 
 export function DescentModeToggle() {
   const { isDescentMode, descentSupported, toggleDescentMode, setDescentMode } = useDescentMode();
-  const { setIsFullscreen } = usePlayback();
   const [onboardingOpen, setOnboardingOpen] = useState(readOnboardingShouldShow);
   const openedAtRef = useRef(Date.now());
 
@@ -146,12 +144,8 @@ export function DescentModeToggle() {
     if (!isDescentMode) {
       setDescentMode(true);
     }
-    setIsFullscreen(true);
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent(TRY_DESCENT_CLICKED_EVENT));
-    }
     markOnboardingSeen();
-  }, [isDescentMode, setDescentMode, setIsFullscreen, markOnboardingSeen]);
+  }, [isDescentMode, setDescentMode, markOnboardingSeen]);
 
   const handleToggleClick = useCallback(() => {
     toggleDescentMode();

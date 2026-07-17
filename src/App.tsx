@@ -51,7 +51,7 @@ function SectionLoader() {
 }
 
 const DEFAULT_SEO = {
-  title: 'flACID | Band',
+  title: 'flACID Music',
   description: 'Official flACID band page. Listen to music, view tour dates, and more.',
   keywords: 'flACID, band, music',
 };

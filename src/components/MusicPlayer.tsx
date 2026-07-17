@@ -15,10 +15,7 @@ import {
 } from '../contexts/VizSensitivityContext';
 import { MusicPlayerEditDialog } from './MusicPlayerEditDialog';
 import { DescentToggleButton } from './DescentModeToggle';
-import { Popover, PopoverAnchor, PopoverContent } from './ui/popover';
 import { cn } from './ui/utils';
-import { DESCENT_MENU_PORTAL_LIFT } from '../lib/descentContentLayer';
-import { TRY_DESCENT_CLICKED_EVENT } from '../lib/descentHelp';
 import {
   brandActiveAccentClass,
   brandControlClass,
@@ -87,7 +84,6 @@ export function MusicPlayer() {
 
   const [showPlaylist, setShowPlaylist] = useState(false);
   const [isVisualizerLoading, setIsVisualizerLoading] = useState(false);
-  const [showPlayHint, setShowPlayHint] = useState(false);
   const [showFullscreenControls, setShowFullscreenControls] = useState(true);
   const showFullscreenControlsRef = useRef(showFullscreenControls);
   showFullscreenControlsRef.current = showFullscreenControls;
@@ -221,20 +217,6 @@ export function MusicPlayer() {
       };
     }
   }, [isFullscreen]);
-
-  // Listen for "Try Descend" click — show play hint in fullscreen
-  useEffect(() => {
-    const handler = () => setShowPlayHint(true);
-    window.addEventListener(TRY_DESCENT_CLICKED_EVENT, handler);
-    return () => window.removeEventListener(TRY_DESCENT_CLICKED_EVENT, handler);
-  }, []);
-
-  // Auto-dismiss play hint after 5 seconds
-  useEffect(() => {
-    if (!showPlayHint || !isFullscreen) return;
-    const id = window.setTimeout(() => setShowPlayHint(false), 5000);
-    return () => window.clearTimeout(id);
-  }, [showPlayHint, isFullscreen]);
 
   if (!tracks || tracks.length === 0) {
     return (
@@ -418,49 +400,15 @@ export function MusicPlayer() {
                   >
                     <SkipBack className="h-7 w-7" aria-hidden />
                   </Button>
-                  <Popover
-                    open={showPlayHint && !isPlaying}
-                    onOpenChange={(open) => !open && setShowPlayHint(false)}
+                  <Button
+                    size="icon"
+                    onClick={handleTogglePlay}
+                    disabled={!tracks[currentTrack]?.url || (!isAudioReady && !isPlaying)}
+                    className="h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-white hover:bg-white/90 text-black disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                    aria-label={isPlaying ? 'Pause' : 'Play'}
                   >
-                    <PopoverAnchor asChild>
-                      <Button
-                        size="icon"
-                        onClick={() => {
-                          setShowPlayHint(false);
-                          handleTogglePlay();
-                        }}
-                        disabled={!tracks[currentTrack]?.url || (!isAudioReady && !isPlaying)}
-                        className="h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-white hover:bg-white/90 text-black disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-                        aria-label={isPlaying ? 'Pause' : 'Play'}
-                      >
-                        {isPlaying ? <Pause className="h-7 w-7 sm:h-8 sm:w-8" aria-hidden /> : <Play className="h-7 w-7 sm:h-8 sm:w-8 ml-0.5" aria-hidden />}
-                      </Button>
-                    </PopoverAnchor>
-                    <PopoverContent
-                      side="top"
-                      align="center"
-                      sideOffset={12}
-                      collisionPadding={16}
-                      className={cn(
-                        DESCENT_MENU_PORTAL_LIFT,
-                        cn('rounded-lg border bg-background/95 backdrop-blur-md shadow-xl p-4 text-sm text-foreground', border.brandSoft, shadow.glowPurpleSm)
-                      )}
-                      onOpenAutoFocus={(e) => e.preventDefault()}
-                    >
-                      <div className="space-y-3">
-                        <p className="text-signal-purple-bright/90">Play music for the full experience</p>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="border border-signal-purple/25 text-signal-purple-bright/90 hover:bg-signal-purple/10 hover:text-neon-green"
-                          onClick={() => setShowPlayHint(false)}
-                        >
-                          Got it
-                        </Button>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
+                    {isPlaying ? <Pause className="h-7 w-7 sm:h-8 sm:w-8" aria-hidden /> : <Play className="h-7 w-7 sm:h-8 sm:w-8 ml-0.5" aria-hidden />}
+                  </Button>
                   <Button
                     variant="ghost"
                     size="icon"
@@ -581,7 +529,7 @@ export function MusicPlayer() {
                 className={cn('fixed top-0 right-0 flex items-center gap-3 pointer-events-auto p-4 sm:p-6 rounded-bl-xl', zIndex.fullscreenChrome, overlay.chromeBar)}
                 style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))', paddingRight: 'max(1rem, env(safe-area-inset-right))' }}
               >
-                {descentSupported && (
+                {descentSupported && !isDescentMode && (
                   <DescentToggleButton isDescentMode={isDescentMode} onClick={toggleDescentMode} />
                 )}
                 <Button
