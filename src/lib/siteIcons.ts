@@ -1,5 +1,5 @@
 /** Bump when favicon / PWA icon assets change — busts browser and path caches. */
-export const SITE_ICON_VERSION = '20260716f';
+export const SITE_ICON_VERSION = '20260717a';
 
 /** Versioned directory so Chrome/PWA cannot reuse stale icons by path. */
 export const SITE_ICON_DIR = `/icons/${SITE_ICON_VERSION}`;

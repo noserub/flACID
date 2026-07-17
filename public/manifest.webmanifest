@@ -1,5 +1,5 @@
 {
-  "id": "/?icon=20260716f",
+  "id": "/?icon=20260717a",
   "name": "flACID",
   "short_name": "flACID",
   "description": "Official flACID band page. Listen to music, view tour dates, and more.",
@@ -11,25 +11,25 @@
   "categories": ["music", "entertainment"],
   "icons": [
     {
-      "src": "/icons/20260716f/android-chrome-192x192.png",
+      "src": "/icons/20260717a/android-chrome-192x192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/20260716f/android-chrome-512x512.png",
+      "src": "/icons/20260717a/android-chrome-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/20260716f/android-chrome-512x512.png",
+      "src": "/icons/20260717a/android-chrome-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "/icons/20260716f/apple-touch-icon.png",
+      "src": "/icons/20260717a/apple-touch-icon.png",
       "sizes": "180x180",
       "type": "image/png",
       "purpose": "any"
