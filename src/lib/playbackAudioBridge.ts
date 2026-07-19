@@ -3,24 +3,8 @@ import { registerAudioContext } from './audioContextManager';
 /** Shared AudioContext so analyser stays valid across StrictMode remounts */
 let sharedAudioContext: AudioContext | null = null;
 
-/** One analyser tap per HTMLMediaElement (captureStream or legacy element source). */
-const analyserSourceByAudio = new WeakMap<HTMLMediaElement, AudioNode>();
-
-type CaptureStreamCapable = HTMLMediaElement & {
-  captureStream?: () => MediaStream;
-  mozCaptureStream?: () => MediaStream;
-};
-
-function getCaptureStream(audio: HTMLMediaElement): MediaStream | null {
-  const el = audio as CaptureStreamCapable;
-  try {
-    if (typeof el.captureStream === 'function') return el.captureStream();
-    if (typeof el.mozCaptureStream === 'function') return el.mozCaptureStream();
-  } catch {
-    /* ignore */
-  }
-  return null;
-}
+/** createMediaElementSource may only be called once per HTMLMediaElement */
+const mediaElementSourceByAudio = new WeakMap<HTMLMediaElement, MediaElementAudioSourceNode>();
 
 export function getOrCreatePlaybackAudioContext(): AudioContext | null {
   const AudioContextConstructor =
@@ -38,50 +22,40 @@ export function getOrCreatePlaybackAudioContext(): AudioContext | null {
 }
 
 /**
- * Tap the media element for visualization without routing audible output through Web Audio.
- * Native element playback avoids Bluetooth / car-audio sample-rate resampling (pitch shift).
+ * Route playback through Web Audio (analyser → destination).
+ * captureStream was tried for Bluetooth pitch stability, but Chrome/mobile often
+ * took that branch and stayed silent — MediaElementSource is the reliable path.
+ * Volume remains element.volume from PlaybackContext.
  */
 export function connectAudioElementToAnalyser(
   audio: HTMLMediaElement,
   analyser: AnalyserNode,
   ctx: AudioContext
-): AudioNode | null {
-  let source = analyserSourceByAudio.get(audio) ?? null;
-  if (source) {
+): MediaElementAudioSourceNode | null {
+  let source = mediaElementSourceByAudio.get(audio) ?? null;
+  if (!source) {
     try {
-      source.connect(analyser);
+      source = ctx.createMediaElementSource(audio);
+      mediaElementSourceByAudio.set(audio, source);
     } catch {
       return null;
     }
-    return source;
   }
 
-  const stream = getCaptureStream(audio);
-  if (stream) {
-    try {
-      source = ctx.createMediaStreamSource(stream);
-      source.connect(analyser);
-      analyserSourceByAudio.set(audio, source);
-      return source;
-    } catch {
-      /* fall through to legacy path */
-    }
-  }
-
-  // Legacy fallback: audible output must pass through the AudioContext graph.
   try {
-    const elementSource = ctx.createMediaElementSource(audio);
-    elementSource.connect(analyser);
+    source.connect(analyser);
+    // Always reconnect destination — cleanup disconnects the analyser, and a
+    // cached source reconnect without this leaves mobile playback silent.
     analyser.connect(ctx.destination);
-    analyserSourceByAudio.set(audio, elementSource);
-    return elementSource;
   } catch {
     return null;
   }
+
+  return source;
 }
 
 export function disconnectAudioElementFromAnalyser(
-  source: AudioNode | null,
+  source: MediaElementAudioSourceNode | null,
   analyser: AnalyserNode
 ): void {
   try {

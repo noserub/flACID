@@ -241,7 +241,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   }, [clearAutoAdvance]);
 
   // Load / reset audio when the track (or its URL) changes.
-  // Audible output stays on the element; analyser taps captureStream (see playbackAudioBridge).
+  // Audible output routes through Web Audio (MediaElementSource → analyser → destination).
   useEffect(() => {
     const keepPlaying = autoAdvanceRef.current;
     autoAdvanceRef.current = false;
@@ -299,6 +299,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       return;
     }
     if (isPlaying) {
+      void resumeAudioContext();
       const p = el.play();
       if (p !== undefined) {
         p.catch(() => {
@@ -510,10 +511,13 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     };
   }, [currentTrack, tracks, beginAutoAdvance, clearAutoAdvance]);
 
-  // AudioContext suspend only affects the visualizer tap, not native element output.
+  // When AudioContext suspends (screen lock / background), audible output stops with it.
   useEffect(() => {
     registerOnSuspend(() => {
       setIsHeroStage(false);
+      if (isPlayingRef.current) {
+        setIsPlaying(false);
+      }
     });
     return () => registerOnSuspend(null);
   }, []);
@@ -572,7 +576,8 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   }, [isPlaying, isFullscreen]);
 
   const resumeAudioContextIfNeeded = useCallback(() => {
-    // AudioContext resume is handled in MusicPlayer when isPlaying becomes true
+    // Must run in the user-gesture stack on iOS/Android or Web Audio stays suspended (silent).
+    void resumeAudioContext();
   }, []);
 
   const loadCurrentTrackOnCast = useCallback(async (autoplay: boolean) => {

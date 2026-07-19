@@ -19,7 +19,7 @@ export function PlaybackAnalyserBridge() {
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
-  const sourceRef = useRef<AudioNode | null>(null);
+  const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
   const [analyserForViz, setAnalyserForViz] = useState<AnalyserNode | null>(null);
 
   useEffect(() => {
