@@ -11,10 +11,22 @@ import { registerAudioContext } from '../lib/audioContextManager';
 /**
  * Always-mounted bridge: wires the global audio element to a Web Audio analyser
  * so Hero Stage can share visualization before Discography lazy-loads.
+ *
+ * While AirPlay / Remote Playback is active, Web Audio is intentionally skipped
+ * so the <audio> element keeps its native output path (avoids pitch/speed drift).
  */
 export function PlaybackAnalyserBridge() {
-  const { audioRef, currentTrackData, isAudioReady, isPlaying, currentTime, currentTrack, setAnalyser } =
-    usePlayback();
+  const {
+    audioRef,
+    currentTrackData,
+    isAudioReady,
+    isPlaying,
+    currentTime,
+    currentTrack,
+    setAnalyser,
+    isExternalAudioRoute,
+    audioRouteEpoch,
+  } = usePlayback();
   const { registerAnalyser, registerPlaybackState } = useDescentIntensity();
 
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -23,38 +35,40 @@ export function PlaybackAnalyserBridge() {
   const [analyserForViz, setAnalyserForViz] = useState<AnalyserNode | null>(null);
 
   useEffect(() => {
-    if (audioContextRef.current && analyserRef.current) return;
-    const ctx = getOrCreatePlaybackAudioContext();
-    if (!ctx) return;
-
-    const analyser = ctx.createAnalyser();
-    analyser.fftSize = 2048;
-    audioContextRef.current = ctx;
-    analyserRef.current = analyser;
-
-    return () => {
-      try {
-        analyserRef.current?.disconnect();
-      } catch {
-        /* ignore */
-      }
-      registerAudioContext(null);
-      audioContextRef.current = null;
+    if (isExternalAudioRoute) {
+      disconnectAudioElementFromAnalyser(sourceRef.current, analyserRef.current);
+      sourceRef.current = null;
       analyserRef.current = null;
-    };
-  }, []);
-
-  useEffect(() => {
-    const audio = audioRef?.current;
-    const url = currentTrackData?.url?.trim();
-    if (!audio || !url || !analyserRef.current || !audioContextRef.current) {
+      audioContextRef.current = null;
       setAnalyserForViz(null);
       setAnalyser(null);
       return;
     }
 
-    const ctx = audioContextRef.current;
-    const analyser = analyserRef.current;
+    const audio = audioRef?.current;
+    const url = currentTrackData?.url?.trim();
+    if (!audio || !url || !isAudioReady) {
+      setAnalyserForViz(null);
+      setAnalyser(null);
+      return;
+    }
+
+    const ctx = getOrCreatePlaybackAudioContext();
+    if (!ctx) {
+      setAnalyserForViz(null);
+      setAnalyser(null);
+      return;
+    }
+
+    let analyser = analyserRef.current;
+    if (!analyser || audioContextRef.current !== ctx) {
+      analyser = ctx.createAnalyser();
+      analyser.fftSize = 2048;
+      analyserRef.current = analyser;
+      audioContextRef.current = ctx;
+      registerAudioContext(ctx);
+    }
+
     const source = connectAudioElementToAnalyser(audio, analyser, ctx);
     if (!source) {
       setAnalyserForViz(null);
@@ -72,17 +86,25 @@ export function PlaybackAnalyserBridge() {
       setAnalyserForViz(null);
       setAnalyser(null);
     };
-  }, [audioRef, currentTrackData?.url, isAudioReady, setAnalyser]);
+  }, [
+    audioRef,
+    audioRouteEpoch,
+    currentTrackData?.url,
+    isAudioReady,
+    isExternalAudioRoute,
+    setAnalyser,
+  ]);
 
   useEffect(() => {
+    if (isExternalAudioRoute) return;
     if (isPlaying && audioContextRef.current?.state === 'suspended') {
-      audioContextRef.current.resume();
+      void audioContextRef.current.resume();
     }
-  }, [isPlaying]);
+  }, [isPlaying, isExternalAudioRoute]);
 
   useEffect(() => {
-    registerAnalyser(analyserForViz ?? analyserRef.current, isPlaying);
-  }, [isPlaying, registerAnalyser, analyserForViz]);
+    registerAnalyser(isExternalAudioRoute ? null : analyserForViz ?? analyserRef.current, isPlaying);
+  }, [isPlaying, registerAnalyser, analyserForViz, isExternalAudioRoute]);
 
   useEffect(() => {
     registerPlaybackState(currentTime, currentTrack);

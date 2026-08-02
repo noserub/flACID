@@ -12,6 +12,7 @@ import {
 import { useEditMode } from './EditModeContext';
 import { useTracks } from '../hooks';
 import { resumeAudioContext, registerOnSuspend } from '../lib/audioContextManager';
+import { resetPlaybackAudioBridge } from '../lib/playbackAudioBridge';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { parseVisualizationId } from '../lib/contentMappers';
 import { formatDuration } from '../utils';
@@ -19,6 +20,12 @@ import { releaseScreenWakeLock, requestScreenWakeLock } from '../lib/screenWakeL
 import { scrollToHeroStage } from '../lib/albumTracks';
 import { toast } from '../lib/toast';
 import { siteIconUrl } from '../lib/siteIcons';
+
+type AudioRouteSnapshot = {
+  currentTime: number;
+  wasPlaying: boolean;
+  url: string;
+};
 
 export interface PlayerTrack {
   id: number;
@@ -68,6 +75,13 @@ interface PlaybackContextType {
   isRemotePlaybackAvailable: boolean;
   isRemotePlaybackConnected: boolean;
   remotePlaybackDeviceName: string | null;
+  /**
+   * True while AirPlay / Remote Playback / Cast owns output.
+   * Web Audio must stay disconnected so native media routing stays pitch-stable.
+   */
+  isExternalAudioRoute: boolean;
+  /** Bumps when the <audio> element is remounted after leaving an external route. */
+  audioRouteEpoch: number;
   showAirPlayPicker: () => void;
   showRemotePlaybackPicker: () => Promise<void>;
   /** Hero Stage: immersive viz in the hero viewport */
@@ -146,15 +160,21 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   /** Track ended / skip while playing — keep media session active and avoid pause→play in background */
   const autoAdvanceRef = useRef(false);
   const [isAirPlayAvailable, setIsAirPlayAvailable] = useState(false);
+  const [isAirPlayWireless, setIsAirPlayWireless] = useState(false);
   const [isRemotePlaybackAvailable, setIsRemotePlaybackAvailable] = useState(false);
   const [isRemotePlaybackConnected, setIsRemotePlaybackConnected] = useState(false);
   const [remotePlaybackDeviceName, setRemotePlaybackDeviceName] = useState<string | null>(null);
+  /** Keeps Web Audio off while the AirPlay / remote picker is open. */
+  const [nativeRouteLock, setNativeRouteLock] = useState(false);
+  const [audioRouteEpoch, setAudioRouteEpoch] = useState(0);
   const visualizerAudioRef = useRef<HTMLAudioElement>(null);
   const castContextRef = useRef<any>(null);
   const castSessionRef = useRef<any>(null);
   const castMediaSessionRef = useRef<any>(null);
   const castEnabledRef = useRef(false);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+  const restoreSnapshotRef = useRef<AudioRouteSnapshot | null>(null);
+  const wasExternalAudioRouteRef = useRef(false);
   /** Prevents hero-stage sync from killing viz while scrolling up after catalog play */
   const heroStageLockUntilRef = useRef(0);
   /** Keeps hero stage active until catalog play reaches the hero viewport */
@@ -163,6 +183,8 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
 
   const currentTrackUrl = tracks[currentTrack]?.url?.trim() ?? '';
   const currentTrackData = tracks[currentTrack];
+  /** AirPlay wireless, Remote Playback, Cast, or picker arming — use native <audio> output, not Web Audio. */
+  const isExternalAudioRoute = isAirPlayWireless || isRemotePlaybackConnected || nativeRouteLock;
   /** True once the user has started listening this visit — not on passive track preload. */
   const hasPlaybackSession =
     playbackSessionActive &&
@@ -240,8 +262,92 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       });
   }, [clearAutoAdvance]);
 
+  // Entering an external route: drop Web Audio so the element uses native output (pitch-stable).
+  // Leaving: remount <audio> so createMediaElementSource can run again for local viz.
+  useEffect(() => {
+    const wasExternal = wasExternalAudioRouteRef.current;
+    if (wasExternal === isExternalAudioRoute) return;
+    wasExternalAudioRouteRef.current = isExternalAudioRoute;
+
+    if (isExternalAudioRoute) {
+      resetPlaybackAudioBridge();
+      return;
+    }
+
+    const el = visualizerAudioRef.current;
+    const url = (el?.currentSrc || el?.src || currentTrackUrl).trim();
+    restoreSnapshotRef.current = {
+      currentTime: el?.currentTime ?? 0,
+      wasPlaying: isPlayingRef.current,
+      url,
+    };
+    resetPlaybackAudioBridge();
+    setIsAudioReady(false);
+    setAudioRouteEpoch((epoch) => epoch + 1);
+  }, [isExternalAudioRoute, currentTrackUrl]);
+
+  // After remounting for local Web Audio, restore src / position / play state.
+  useEffect(() => {
+    if (audioRouteEpoch === 0) return;
+    const snap = restoreSnapshotRef.current;
+    if (!snap?.url) return;
+
+    const el = visualizerAudioRef.current;
+    if (!el) return;
+
+    let cancelled = false;
+    setIsAudioReady(false);
+    setIsBuffering(snap.wasPlaying);
+    el.crossOrigin = 'anonymous';
+    el.volume = isMuted ? 0 : volume;
+    el.src = snap.url;
+    el.load();
+
+    const apply = async () => {
+      if (cancelled) return;
+      try {
+        if (Number.isFinite(snap.currentTime) && snap.currentTime > 0) {
+          el.currentTime = snap.currentTime;
+        }
+      } catch {
+        /* ignore seek failures during reload */
+      }
+      restoreSnapshotRef.current = null;
+      if (!snap.wasPlaying || castSessionRef.current) return;
+      try {
+        await el.play();
+        if (!cancelled) setIsPlaying(true);
+      } catch {
+        /* autoplay may be blocked; UI stays in sync via user gesture */
+      }
+    };
+
+    if (el.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+      void apply();
+    } else {
+      el.addEventListener('canplay', () => void apply(), { once: true });
+    }
+
+    return () => {
+      cancelled = true;
+    };
+    // Only re-bind when the element is remounted for route changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- volume/mute applied elsewhere
+  }, [audioRouteEpoch]);
+
+  // Drop the picker lock once a real external route connects, or after cancel timeout.
+  useEffect(() => {
+    if (!nativeRouteLock) return;
+    if (isAirPlayWireless || isRemotePlaybackConnected) {
+      setNativeRouteLock(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setNativeRouteLock(false), 45000);
+    return () => window.clearTimeout(timer);
+  }, [nativeRouteLock, isAirPlayWireless, isRemotePlaybackConnected]);
+
   // Load / reset audio when the track (or its URL) changes.
-  // Audible output routes through Web Audio (MediaElementSource → analyser → destination).
+  // Local audible output routes through Web Audio; external routes use native <audio>.
   useEffect(() => {
     const keepPlaying = autoAdvanceRef.current;
     autoAdvanceRef.current = false;
@@ -314,7 +420,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     } else {
       el.pause();
     }
-  }, [isPlaying, volume, isMuted]);
+  }, [isPlaying, volume, isMuted, audioRouteEpoch]);
 
   const handleTimeUpdate = useCallback((e: React.SyntheticEvent<HTMLAudioElement>) => {
     setCurrentTime(e.currentTarget.currentTime);
@@ -627,16 +733,23 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
 
     const airPlayElement = el as HTMLAudioElement & {
       webkitShowPlaybackTargetPicker?: () => void;
+      webkitCurrentPlaybackTargetIsWireless?: boolean;
     };
 
     setIsAirPlayAvailable(typeof airPlayElement.webkitShowPlaybackTargetPicker === 'function');
+    setIsAirPlayWireless(Boolean(airPlayElement.webkitCurrentPlaybackTargetIsWireless));
 
     const handleAirPlayAvailability = (event: Event) => {
       const e = event as Event & { availability?: string };
       setIsAirPlayAvailable(e.availability === 'available');
     };
 
+    const handleAirPlayWirelessChanged = () => {
+      setIsAirPlayWireless(Boolean(airPlayElement.webkitCurrentPlaybackTargetIsWireless));
+    };
+
     el.addEventListener('webkitplaybacktargetavailabilitychanged', handleAirPlayAvailability);
+    el.addEventListener('webkitcurrentplaybacktargetiswirelesschanged', handleAirPlayWirelessChanged);
 
     let remote: RemotePlayback | null = null;
     try {
@@ -726,23 +839,30 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
 
     return () => {
       el.removeEventListener('webkitplaybacktargetavailabilitychanged', handleAirPlayAvailability);
+      el.removeEventListener('webkitcurrentplaybacktargetiswirelesschanged', handleAirPlayWirelessChanged);
       removeRemoteListeners?.();
       if (typeof disposeCastListeners === 'function') disposeCastListeners();
       win.__onGCastApiAvailable = previousOnCastAvailable;
     };
-  }, [castReceiverAppId]);
+  }, [castReceiverAppId, audioRouteEpoch]);
 
   const showAirPlayPicker = useCallback(() => {
     const el = visualizerAudioRef.current as (HTMLAudioElement & {
       webkitShowPlaybackTargetPicker?: () => void;
     }) | null;
     if (!el) return;
+    // Must stay in the user-gesture stack on iOS. Drop Web Audio first so the
+    // picker attaches to native media routing (avoids pitch/speed drift).
+    resetPlaybackAudioBridge();
+    setNativeRouteLock(true);
     el.webkitShowPlaybackTargetPicker?.();
   }, []);
 
   const showRemotePlaybackPicker = useCallback(async () => {
     const el = visualizerAudioRef.current;
     if (el?.remote && typeof el.remote.prompt === 'function') {
+      resetPlaybackAudioBridge();
+      setNativeRouteLock(true);
       try {
         await el.remote.prompt();
         return;
@@ -1054,6 +1174,8 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       isRemotePlaybackAvailable,
       isRemotePlaybackConnected,
       remotePlaybackDeviceName,
+      isExternalAudioRoute,
+      audioRouteEpoch,
       showAirPlayPicker,
       showRemotePlaybackPicker,
       isHeroStage,
@@ -1096,6 +1218,8 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       isRemotePlaybackAvailable,
       isRemotePlaybackConnected,
       remotePlaybackDeviceName,
+      isExternalAudioRoute,
+      audioRouteEpoch,
       showAirPlayPicker,
       showRemotePlaybackPicker,
       setHeroStageActive,
@@ -1110,6 +1234,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     <PlaybackContext.Provider value={value}>
       {children}
       <audio
+        key={audioRouteEpoch}
         ref={visualizerAudioRef}
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
