@@ -166,6 +166,11 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   const [remotePlaybackDeviceName, setRemotePlaybackDeviceName] = useState<string | null>(null);
   /** Keeps Web Audio off while the AirPlay / remote picker is open. */
   const [nativeRouteLock, setNativeRouteLock] = useState(false);
+  /**
+   * Background / lock-screen playback: HTMLMediaElement must own output.
+   * AudioContext suspends when the tab is hidden, which would silence Web Audio.
+   */
+  const [isBackgroundAudioRoute, setIsBackgroundAudioRoute] = useState(false);
   const [audioRouteEpoch, setAudioRouteEpoch] = useState(0);
   const visualizerAudioRef = useRef<HTMLAudioElement>(null);
   const castContextRef = useRef<any>(null);
@@ -183,8 +188,9 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
 
   const currentTrackUrl = tracks[currentTrack]?.url?.trim() ?? '';
   const currentTrackData = tracks[currentTrack];
-  /** AirPlay wireless, Remote Playback, Cast, or picker arming — use native <audio> output, not Web Audio. */
-  const isExternalAudioRoute = isAirPlayWireless || isRemotePlaybackConnected || nativeRouteLock;
+  /** AirPlay, Remote Playback, Cast, picker arming, or background — use native <audio> output, not Web Audio. */
+  const isExternalAudioRoute =
+    isAirPlayWireless || isRemotePlaybackConnected || nativeRouteLock || isBackgroundAudioRoute;
   /** True once the user has started listening this visit — not on passive track preload. */
   const hasPlaybackSession =
     playbackSessionActive &&
@@ -220,12 +226,6 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       setPlaybackSessionActive(true);
     }
   }, [currentTime]);
-
-  useEffect(() => {
-    const onVisibility = () => setPageVisible(document.visibilityState === 'visible');
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => document.removeEventListener('visibilitychange', onVisibility);
-  }, []);
 
   const beginAutoAdvance = useCallback(() => {
     autoAdvanceRef.current = true;
@@ -565,9 +565,25 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     const ms = navigator.mediaSession;
 
     ms.setActionHandler('play', async () => {
-      await resumeAudioContext();
+      // Lock screen / Control Center play: keep native output while still backgrounded.
+      if (document.visibilityState === 'hidden') {
+        resetPlaybackAudioBridge();
+        setIsBackgroundAudioRoute(true);
+      } else {
+        setIsBackgroundAudioRoute(false);
+        await resumeAudioContext();
+      }
       setIsPlaying(true);
       ms.playbackState = 'playing';
+      // Ensure the element actually starts (iOS may need an explicit play() from the handler).
+      const el = visualizerAudioRef.current;
+      if (el && el.paused) {
+        try {
+          await el.play();
+        } catch {
+          /* ignore */
+        }
+      }
     });
     ms.setActionHandler('pause', () => {
       setIsHeroStage(false);
@@ -617,13 +633,14 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     };
   }, [currentTrack, tracks, beginAutoAdvance, clearAutoAdvance]);
 
-  // When AudioContext suspends (screen lock / background), audible output stops with it.
+  // AudioContext suspends on screen lock / background. Do NOT pause — switch to native
+  // <audio> output so lock-screen controls and background playback keep working.
   useEffect(() => {
     registerOnSuspend(() => {
       setIsHeroStage(false);
-      if (isPlayingRef.current) {
-        setIsPlaying(false);
-      }
+      if (!isPlayingRef.current) return;
+      resetPlaybackAudioBridge();
+      setIsBackgroundAudioRoute(true);
     });
     return () => registerOnSuspend(null);
   }, []);
@@ -661,12 +678,29 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     };
   }, [isPlaying, isFullscreen]);
 
-  // Resume AudioContext when tab is foregrounded; re-acquire wake lock (browsers drop it while hidden).
+  // Background: native media route before Web Audio dies. Foreground: restore viz graph + wake lock.
   useEffect(() => {
-    const handler = () => {
-      if (document.visibilityState !== 'visible') return;
-      resumeAudioContext();
-      if (!isPlaying && !isFullscreen) return;
+    const onVisibility = () => {
+      const visible = document.visibilityState === 'visible';
+      setPageVisible(visible);
+
+      if (!visible) {
+        if (isPlayingRef.current) {
+          resetPlaybackAudioBridge();
+          setIsBackgroundAudioRoute(true);
+          setIsHeroStage(false);
+        }
+        return;
+      }
+
+      // Leaving background-only route remounts <audio> and restores play via route snapshot.
+      // If AirPlay/Cast still owns output, isExternalAudioRoute stays true (no remount).
+      setIsBackgroundAudioRoute(false);
+      if (isPlayingRef.current) {
+        void resumeAudioContext();
+      }
+
+      if (!isPlayingRef.current && !isFullscreen) return;
       if (wakeLockRef.current) return;
       void (async () => {
         const lock = await requestScreenWakeLock();
@@ -677,9 +711,22 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
         });
       })();
     };
-    document.addEventListener('visibilitychange', handler);
-    return () => document.removeEventListener('visibilitychange', handler);
-  }, [isPlaying, isFullscreen]);
+
+    // iOS Safari often fires pagehide when locking the screen.
+    const onPageHide = () => {
+      if (!isPlayingRef.current) return;
+      resetPlaybackAudioBridge();
+      setIsBackgroundAudioRoute(true);
+      setIsHeroStage(false);
+    };
+
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('pagehide', onPageHide);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('pagehide', onPageHide);
+    };
+  }, [isFullscreen]);
 
   const resumeAudioContextIfNeeded = useCallback(() => {
     // Must run in the user-gesture stack on iOS/Android or Web Audio stays suspended (silent).

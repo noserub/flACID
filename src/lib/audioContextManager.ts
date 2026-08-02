@@ -2,7 +2,9 @@
  * Shared AudioContext manager for resuming when tab regains visibility or
  * when playback is triggered from lock screen / Media Session (car display, etc).
  * MusicPlayer registers the context; PlaybackContext calls resume when needed.
- * Notifies when context suspends (e.g. screen lock) so UI can sync to paused state.
+ *
+ * On suspend (screen lock / background), callers should switch to native
+ * <audio> output — do not treat suspend as a user pause.
  */
 let sharedContext: AudioContext | null = null;
 let onSuspendCallback: (() => void) | null = null;
