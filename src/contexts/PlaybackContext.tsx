@@ -20,6 +20,7 @@ import { releaseScreenWakeLock, requestScreenWakeLock } from '../lib/screenWakeL
 import { scrollToHeroStage } from '../lib/albumTracks';
 import { toast } from '../lib/toast';
 import { siteIconUrl } from '../lib/siteIcons';
+import { isAppleTouchDevice } from '../utils/isMobile';
 
 export interface PlayerTrack {
   id: number;
@@ -178,9 +179,17 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
 
   const currentTrackUrl = tracks[currentTrack]?.url?.trim() ?? '';
   const currentTrackData = tracks[currentTrack];
-  /** Viz analysis runs only in the foreground on a dedicated element (not the audible one). */
+  /**
+   * Viz analysis (Web Audio) — never on iOS/iPadOS (WebKit background-restricts WebAudio
+   * sessions and can kill lock-screen playback). Elsewhere: foreground only.
+   * Visualizers fall back to the EQ simulator when this is false.
+   */
   const isAnalysisAudioActive =
-    pageVisible && !isAirPlayWireless && !isRemotePlaybackConnected && !nativeRouteLock;
+    !isAppleTouchDevice() &&
+    pageVisible &&
+    !isAirPlayWireless &&
+    !isRemotePlaybackConnected &&
+    !nativeRouteLock;
   /** True once the user has started listening this visit — not on passive track preload. */
   const hasPlaybackSession =
     playbackSessionActive &&
@@ -325,8 +334,9 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     syncAnalysisElement({ play: isPlayingRef.current });
   }, [analysisEpoch, isAnalysisAudioActive, syncAnalysisElement]);
 
-  // Load / reset audible (+ analysis) when the track (or its URL) changes.
-  // Audible output is always native HTMLAudioElement (background / lock-screen safe).
+  // Load / reset audible when the track (or its URL) changes.
+  // CRITICAL: do not depend on visibility / analysis flags — backgrounding used to
+  // re-run this effect and call setIsPlaying(false) / el.pause(), killing lock-screen audio.
   useEffect(() => {
     const keepPlaying = autoAdvanceRef.current;
     autoAdvanceRef.current = false;
@@ -347,13 +357,6 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       el.crossOrigin = 'anonymous';
       el.src = currentTrackData.url;
       el.load();
-      const analysis = analysisAudioRef.current;
-      if (analysis && isAnalysisAudioActive) {
-        analysis.pause();
-        analysis.crossOrigin = 'anonymous';
-        analysis.src = currentTrackData.url;
-        analysis.load();
-      }
       if (keepPlaying) {
         window.setTimeout(tryStartPlayback, 0);
       }
@@ -361,19 +364,20 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       el.pause();
       el.removeAttribute('src');
       el.load();
-      const analysis = analysisAudioRef.current;
-      if (analysis) {
-        analysis.pause();
-        analysis.removeAttribute('src');
-        analysis.load();
-      }
       setDuration(parseDurationStr(currentTrackData.duration));
       setCurrentTime(0);
       clearAutoAdvance();
     }
-  }, [currentTrack, currentTrackUrl, currentTrackData, tryStartPlayback, clearAutoAdvance, isAnalysisAudioActive]);
+  }, [currentTrack, currentTrackUrl, currentTrackData, tryStartPlayback, clearAutoAdvance]);
 
-  // Drive play/pause and volume on the audible element; mirror to analysis when active.
+  // Keep analysis element src in sync with the audible track (never pauses audible).
+  useEffect(() => {
+    if (!isAnalysisAudioActive || !currentTrackUrl) return;
+    syncAnalysisElement({ play: isPlayingRef.current });
+  }, [currentTrackUrl, isAnalysisAudioActive, syncAnalysisElement]);
+
+  // Drive play/pause and volume on the audible element only.
+  // Do not depend on analysis/visibility — those must never pause native transport.
   useEffect(() => {
     const el = playbackAudioRef.current;
     if (!el) return;
@@ -398,7 +402,6 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       return;
     }
     if (isPlaying) {
-      if (isAnalysisAudioActive) void resumeAudioContext();
       const p = el.play();
       if (p !== undefined) {
         p.catch(() => {
@@ -410,12 +413,11 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
           setIsPlaying(false);
         });
       }
-      syncAnalysisElement({ play: true });
     } else {
       el.pause();
       analysisAudioRef.current?.pause();
     }
-  }, [isPlaying, volume, isMuted, isAnalysisAudioActive, syncAnalysisElement]);
+  }, [isPlaying, volume, isMuted]);
 
   const handleTimeUpdate = useCallback((e: React.SyntheticEvent<HTMLAudioElement>) => {
     const t = e.currentTarget.currentTime;
@@ -570,16 +572,12 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     const ms = navigator.mediaSession;
 
     ms.setActionHandler('play', async () => {
-      // Audible element is always native — safe from lock screen / CarPlay / Control Center.
-      if (document.visibilityState === 'visible') {
-        await resumeAudioContext();
-      } else {
-        resetPlaybackAudioBridge();
-      }
+      // Lock screen / CarPlay / Control Center: drive the native element only.
+      // Never touch Web Audio here — iOS may invoke this while the page is frozen.
       setIsPlaying(true);
       ms.playbackState = 'playing';
       const el = playbackAudioRef.current;
-      if (el && el.paused) {
+      if (el) {
         try {
           await el.play();
         } catch {
