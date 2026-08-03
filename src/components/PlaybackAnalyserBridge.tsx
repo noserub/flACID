@@ -9,23 +9,21 @@ import {
 import { registerAudioContext } from '../lib/audioContextManager';
 
 /**
- * Always-mounted bridge: wires the global audio element to a Web Audio analyser
- * so Hero Stage can share visualization before Discography lazy-loads.
- *
- * While AirPlay / Remote Playback is active, Web Audio is intentionally skipped
- * so the <audio> element keeps its native output path (avoids pitch/speed drift).
+ * Wires the *analysis* audio element (not the audible one) to a Web Audio analyser.
+ * Audible playback stays on a native HTMLAudioElement so iOS background / lock-screen
+ * / CarPlay-style controls keep working when AudioContext suspends.
  */
 export function PlaybackAnalyserBridge() {
   const {
-    audioRef,
+    analysisAudioRef,
     currentTrackData,
     isAudioReady,
     isPlaying,
     currentTime,
     currentTrack,
     setAnalyser,
-    isExternalAudioRoute,
-    audioRouteEpoch,
+    isAnalysisAudioActive,
+    analysisEpoch,
   } = usePlayback();
   const { registerAnalyser, registerPlaybackState } = useDescentIntensity();
 
@@ -35,7 +33,7 @@ export function PlaybackAnalyserBridge() {
   const [analyserForViz, setAnalyserForViz] = useState<AnalyserNode | null>(null);
 
   useEffect(() => {
-    if (isExternalAudioRoute) {
+    if (!isAnalysisAudioActive) {
       disconnectAudioElementFromAnalyser(sourceRef.current, analyserRef.current);
       sourceRef.current = null;
       analyserRef.current = null;
@@ -45,7 +43,7 @@ export function PlaybackAnalyserBridge() {
       return;
     }
 
-    const audio = audioRef?.current;
+    const audio = analysisAudioRef?.current;
     const url = currentTrackData?.url?.trim();
     if (!audio || !url || !isAudioReady) {
       setAnalyserForViz(null);
@@ -81,30 +79,45 @@ export function PlaybackAnalyserBridge() {
     setAnalyser(analyser);
 
     return () => {
+      try {
+        audio.pause();
+      } catch {
+        /* ignore */
+      }
       disconnectAudioElementFromAnalyser(source, analyser);
       sourceRef.current = null;
       setAnalyserForViz(null);
       setAnalyser(null);
     };
   }, [
-    audioRef,
-    audioRouteEpoch,
+    analysisAudioRef,
+    analysisEpoch,
     currentTrackData?.url,
     isAudioReady,
-    isExternalAudioRoute,
+    isAnalysisAudioActive,
     setAnalyser,
   ]);
 
+  // Start analysis only after MediaElementSource owns the element (silent via gain 0).
   useEffect(() => {
-    if (isExternalAudioRoute) return;
-    if (isPlaying && audioContextRef.current?.state === 'suspended') {
-      void audioContextRef.current.resume();
+    if (!isAnalysisAudioActive || !analyserForViz) return;
+    const audio = analysisAudioRef?.current;
+    if (!audio) return;
+    if (isPlaying) {
+      if (audioContextRef.current?.state === 'suspended') {
+        void audioContextRef.current.resume();
+      }
+      if (audio.paused) {
+        void audio.play().catch(() => {});
+      }
+    } else {
+      audio.pause();
     }
-  }, [isPlaying, isExternalAudioRoute]);
+  }, [isPlaying, isAnalysisAudioActive, analysisAudioRef, analyserForViz]);
 
   useEffect(() => {
-    registerAnalyser(isExternalAudioRoute ? null : analyserForViz ?? analyserRef.current, isPlaying);
-  }, [isPlaying, registerAnalyser, analyserForViz, isExternalAudioRoute]);
+    registerAnalyser(isAnalysisAudioActive ? analyserForViz ?? analyserRef.current : null, isPlaying);
+  }, [isPlaying, registerAnalyser, analyserForViz, isAnalysisAudioActive]);
 
   useEffect(() => {
     registerPlaybackState(currentTime, currentTrack);

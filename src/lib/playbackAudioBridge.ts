@@ -6,6 +6,9 @@ let sharedAudioContext: AudioContext | null = null;
 /** createMediaElementSource may only be called once per HTMLMediaElement */
 const mediaElementSourceByAudio = new WeakMap<HTMLMediaElement, MediaElementAudioSourceNode>();
 
+/** Silent sink so the analysis graph runs without producing audible output */
+const silentGainByContext = new WeakMap<AudioContext, GainNode>();
+
 export function getOrCreatePlaybackAudioContext(): AudioContext | null {
   const AudioContextConstructor =
     window.AudioContext ??
@@ -22,13 +25,12 @@ export function getOrCreatePlaybackAudioContext(): AudioContext | null {
 }
 
 /**
- * Close the shared playback graph so the HTMLMediaElement can use its native
- * output path again (AirPlay / Remote Playback). Required for pitch-stable
- * wireless streaming: MediaElementSource → AudioContext.destination drifts
- * when the iOS hardware rate and context rate diverge.
+ * Tear down the analysis graph. The audible HTMLAudioElement is never part of
+ * this graph (dual-element architecture), so background / lock-screen playback
+ * is unaffected.
  *
- * After this, createMediaElementSource cannot be called again on the same
- * element — remount the <audio> node before reconnecting Web Audio.
+ * After close(), createMediaElementSource cannot be reused on the same analysis
+ * element — remount that node before reconnecting.
  */
 export function resetPlaybackAudioBridge(): void {
   const ctx = sharedAudioContext;
@@ -44,11 +46,11 @@ export function resetPlaybackAudioBridge(): void {
 }
 
 /**
- * Route playback through Web Audio (analyser → destination).
- * captureStream was tried for Bluetooth pitch stability, but Chrome/mobile often
- * took that branch and stayed silent — MediaElementSource is the reliable path
- * for *local* output. Remote routes must call resetPlaybackAudioBridge() instead.
- * Volume remains element.volume from PlaybackContext.
+ * Wire an *analysis-only* media element into Web Audio for visualizers.
+ * Audible playback must use a separate HTMLAudioElement that is never passed here
+ * (iOS suspends AudioContext in background / under lock and kills Web Audio output).
+ *
+ * Graph: source → analyser → gain(0) → destination
  */
 export function connectAudioElementToAnalyser(
   audio: HTMLMediaElement,
@@ -69,9 +71,14 @@ export function connectAudioElementToAnalyser(
 
   try {
     source.connect(analyser);
-    // Always reconnect destination — cleanup disconnects the analyser, and a
-    // cached source reconnect without this leaves mobile playback silent.
-    analyser.connect(ctx.destination);
+    let silentGain = silentGainByContext.get(ctx);
+    if (!silentGain) {
+      silentGain = ctx.createGain();
+      silentGain.gain.value = 0;
+      silentGainByContext.set(ctx, silentGain);
+      silentGain.connect(ctx.destination);
+    }
+    analyser.connect(silentGain);
   } catch {
     return null;
   }
