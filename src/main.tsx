@@ -8,11 +8,18 @@ import { setContentSecurityPolicy } from "./utils/csp";
 import { loadAnalytics } from "./utils/analyticsLoader";
 import { queryClient } from "./lib/queryClient";
 import { AuthProvider } from "./contexts/AuthContext";
+import { isNativeApp } from "./lib/isNativeApp";
 import "./index.css";
 
 validateEnvironmentWarn();
 
-if (import.meta.env.PROD && typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+// Service worker is for the website/PWA only. Capacitor uses the native shell.
+if (
+  import.meta.env.PROD &&
+  !isNativeApp() &&
+  typeof navigator !== 'undefined' &&
+  'serviceWorker' in navigator
+) {
   window.addEventListener('load', () => {
     // updateViaCache: 'none' so iOS picks up SW changes that stop intercepting audio.
     navigator.serviceWorker

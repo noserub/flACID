@@ -23,6 +23,17 @@ import { siteIconUrl } from '../lib/siteIcons';
 import { isAppleTouchDevice } from '../utils/isMobile';
 import { activatePlaybackAudioSession, armPlaybackAudioSessionOnGesture } from '../lib/iosAudioSession';
 import { getPlaybackElement } from '../lib/playbackElement';
+import {
+  getNativeCurrentTime,
+  getNativeDuration,
+  isNativeAudioAvailable,
+  loadNativeTrack,
+  pauseNative,
+  playNative,
+  seekNative,
+  setNativeAudioListeners,
+  stopNative,
+} from '../lib/nativeAudioPlayer';
 
 export interface PlayerTrack {
   id: number;
@@ -251,9 +262,29 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const tryStartPlayback = useCallback(() => {
-    const el = playbackAudioRef.current;
-    if (!el || castSessionRef.current) return;
+    if (castSessionRef.current) return;
     if (!shouldAutoPlayRef.current && !isPlayingRef.current) return;
+
+    if (isNativeAudioAvailable()) {
+      void playNative()
+        .then(() => {
+          shouldAutoPlayRef.current = false;
+          setShouldAutoPlay(false);
+          setIsPlaying(true);
+          setIsBuffering(false);
+        })
+        .catch(() => {
+          shouldAutoPlayRef.current = false;
+          setShouldAutoPlay(false);
+          setIsPlaying(false);
+          setIsBuffering(false);
+          clearAutoAdvance();
+        });
+      return;
+    }
+
+    const el = playbackAudioRef.current;
+    if (!el) return;
 
     activatePlaybackAudioSession();
     const playPromise = el.play();
@@ -369,6 +400,43 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     }
     if (!currentTrackData) return;
 
+    // Capacitor: native AVFoundation / Media3 (required for Maps-while-driving audio).
+    if (isNativeAudioAvailable()) {
+      if (!currentTrackUrl) {
+        void stopNative();
+        setDuration(parseDurationStr(currentTrackData.duration));
+        setCurrentTime(0);
+        clearAutoAdvance();
+        return;
+      }
+      const meta = {
+        url: currentTrackData.url,
+        title: currentTrackData.title,
+        artist: currentTrackData.artist,
+        album: currentTrackData.album,
+        artworkUrl: currentTrackData.artworkUrl,
+      };
+      void (async () => {
+        try {
+          if (!keepPlaying) await pauseNative();
+          await loadNativeTrack(meta);
+          if (keepPlaying || shouldAutoPlayRef.current) {
+            await playNative();
+            isPlayingRef.current = true;
+            setIsPlaying(true);
+            setIsAudioReady(true);
+            setIsBuffering(false);
+            shouldAutoPlayRef.current = false;
+            setShouldAutoPlay(false);
+          }
+        } catch {
+          setIsBuffering(false);
+          if (!keepPlaying) setIsPlaying(false);
+        }
+      })();
+      return;
+    }
+
     const el = playbackAudioRef.current;
     if (!el) return;
 
@@ -402,6 +470,22 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   // Drive play/pause and volume on the audible element only.
   // Do not depend on analysis/visibility — those must never pause native transport.
   useEffect(() => {
+    if (isNativeAudioAvailable()) {
+      if (isPlaying) {
+        userPausedRef.current = false;
+        void playNative().catch(() => {
+          if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+          setIsPlaying(false);
+        });
+      } else {
+        userPausedRef.current = true;
+        shouldAutoPlayRef.current = false;
+        void pauseNative();
+        analysisAudioRef.current?.pause();
+      }
+      return;
+    }
+
     const el = playbackAudioRef.current;
     if (!el) return;
     el.volume = isMuted ? 0 : volume;
@@ -535,8 +619,76 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     }
   }, [endPlaybackSession, beginAutoAdvance, clearAutoAdvance]);
 
-  // Bind the document-owned audio element once (outside React mount/unmount churn).
+  // Capacitor native player: lock-screen / notification controls + track end.
   useEffect(() => {
+    if (!isNativeAudioAvailable()) return;
+
+    setNativeAudioListeners({
+      onReady: () => {
+        setIsAudioReady(true);
+        setIsBuffering(false);
+        void getNativeDuration().then((d) => {
+          if (Number.isFinite(d) && d > 0) setDuration(d);
+        });
+        if (shouldAutoPlayRef.current || isPlayingRef.current) {
+          void playNative()
+            .then(() => {
+              isPlayingRef.current = true;
+              setIsPlaying(true);
+              shouldAutoPlayRef.current = false;
+              setShouldAutoPlay(false);
+            })
+            .catch(() => {
+              /* wait for user gesture */
+            });
+        }
+      },
+      onEnd: () => {
+        handleEnded();
+      },
+      onStatus: (status) => {
+        if (status === 'playing') {
+          userPausedRef.current = false;
+          isPlayingRef.current = true;
+          setIsPlaying(true);
+          setIsBuffering(false);
+        } else if (status === 'paused' || status === 'stopped') {
+          // External/lock-screen pause — treat as intentional so we do not reclaim.
+          userPausedRef.current = true;
+          isPlayingRef.current = false;
+          setIsPlaying(false);
+        }
+      },
+    });
+
+    return () => setNativeAudioListeners({});
+  }, [handleEnded]);
+
+  // Poll position while native audio is playing (no HTML timeupdate events).
+  useEffect(() => {
+    if (!isNativeAudioAvailable() || !isPlaying) return;
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const t = await getNativeCurrentTime();
+        if (!cancelled) setCurrentTime(t);
+      } catch {
+        /* ignore */
+      }
+    };
+    void tick();
+    const id = window.setInterval(() => void tick(), 500);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [isPlaying]);
+
+  // Bind the document-owned audio element once (outside React mount/unmount churn).
+  // Skipped on Capacitor — audible path is native AVFoundation / Media3.
+  useEffect(() => {
+    if (isNativeAudioAvailable()) return;
+
     const el = getPlaybackElement();
     playbackAudioRef.current = el;
     el.preload = 'auto';
@@ -679,13 +831,21 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       userPausedRef.current = false;
       shouldAutoPlayRef.current = false;
       setShouldAutoPlay(false);
-      const el = playbackAudioRef.current ?? getPlaybackElement();
-      el.playbackRate = 1;
-      el.defaultPlaybackRate = 1;
-      try {
-        await el.play();
-      } catch {
-        /* ignore */
+      if (isNativeAudioAvailable()) {
+        try {
+          await playNative();
+        } catch {
+          /* ignore */
+        }
+      } else {
+        const el = playbackAudioRef.current ?? getPlaybackElement();
+        el.playbackRate = 1;
+        el.defaultPlaybackRate = 1;
+        try {
+          await el.play();
+        } catch {
+          /* ignore */
+        }
       }
       ms.playbackState = 'playing';
       isPlayingRef.current = true;
@@ -701,7 +861,11 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       isPlayingRef.current = false;
       setIsPlaying(false);
       ms.playbackState = 'paused';
-      playbackAudioRef.current?.pause();
+      if (isNativeAudioAvailable()) {
+        void pauseNative();
+      } else {
+        playbackAudioRef.current?.pause();
+      }
       analysisAudioRef.current?.pause();
     });
     ms.setActionHandler('previoustrack', () => {
@@ -746,7 +910,11 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       const t = details.seekTime;
       if (typeof t === 'number' && Number.isFinite(t)) {
         setCurrentTime(t);
-        if (playbackAudioRef.current) playbackAudioRef.current.currentTime = t;
+        if (isNativeAudioAvailable()) {
+          void seekNative(t);
+        } else if (playbackAudioRef.current) {
+          playbackAudioRef.current.currentTime = t;
+        }
         if (analysisAudioRef.current) {
           try {
             analysisAudioRef.current.currentTime = t;
@@ -1119,7 +1287,11 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
         }
       }
     }
-    if (playbackAudioRef.current) playbackAudioRef.current.currentTime = t;
+    if (isNativeAudioAvailable()) {
+      void seekNative(t);
+    } else if (playbackAudioRef.current) {
+      playbackAudioRef.current.currentTime = t;
+    }
     if (analysisAudioRef.current && isAnalysisAudioActive) {
       try {
         analysisAudioRef.current.currentTime = t;
