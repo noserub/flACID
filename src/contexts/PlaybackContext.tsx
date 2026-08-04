@@ -22,6 +22,7 @@ import { toast } from '../lib/toast';
 import { siteIconUrl } from '../lib/siteIcons';
 import { isAppleTouchDevice } from '../utils/isMobile';
 import { activatePlaybackAudioSession } from '../lib/iosAudioSession';
+import { getPlaybackElement } from '../lib/playbackElement';
 
 export interface PlayerTrack {
   id: number;
@@ -170,8 +171,8 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   /** Pause analysis Web Audio while AirPlay / remote picker is open. */
   const [nativeRouteLock, setNativeRouteLock] = useState(false);
   const [analysisEpoch, setAnalysisEpoch] = useState(0);
-  /** Audible element — never passed to createMediaElementSource. */
-  const playbackAudioRef = useRef<HTMLAudioElement>(null);
+  /** Audible element — document singleton, never passed to createMediaElementSource. */
+  const playbackAudioRef = useRef<HTMLAudioElement | null>(null);
   /** Analysis-only element for visualizers. */
   const analysisAudioRef = useRef<HTMLAudioElement>(null);
   const castContextRef = useRef<any>(null);
@@ -450,8 +451,10 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     }
   }, [isPlaying, volume, isMuted]);
 
-  const handleTimeUpdate = useCallback((e: React.SyntheticEvent<HTMLAudioElement>) => {
-    const t = e.currentTarget.currentTime;
+  const handleTimeUpdate = useCallback(() => {
+    const el = playbackAudioRef.current;
+    if (!el) return;
+    const t = el.currentTime;
     setCurrentTime(t);
     const analysis = analysisAudioRef.current;
     if (!analysis || analysis.paused) return;
@@ -487,8 +490,8 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   }, [tryStartPlayback]);
 
   const handleWaiting = useCallback(() => {
-    if (isPlaying || shouldAutoPlay) setIsBuffering(true);
-  }, [isPlaying, shouldAutoPlay]);
+    if (isPlayingRef.current || shouldAutoPlayRef.current) setIsBuffering(true);
+  }, []);
   const handlePlaying = useCallback(() => setIsBuffering(false), []);
 
   const handleError = useCallback(() => {
@@ -506,23 +509,62 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   }, [endPlaybackSession, clearAutoAdvance]);
 
   const handleEnded = useCallback(() => {
-    if (currentTrack < tracks.length - 1) {
-      const next = tracks[currentTrack + 1];
+    const index = currentTrackIndexRef.current;
+    const list = tracksRef.current;
+    if (index < list.length - 1) {
+      const next = list[index + 1];
       if (next.url) {
         beginAutoAdvance();
         setIsPlaying(true);
-        setCurrentTrackState(currentTrack + 1);
+        setCurrentTrackState(index + 1);
       } else {
         clearAutoAdvance();
         setIsPlaying(false);
-        setCurrentTrackState(currentTrack + 1);
+        setCurrentTrackState(index + 1);
       }
     } else {
       clearAutoAdvance();
       endPlaybackSession();
       setIsPlaying(false);
     }
-  }, [currentTrack, tracks, endPlaybackSession, beginAutoAdvance, clearAutoAdvance]);
+  }, [endPlaybackSession, beginAutoAdvance, clearAutoAdvance]);
+
+  // Bind the document-owned audio element once (outside React mount/unmount churn).
+  useEffect(() => {
+    const el = getPlaybackElement();
+    playbackAudioRef.current = el;
+    el.preload = 'auto';
+
+    el.addEventListener('timeupdate', handleTimeUpdate);
+    el.addEventListener('loadedmetadata', handleLoadedMetadata);
+    el.addEventListener('canplay', handleCanPlay);
+    el.addEventListener('loadeddata', handleLoadedData);
+    el.addEventListener('waiting', handleWaiting);
+    el.addEventListener('playing', handlePlaying);
+    el.addEventListener('error', handleError);
+    el.addEventListener('ended', handleEnded);
+
+    return () => {
+      el.removeEventListener('timeupdate', handleTimeUpdate);
+      el.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      el.removeEventListener('canplay', handleCanPlay);
+      el.removeEventListener('loadeddata', handleLoadedData);
+      el.removeEventListener('waiting', handleWaiting);
+      el.removeEventListener('playing', handlePlaying);
+      el.removeEventListener('error', handleError);
+      el.removeEventListener('ended', handleEnded);
+      // Do not remove the element from the document — iOS may still own the session.
+    };
+  }, [
+    handleTimeUpdate,
+    handleLoadedMetadata,
+    handleCanPlay,
+    handleLoadedData,
+    handleWaiting,
+    handlePlaying,
+    handleError,
+    handleEnded,
+  ]);
 
   // Media Session API: metadata for lock screen, car display, notification shade, etc.
   useEffect(() => {
@@ -743,25 +785,34 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     };
   }, [isPlaying, isFullscreen]);
 
-  // Background: stop analysis only. Never pause / reload the audible element.
+  // Background: do not run React updates while music is playing.
+  // Sync setState during iOS page freeze has been observed to kill HTMLMediaElement output.
   useEffect(() => {
     const onVisibility = () => {
       const visible = document.visibilityState === 'visible';
-      setPageVisible(visible);
 
       if (!visible) {
-        setIsHeroStage(false);
-        // Pause analysis only. Do not touch playbackAudioRef.
-        analysisAudioRef.current?.pause();
+        // Imperative-only work. No setState while playing in the background.
+        try {
+          analysisAudioRef.current?.pause();
+        } catch {
+          /* ignore */
+        }
         resetPlaybackAudioBridge();
+        if (!isPlayingRef.current) {
+          setPageVisible(false);
+          setIsHeroStage(false);
+        }
         return;
       }
 
+      setPageVisible(true);
+
       if (isPlayingRef.current) {
         void resumeAudioContext();
-        const el = playbackAudioRef.current;
-        // If iOS paused us while suspended, resume from the audible element.
-        if (el?.paused) {
+        const el = playbackAudioRef.current ?? getPlaybackElement();
+        if (el.paused) {
+          activatePlaybackAudioSession();
           void el.play().catch(() => {
             /* may need a Media Session / user gesture */
           });
@@ -781,10 +832,12 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     };
 
     const onPageHide = () => {
-      // Keep this lightweight — pagehide can run as the OS freezes the PWA.
-      // Never pause the audible element here.
-      setIsHeroStage(false);
-      analysisAudioRef.current?.pause();
+      // Absolute no-React path while the OS is suspending the PWA.
+      try {
+        analysisAudioRef.current?.pause();
+      } catch {
+        /* ignore */
+      }
       resetPlaybackAudioBridge();
     };
 
@@ -1362,22 +1415,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   return (
     <PlaybackContext.Provider value={value}>
       {children}
-      {/* Audible element: native output only — background / lock screen / AirPlay safe */}
-      <audio
-        ref={playbackAudioRef}
-        onTimeUpdate={handleTimeUpdate}
-        onLoadedMetadata={handleLoadedMetadata}
-        onCanPlay={handleCanPlay}
-        onLoadedData={handleLoadedData}
-        onWaiting={handleWaiting}
-        onPlaying={handlePlaying}
-        onError={handleError}
-        onEnded={handleEnded}
-        preload={currentTrackUrl ? 'auto' : 'none'}
-        playsInline
-        className="sr-only"
-        aria-hidden
-      />
+      {/* Audible element is a document singleton (see playbackElement.ts), not React-owned. */}
       {/* Analysis element: desktop viz only — never mount on iOS (avoids audio-session fights). */}
       {!appleTouchDeviceRef.current && (
         <audio
