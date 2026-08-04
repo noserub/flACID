@@ -21,7 +21,7 @@ import { scrollToHeroStage } from '../lib/albumTracks';
 import { toast } from '../lib/toast';
 import { siteIconUrl } from '../lib/siteIcons';
 import { isAppleTouchDevice } from '../utils/isMobile';
-import { activatePlaybackAudioSession } from '../lib/iosAudioSession';
+import { activatePlaybackAudioSession, armPlaybackAudioSessionOnGesture } from '../lib/iosAudioSession';
 import { getPlaybackElement } from '../lib/playbackElement';
 
 export interface PlayerTrack {
@@ -157,6 +157,8 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
   const isPlayingRef = useRef(isPlaying);
   const shouldAutoPlayRef = useRef(false);
+  /** True only after an intentional user / Media Session pause (not iOS auto-pause). */
+  const userPausedRef = useRef(false);
   /** Track ended / skip while playing — keep media session active and avoid pause→play in background */
   const autoAdvanceRef = useRef(false);
   const tracksRef = useRef(tracks);
@@ -423,6 +425,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       return;
     }
     if (isPlaying) {
+      userPausedRef.current = false;
       activatePlaybackAudioSession();
       el.playbackRate = 1;
       el.defaultPlaybackRate = 1;
@@ -445,6 +448,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
         });
       }
     } else {
+      userPausedRef.current = true;
       shouldAutoPlayRef.current = false;
       el.pause();
       analysisAudioRef.current?.pause();
@@ -452,6 +456,8 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   }, [isPlaying, volume, isMuted]);
 
   const handleTimeUpdate = useCallback(() => {
+    // Keep JS quiet while backgrounded — React setState during iOS freeze can kill media.
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
     const el = playbackAudioRef.current;
     if (!el) return;
     const t = el.currentTime;
@@ -535,6 +541,20 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     playbackAudioRef.current = el;
     el.preload = 'auto';
 
+    const onPause = () => {
+      // iOS Safari sometimes auto-pauses media when backgrounding. If the user did not
+      // pause, reclaim playback immediately while the page can still call play().
+      if (userPausedRef.current) return;
+      if (!isPlayingRef.current) return;
+      activatePlaybackAudioSession();
+      if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
+        navigator.mediaSession.playbackState = 'playing';
+      }
+      void el.play().catch(() => {
+        /* gesture may be required after a hard OS suspend */
+      });
+    };
+
     el.addEventListener('timeupdate', handleTimeUpdate);
     el.addEventListener('loadedmetadata', handleLoadedMetadata);
     el.addEventListener('canplay', handleCanPlay);
@@ -543,6 +563,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     el.addEventListener('playing', handlePlaying);
     el.addEventListener('error', handleError);
     el.addEventListener('ended', handleEnded);
+    el.addEventListener('pause', onPause);
 
     return () => {
       el.removeEventListener('timeupdate', handleTimeUpdate);
@@ -553,6 +574,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       el.removeEventListener('playing', handlePlaying);
       el.removeEventListener('error', handleError);
       el.removeEventListener('ended', handleEnded);
+      el.removeEventListener('pause', onPause);
       // Do not remove the element from the document — iOS may still own the session.
     };
   }, [
@@ -565,6 +587,8 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     handleError,
     handleEnded,
   ]);
+
+  useEffect(() => armPlaybackAudioSessionOnGesture(), []);
 
   // Media Session API: metadata for lock screen, car display, notification shade, etc.
   useEffect(() => {
@@ -652,17 +676,16 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
 
     ms.setActionHandler('play', async () => {
       activatePlaybackAudioSession();
+      userPausedRef.current = false;
       shouldAutoPlayRef.current = false;
       setShouldAutoPlay(false);
-      const el = playbackAudioRef.current;
-      if (el) {
-        el.playbackRate = 1;
-        el.defaultPlaybackRate = 1;
-        try {
-          await el.play();
-        } catch {
-          /* ignore */
-        }
+      const el = playbackAudioRef.current ?? getPlaybackElement();
+      el.playbackRate = 1;
+      el.defaultPlaybackRate = 1;
+      try {
+        await el.play();
+      } catch {
+        /* ignore */
       }
       ms.playbackState = 'playing';
       isPlayingRef.current = true;
@@ -670,6 +693,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     });
     ms.setActionHandler('pause', () => {
       // Clear autoplay arming so canplay cannot restart after an intentional pause.
+      userPausedRef.current = true;
       shouldAutoPlayRef.current = false;
       setShouldAutoPlay(false);
       autoAdvanceRef.current = false;
@@ -742,18 +766,23 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // AudioContext suspend only kills analysis/viz. Audible playback is a separate native element.
+  // Do not react to AudioContext suspend with setState — that can cascade into pausing music.
   useEffect(() => {
     registerOnSuspend(() => {
-      setIsHeroStage(false);
-      analysisAudioRef.current?.pause();
+      try {
+        analysisAudioRef.current?.pause();
+      } catch {
+        /* ignore */
+      }
       resetPlaybackAudioBridge();
     });
     return () => registerOnSuspend(null);
   }, []);
 
   // Keep screen awake while playing or in fullscreen visualizer (best-effort; released when tab is hidden).
+  // Skip wake lock on Apple touch devices — it is unrelated to audio and adds hide/show churn on iOS.
   useEffect(() => {
+    if (appleTouchDeviceRef.current) return;
     const wantWake = isPlaying || isFullscreen;
     if (!wantWake) {
       void (async () => {
@@ -785,20 +814,13 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     };
   }, [isPlaying, isFullscreen]);
 
-  // Background: do not run React updates while music is playing.
-  // Sync setState during iOS page freeze has been observed to kill HTMLMediaElement output.
+  // Background: touch nothing related to audible media. Reclaim play() only on return if needed.
   useEffect(() => {
     const onVisibility = () => {
       const visible = document.visibilityState === 'visible';
 
       if (!visible) {
-        // Imperative-only work. No setState while playing in the background.
-        try {
-          analysisAudioRef.current?.pause();
-        } catch {
-          /* ignore */
-        }
-        resetPlaybackAudioBridge();
+        // Intentionally empty for the playing case: no setState, no bridge teardown.
         if (!isPlayingRef.current) {
           setPageVisible(false);
           setIsHeroStage(false);
@@ -808,8 +830,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
 
       setPageVisible(true);
 
-      if (isPlayingRef.current) {
-        void resumeAudioContext();
+      if (isPlayingRef.current && !userPausedRef.current) {
         const el = playbackAudioRef.current ?? getPlaybackElement();
         if (el.paused) {
           activatePlaybackAudioSession();
@@ -817,28 +838,14 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
             /* may need a Media Session / user gesture */
           });
         }
+        if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
+          navigator.mediaSession.playbackState = 'playing';
+        }
       }
-
-      if (!isPlayingRef.current && !isFullscreen) return;
-      if (wakeLockRef.current) return;
-      void (async () => {
-        const lock = await requestScreenWakeLock();
-        if (!lock) return;
-        wakeLockRef.current = lock;
-        lock.addEventListener('release', () => {
-          if (wakeLockRef.current === lock) wakeLockRef.current = null;
-        });
-      })();
     };
 
     const onPageHide = () => {
-      // Absolute no-React path while the OS is suspending the PWA.
-      try {
-        analysisAudioRef.current?.pause();
-      } catch {
-        /* ignore */
-      }
-      resetPlaybackAudioBridge();
+      // No-op: any work here races iOS media suspension.
     };
 
     document.addEventListener('visibilitychange', onVisibility);
@@ -847,7 +854,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('pagehide', onPageHide);
     };
-  }, [isFullscreen]);
+  }, []);
 
   const resumeAudioContextIfNeeded = useCallback(() => {
     // Must run in the user-gesture stack on iOS/Android or Web Audio stays suspended (silent).
@@ -1266,6 +1273,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     if (isPlaying) {
       catalogPlayPendingRef.current = false;
       setIsHeroStage(false);
+      userPausedRef.current = true;
       shouldAutoPlayRef.current = false;
       setShouldAutoPlay(false);
       autoAdvanceRef.current = false;
@@ -1274,6 +1282,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    userPausedRef.current = false;
     activatePlaybackAudioSession();
     beginPlayback({ forceHero: heroInView || isHeroStage });
   }, [tracks, currentTrack, isPlaying, beginPlayback, resumeAudioContextIfNeeded, heroInView, isHeroStage]);

@@ -33,3 +33,17 @@ export function activatePlaybackAudioSession(): void {
     /* API shape may vary by OS version */
   }
 }
+
+/** Arm playback session on the first user gesture (Safari requires this early). */
+export function armPlaybackAudioSessionOnGesture(): () => void {
+  if (typeof document === 'undefined') return () => {};
+  const arm = () => activatePlaybackAudioSession();
+  document.addEventListener('pointerdown', arm, { capture: true, passive: true });
+  document.addEventListener('touchstart', arm, { capture: true, passive: true });
+  document.addEventListener('keydown', arm, { capture: true, passive: true });
+  return () => {
+    document.removeEventListener('pointerdown', arm, true);
+    document.removeEventListener('touchstart', arm, true);
+    document.removeEventListener('keydown', arm, true);
+  };
+}
