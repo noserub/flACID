@@ -21,6 +21,7 @@ import { scrollToHeroStage } from '../lib/albumTracks';
 import { toast } from '../lib/toast';
 import { siteIconUrl } from '../lib/siteIcons';
 import { isAppleTouchDevice } from '../utils/isMobile';
+import { activatePlaybackAudioSession } from '../lib/iosAudioSession';
 
 export interface PlayerTrack {
   id: number;
@@ -157,6 +158,10 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   const shouldAutoPlayRef = useRef(false);
   /** Track ended / skip while playing — keep media session active and avoid pause→play in background */
   const autoAdvanceRef = useRef(false);
+  const tracksRef = useRef(tracks);
+  const currentTrackIndexRef = useRef(currentTrack);
+  tracksRef.current = tracks;
+  currentTrackIndexRef.current = currentTrack;
   const [isAirPlayAvailable, setIsAirPlayAvailable] = useState(false);
   const [isAirPlayWireless, setIsAirPlayWireless] = useState(false);
   const [isRemotePlaybackAvailable, setIsRemotePlaybackAvailable] = useState(false);
@@ -247,6 +252,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     if (!el || castSessionRef.current) return;
     if (!shouldAutoPlayRef.current && !isPlayingRef.current) return;
 
+    activatePlaybackAudioSession();
     const playPromise = el.play();
     if (playPromise === undefined) return;
 
@@ -265,6 +271,8 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
         if (name === 'AbortError') return;
         if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
         if (el.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) return;
+        shouldAutoPlayRef.current = false;
+        setShouldAutoPlay(false);
         setIsPlaying(false);
         setIsBuffering(false);
         clearAutoAdvance();
@@ -414,6 +422,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       return;
     }
     if (isPlaying) {
+      activatePlaybackAudioSession();
       el.playbackRate = 1;
       el.defaultPlaybackRate = 1;
       // Already playing (e.g. Media Session just started it) — do not call play() again.
@@ -422,22 +431,20 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       if (p !== undefined) {
         p.catch((err: unknown) => {
           // iOS rejects play() with AbortError when backgrounding / interrupting.
-          // Treating that as failure was pausing the track the moment the app hid.
+          // Do NOT arm shouldAutoPlay here — that caused lock-screen Pause to fight
+          // canplay → tryStartPlayback and "repeat several times before stopping".
           const name =
             err && typeof err === 'object' && 'name' in err
               ? String((err as { name?: string }).name)
               : '';
           if (name === 'AbortError') return;
           if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
-          if (el.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) {
-            shouldAutoPlayRef.current = true;
-            setShouldAutoPlay(true);
-            return;
-          }
+          if (el.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) return;
           setIsPlaying(false);
         });
       }
     } else {
+      shouldAutoPlayRef.current = false;
       el.pause();
       analysisAudioRef.current?.pause();
     }
@@ -595,15 +602,16 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
   }, [isPlaying]);
 
-  // Media Session API: action handlers so lock screen / car controls work
+  // Media Session handlers — register once. Re-binding on track changes nulls handlers
+  // briefly and causes flaky lock-screen Pause/Play on iOS.
   useEffect(() => {
     if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
     const ms = navigator.mediaSession;
 
     ms.setActionHandler('play', async () => {
-      // Lock screen / CarPlay / Control Center: play FIRST (gesture stack), then sync React.
-      // Calling setIsPlaying before play() made the play-effect call play() a second time,
-      // which on iOS often sounds like a brief pitch/speed glitch while the rate renegotiates.
+      activatePlaybackAudioSession();
+      shouldAutoPlayRef.current = false;
+      setShouldAutoPlay(false);
       const el = playbackAudioRef.current;
       if (el) {
         el.playbackRate = 1;
@@ -619,36 +627,53 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       setIsPlaying(true);
     });
     ms.setActionHandler('pause', () => {
+      // Clear autoplay arming so canplay cannot restart after an intentional pause.
+      shouldAutoPlayRef.current = false;
+      setShouldAutoPlay(false);
+      autoAdvanceRef.current = false;
       setIsHeroStage(false);
+      isPlayingRef.current = false;
       setIsPlaying(false);
       ms.playbackState = 'paused';
       playbackAudioRef.current?.pause();
       analysisAudioRef.current?.pause();
     });
     ms.setActionHandler('previoustrack', () => {
-      if (currentTrack > 0) {
+      const index = currentTrackIndexRef.current;
+      const list = tracksRef.current;
+      if (index > 0) {
         setCurrentTime(0);
-        const prev = tracks[currentTrack - 1];
+        const prev = list[index - 1];
         if (prev?.url && isPlayingRef.current) {
-          beginAutoAdvance();
+          autoAdvanceRef.current = true;
+          shouldAutoPlayRef.current = true;
+          setShouldAutoPlay(true);
           setIsPlaying(true);
         } else {
-          clearAutoAdvance();
+          autoAdvanceRef.current = false;
+          shouldAutoPlayRef.current = false;
+          setShouldAutoPlay(false);
         }
-        setCurrentTrackState(currentTrack - 1);
+        setCurrentTrackState(index - 1);
       }
     });
     ms.setActionHandler('nexttrack', () => {
-      if (currentTrack < tracks.length - 1) {
+      const index = currentTrackIndexRef.current;
+      const list = tracksRef.current;
+      if (index < list.length - 1) {
         setCurrentTime(0);
-        const next = tracks[currentTrack + 1];
+        const next = list[index + 1];
         if (next?.url && isPlayingRef.current) {
-          beginAutoAdvance();
+          autoAdvanceRef.current = true;
+          shouldAutoPlayRef.current = true;
+          setShouldAutoPlay(true);
           setIsPlaying(true);
         } else {
-          clearAutoAdvance();
+          autoAdvanceRef.current = false;
+          shouldAutoPlayRef.current = false;
+          setShouldAutoPlay(false);
         }
-        setCurrentTrackState(currentTrack + 1);
+        setCurrentTrackState(index + 1);
       }
     });
     ms.setActionHandler('seekto', (details) => {
@@ -673,7 +698,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       ms.setActionHandler('nexttrack', null);
       ms.setActionHandler('seekto', null);
     };
-  }, [currentTrack, tracks, beginAutoAdvance, clearAutoAdvance]);
+  }, []);
 
   // AudioContext suspend only kills analysis/viz. Audible playback is a separate native element.
   useEffect(() => {
@@ -1103,6 +1128,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       }
 
       activatePlaybackSession();
+      activatePlaybackAudioSession();
 
       const useHero = opts?.forceHero ?? heroInView;
       if (opts?.forceHero && pageVisible && !isFullscreen) {
@@ -1187,11 +1213,15 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     if (isPlaying) {
       catalogPlayPendingRef.current = false;
       setIsHeroStage(false);
+      shouldAutoPlayRef.current = false;
+      setShouldAutoPlay(false);
+      autoAdvanceRef.current = false;
       resumeAudioContextIfNeeded();
       setIsPlaying(false);
       return;
     }
 
+    activatePlaybackAudioSession();
     beginPlayback({ forceHero: heroInView || isHeroStage });
   }, [tracks, currentTrack, isPlaying, beginPlayback, resumeAudioContextIfNeeded, heroInView, isHeroStage]);
 
