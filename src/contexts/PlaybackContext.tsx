@@ -148,6 +148,10 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   const [pageVisible, setPageVisible] = useState(
     () => typeof document === 'undefined' || document.visibilityState === 'visible'
   );
+  /** Stable for the session — iOS/iPadOS never mounts the analysis audio element. */
+  const appleTouchDeviceRef = useRef(
+    typeof navigator !== 'undefined' ? isAppleTouchDevice() : false
+  );
   const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
   const isPlayingRef = useRef(isPlaying);
   const shouldAutoPlayRef = useRef(false);
@@ -185,7 +189,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
    * Visualizers fall back to the EQ simulator when this is false.
    */
   const isAnalysisAudioActive =
-    !isAppleTouchDevice() &&
+    !appleTouchDeviceRef.current &&
     pageVisible &&
     !isAirPlayWireless &&
     !isRemotePlaybackConnected &&
@@ -410,6 +414,10 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       return;
     }
     if (isPlaying) {
+      el.playbackRate = 1;
+      el.defaultPlaybackRate = 1;
+      // Already playing (e.g. Media Session just started it) — do not call play() again.
+      if (!el.paused) return;
       const p = el.play();
       if (p !== undefined) {
         p.catch((err: unknown) => {
@@ -593,18 +601,22 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     const ms = navigator.mediaSession;
 
     ms.setActionHandler('play', async () => {
-      // Lock screen / CarPlay / Control Center: drive the native element only.
-      // Never touch Web Audio here — iOS may invoke this while the page is frozen.
-      setIsPlaying(true);
-      ms.playbackState = 'playing';
+      // Lock screen / CarPlay / Control Center: play FIRST (gesture stack), then sync React.
+      // Calling setIsPlaying before play() made the play-effect call play() a second time,
+      // which on iOS often sounds like a brief pitch/speed glitch while the rate renegotiates.
       const el = playbackAudioRef.current;
       if (el) {
+        el.playbackRate = 1;
+        el.defaultPlaybackRate = 1;
         try {
           await el.play();
         } catch {
           /* ignore */
         }
       }
+      ms.playbackState = 'playing';
+      isPlayingRef.current = true;
+      setIsPlaying(true);
     });
     ms.setActionHandler('pause', () => {
       setIsHeroStage(false);
@@ -1336,16 +1348,18 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
         className="sr-only"
         aria-hidden
       />
-      {/* Analysis element: Web Audio visualizers only (never audible / never AirPlay) */}
-      <audio
-        key={analysisEpoch}
-        ref={analysisAudioRef}
-        preload={currentTrackUrl && isAnalysisAudioActive ? 'auto' : 'none'}
-        playsInline
-        disableRemotePlayback
-        className="sr-only"
-        aria-hidden
-      />
+      {/* Analysis element: desktop viz only — never mount on iOS (avoids audio-session fights). */}
+      {!appleTouchDeviceRef.current && (
+        <audio
+          key={analysisEpoch}
+          ref={analysisAudioRef}
+          preload={currentTrackUrl && isAnalysisAudioActive ? 'auto' : 'none'}
+          playsInline
+          disableRemotePlayback
+          className="sr-only"
+          aria-hidden
+        />
+      )}
     </PlaybackContext.Provider>
   );
 }
