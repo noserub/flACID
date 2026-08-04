@@ -253,7 +253,13 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
         setIsPlaying(true);
         setIsBuffering(false);
       })
-      .catch(() => {
+      .catch((err: unknown) => {
+        const name =
+          err && typeof err === 'object' && 'name' in err
+            ? String((err as { name?: string }).name)
+            : '';
+        if (name === 'AbortError') return;
+        if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
         if (el.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) return;
         setIsPlaying(false);
         setIsBuffering(false);
@@ -354,7 +360,9 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     if (currentTrackUrl) {
       if (!keepPlaying) el.pause();
       el.currentTime = 0;
-      el.crossOrigin = 'anonymous';
+      // Do NOT set crossOrigin on the audible element. CORS mode breaks some
+      // Supabase/CDN range requests on iOS when the PWA is backgrounded.
+      el.removeAttribute('crossorigin');
       el.src = currentTrackData.url;
       el.load();
       if (keepPlaying) {
@@ -404,7 +412,15 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     if (isPlaying) {
       const p = el.play();
       if (p !== undefined) {
-        p.catch(() => {
+        p.catch((err: unknown) => {
+          // iOS rejects play() with AbortError when backgrounding / interrupting.
+          // Treating that as failure was pausing the track the moment the app hid.
+          const name =
+            err && typeof err === 'object' && 'name' in err
+              ? String((err as { name?: string }).name)
+              : '';
+          if (name === 'AbortError') return;
+          if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
           if (el.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) {
             shouldAutoPlayRef.current = true;
             setShouldAutoPlay(true);
@@ -461,6 +477,11 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   const handlePlaying = useCallback(() => setIsBuffering(false), []);
 
   const handleError = useCallback(() => {
+    // While backgrounded, iOS/SW glitches can fire spurious media errors.
+    // Do not tear down the session or pause — that is what users hear as "music stopped".
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+      return;
+    }
     setIsAudioReady(false);
     setIsBuffering(false);
     clearAutoAdvance();
@@ -685,7 +706,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     };
   }, [isPlaying, isFullscreen]);
 
-  // Background: stop analysis only. Foreground: resume viz graph + wake lock. Never pause audible audio.
+  // Background: stop analysis only. Never pause / reload the audible element.
   useEffect(() => {
     const onVisibility = () => {
       const visible = document.visibilityState === 'visible';
@@ -693,6 +714,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
 
       if (!visible) {
         setIsHeroStage(false);
+        // Pause analysis only. Do not touch playbackAudioRef.
         analysisAudioRef.current?.pause();
         resetPlaybackAudioBridge();
         return;
@@ -701,9 +723,10 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       if (isPlayingRef.current) {
         void resumeAudioContext();
         const el = playbackAudioRef.current;
-        if (el && el.paused) {
+        // If iOS paused us while suspended, resume from the audible element.
+        if (el?.paused) {
           void el.play().catch(() => {
-            /* Media Session / user gesture may be required */
+            /* may need a Media Session / user gesture */
           });
         }
       }
@@ -721,6 +744,8 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     };
 
     const onPageHide = () => {
+      // Keep this lightweight — pagehide can run as the OS freezes the PWA.
+      // Never pause the audible element here.
       setIsHeroStage(false);
       analysisAudioRef.current?.pause();
       resetPlaybackAudioBridge();

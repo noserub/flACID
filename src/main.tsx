@@ -14,9 +14,15 @@ validateEnvironmentWarn();
 
 if (import.meta.env.PROD && typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {
-      /* installability best-effort; ignore registration failures */
-    });
+    // updateViaCache: 'none' so iOS picks up SW changes that stop intercepting audio.
+    navigator.serviceWorker
+      .register('/sw.js', { updateViaCache: 'none' })
+      .then((reg) => {
+        void reg.update();
+      })
+      .catch(() => {
+        /* installability best-effort; ignore registration failures */
+      });
   });
 }
 

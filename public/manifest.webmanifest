@@ -1,11 +1,12 @@
 {
-  "id": "/?icon=20260717a",
+  "id": "/?icon=20260804a",
   "name": "flACID",
   "short_name": "flACID",
   "description": "Official flACID band page. Listen to music, view tour dates, and more.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "browser"],
   "background_color": "#efbd3b",
   "theme_color": "#0a0a0f",
   "categories": ["music", "entertainment"],
