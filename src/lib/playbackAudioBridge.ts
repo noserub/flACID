@@ -21,18 +21,40 @@ export function getOrCreatePlaybackAudioContext(): AudioContext | null {
       : new AudioContextConstructor();
   sharedAudioContext = ctx;
   registerAudioContext(ctx);
+  if (ctx.state === 'suspended') {
+    void ctx.resume().catch(() => {});
+  }
   return ctx;
 }
 
 /**
- * Tear down the analysis graph. The audible HTMLAudioElement is never part of
- * this graph (dual-element architecture), so background / lock-screen playback
- * is unaffected.
+ * Soft-reset the analysis graph without closing AudioContext.
  *
- * After close(), createMediaElementSource cannot be reused on the same analysis
- * element — remount that node before reconnecting.
+ * Closing the context in Chrome often logs "AudioContext encountered an error
+ * from the audio device or the WebAudio renderer" and forces analysis <audio>
+ * remounts (createMediaElementSource cannot be reused after close). Suspend is
+ * enough when toggling viz off for AirPlay / background / visibility.
+ *
+ * The audible HTMLAudioElement is never part of this graph.
  */
 export function resetPlaybackAudioBridge(): void {
+  const ctx = sharedAudioContext;
+  if (!ctx || ctx.state === 'closed') {
+    sharedAudioContext = null;
+    registerAudioContext(null);
+    return;
+  }
+  if (ctx.state === 'running') {
+    try {
+      void ctx.suspend();
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+/** Hard-close the shared analysis context (tests / full teardown only). */
+export function closePlaybackAudioBridge(): void {
   const ctx = sharedAudioContext;
   sharedAudioContext = null;
   registerAudioContext(null);

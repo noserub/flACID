@@ -12,7 +12,7 @@ import {
 import { useEditMode } from './EditModeContext';
 import { useTracks } from '../hooks';
 import { resumeAudioContext, registerOnSuspend } from '../lib/audioContextManager';
-import { resetPlaybackAudioBridge } from '../lib/playbackAudioBridge';
+import { getOrCreatePlaybackAudioContext, resetPlaybackAudioBridge } from '../lib/playbackAudioBridge';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { parseVisualizationId } from '../lib/contentMappers';
 import { formatDuration } from '../utils';
@@ -172,7 +172,8 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   const [remotePlaybackDeviceName, setRemotePlaybackDeviceName] = useState<string | null>(null);
   /** Pause analysis Web Audio while AirPlay / remote picker is open. */
   const [nativeRouteLock, setNativeRouteLock] = useState(false);
-  const [analysisEpoch, setAnalysisEpoch] = useState(0);
+  /** Bumped only if a hard analysis remount is required; soft suspend keeps this at 0. */
+  const [analysisEpoch] = useState(0);
   /** Audible element — document singleton, never passed to createMediaElementSource. */
   const playbackAudioRef = useRef<HTMLAudioElement | null>(null);
   /** Analysis-only element for visualizers. */
@@ -273,7 +274,16 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
             : '';
         if (name === 'AbortError') return;
         if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+        // Still buffering — leave shouldAutoPlay armed for the next canplay.
         if (el.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) return;
+        if (name === 'NotAllowedError') {
+          shouldAutoPlayRef.current = false;
+          setShouldAutoPlay(false);
+          setIsPlaying(false);
+          setIsBuffering(false);
+          clearAutoAdvance();
+          return;
+        }
         shouldAutoPlayRef.current = false;
         setShouldAutoPlay(false);
         setIsPlaying(false);
@@ -282,7 +292,9 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       });
   }, [clearAutoAdvance]);
 
-  // Analysis Web Audio on/off: pause & tear down when inactive; remount analysis node when re-enabled.
+  // Analysis Web Audio on/off: pause & soft-suspend when inactive.
+  // Do not close AudioContext or remount the analysis <audio> on every toggle —
+  // Chrome throws device/renderer errors and breaks reactive visuals.
   useEffect(() => {
     const wasActive = wasAnalysisActiveRef.current;
     if (wasActive === isAnalysisAudioActive) return;
@@ -295,8 +307,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    resetPlaybackAudioBridge();
-    setAnalysisEpoch((epoch) => epoch + 1);
+    void getOrCreatePlaybackAudioContext()?.resume()?.catch(() => {});
   }, [isAnalysisAudioActive]);
 
   // Drop the picker lock once a real external route connects, or after cancel timeout.
@@ -358,40 +369,60 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   // Load / reset audible when the track (or its URL) changes.
   // CRITICAL: do not depend on visibility / analysis flags — backgrounding used to
   // re-run this effect and call setIsPlaying(false) / el.pause(), killing lock-screen audio.
+  // Depend on URL string (not track object identity) so query remaps do not reload media.
   useEffect(() => {
     const keepPlaying = autoAdvanceRef.current;
+    const playArmed = shouldAutoPlayRef.current;
     autoAdvanceRef.current = false;
 
     setIsAudioReady(false);
-    setIsBuffering(keepPlaying || shouldAutoPlayRef.current);
-    if (!keepPlaying) {
+    setIsBuffering(keepPlaying || playArmed);
+    // beginPlayback arms shouldAutoPlay before switching tracks — do not clear isPlaying
+    // or we race the pause effect and kill Chrome's deferred start.
+    if (!keepPlaying && !playArmed) {
       setIsPlaying(false);
     }
-    if (!currentTrackData) return;
+    if (!currentTrackUrl && !currentTrackData) return;
 
     const el = playbackAudioRef.current;
     if (!el) return;
 
     if (currentTrackUrl) {
-      if (!keepPlaying) el.pause();
+      const attrSrc = el.getAttribute('src') || '';
+      const sameSrc =
+        attrSrc === currentTrackUrl ||
+        el.src === currentTrackUrl ||
+        el.currentSrc === currentTrackUrl;
+
+      // beginPlayback may already have assigned src + play() during the user gesture.
+      if (sameSrc && (keepPlaying || playArmed)) {
+        if (el.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
+          setIsAudioReady(true);
+          if (!el.paused) setIsBuffering(false);
+        }
+        window.setTimeout(tryStartPlayback, 0);
+        return;
+      }
+
+      if (!keepPlaying && !playArmed) el.pause();
       el.currentTime = 0;
       // Do NOT set crossOrigin on the audible element. CORS mode breaks some
       // Supabase/CDN range requests on iOS when the PWA is backgrounded.
       el.removeAttribute('crossorigin');
-      el.src = currentTrackData.url;
+      el.src = currentTrackUrl;
       el.load();
-      if (keepPlaying) {
+      if (keepPlaying || playArmed) {
         window.setTimeout(tryStartPlayback, 0);
       }
     } else {
       el.pause();
       el.removeAttribute('src');
       el.load();
-      setDuration(parseDurationStr(currentTrackData.duration));
+      setDuration(parseDurationStr(currentTrackData?.duration ?? '0:00'));
       setCurrentTime(0);
       clearAutoAdvance();
     }
-  }, [currentTrack, currentTrackUrl, currentTrackData, tryStartPlayback, clearAutoAdvance]);
+  }, [currentTrack, currentTrackUrl, currentTrackData?.duration, tryStartPlayback, clearAutoAdvance]);
 
   // Keep analysis element src in sync with the audible track (never pauses audible).
   useEffect(() => {
@@ -443,13 +474,30 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
               : '';
           if (name === 'AbortError') return;
           if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
-          if (el.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) return;
+          // Not ready yet — keep UI armed; canplay / beginPlayback will retry.
+          if (el.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) {
+            shouldAutoPlayRef.current = true;
+            setShouldAutoPlay(true);
+            return;
+          }
+          // Chrome NotAllowedError if play() ran outside the user gesture.
+          if (name === 'NotAllowedError') {
+            shouldAutoPlayRef.current = false;
+            setShouldAutoPlay(false);
+            setIsPlaying(false);
+            setIsBuffering(false);
+            return;
+          }
           setIsPlaying(false);
         });
       }
     } else {
-      userPausedRef.current = true;
-      shouldAutoPlayRef.current = false;
+      // Intentional pause paths set userPausedRef / clear autoplay before setIsPlaying(false).
+      // Track switches briefly set isPlaying false while shouldAutoPlay is armed — do not
+      // treat that as a user pause or Chrome never starts after canplay.
+      if (shouldAutoPlayRef.current || autoAdvanceRef.current) {
+        return;
+      }
       el.pause();
       analysisAudioRef.current?.pause();
     }
@@ -1187,8 +1235,16 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      const track = tracks[targetIndex];
+      if (!track?.url?.trim()) {
+        setIsBuffering(false);
+        toast.error('No audio file uploaded for this track. Upload audio in edit mode.');
+        return;
+      }
+
       activatePlaybackSession();
       activatePlaybackAudioSession();
+      userPausedRef.current = false;
 
       const useHero = opts?.forceHero ?? heroInView;
       if (opts?.forceHero && pageVisible && !isFullscreen) {
@@ -1199,33 +1255,99 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
 
       resumeAudioContextIfNeeded();
 
-      if (currentTrack !== targetIndex) {
-        setIsPlaying(false);
+      // Arm synchronously before any isPlaying=false effects run (Chrome autoplay).
+      shouldAutoPlayRef.current = true;
+      setShouldAutoPlay(true);
+      setIsBuffering(true);
+
+      const el = playbackAudioRef.current ?? getPlaybackElement();
+      playbackAudioRef.current = el;
+
+      const switching = currentTrack !== targetIndex;
+      if (switching) {
         setCurrentTime(0);
         setCurrentTrackState(targetIndex);
-        setShouldAutoPlay(true);
+      }
+
+      if (castSessionRef.current) {
+        setIsPlaying(true);
         return;
       }
 
-      const track = tracks[targetIndex];
-      if (!track?.url) {
-        setIsBuffering(false);
-        return;
-      }
-
-      const el = playbackAudioRef.current;
-      if (!castSessionRef.current && el) {
-        if (!isAudioReady || el.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) {
-          el.load();
-          setShouldAutoPlay(true);
-          return;
+      // Assign src + play() inside the user gesture. Chrome rejects play() that only
+      // happens later in useEffect/canplay (Safari is more lenient).
+      const url = track.url.trim();
+      const attrSrc = el.getAttribute('src') || '';
+      const sameSrc =
+        attrSrc === url || el.src === url || el.currentSrc === url;
+      if (!sameSrc) {
+        el.pause();
+        try {
+          el.currentTime = 0;
+        } catch {
+          /* ignore */
         }
+        el.removeAttribute('crossorigin');
+        el.src = url;
+        el.load();
+      } else if (!isAudioReady || el.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) {
+        el.load();
       }
 
-      setIsBuffering(false);
+      el.playbackRate = 1;
+      el.defaultPlaybackRate = 1;
+      // Optimistic playing — transport effects / Media Session stay in the play path.
+      isPlayingRef.current = true;
       setIsPlaying(true);
+
+      const playPromise = el.play();
+      if (playPromise === undefined) return;
+
+      playPromise
+        .then(() => {
+          shouldAutoPlayRef.current = false;
+          setShouldAutoPlay(false);
+          setIsPlaying(true);
+          setIsBuffering(false);
+        })
+        .catch((err: unknown) => {
+          const name =
+            err && typeof err === 'object' && 'name' in err
+              ? String((err as { name?: string }).name)
+              : '';
+          if (name === 'AbortError') {
+            // load()/src change aborted this play — keep armed for canplay.
+            return;
+          }
+          if (name === 'NotAllowedError') {
+            shouldAutoPlayRef.current = false;
+            setShouldAutoPlay(false);
+            isPlayingRef.current = false;
+            setIsPlaying(false);
+            setIsBuffering(false);
+            return;
+          }
+          if (el.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) {
+            // Gesture unlocked the element; canplay → tryStartPlayback finishes start.
+            return;
+          }
+          shouldAutoPlayRef.current = false;
+          setShouldAutoPlay(false);
+          isPlayingRef.current = false;
+          setIsPlaying(false);
+          setIsBuffering(false);
+        });
     },
-    [tracks, currentTrack, isAudioReady, heroInView, pageVisible, isFullscreen, resumeAudioContextIfNeeded, activatePlaybackSession]
+    [
+      tracks,
+      currentTrack,
+      isAudioReady,
+      heroInView,
+      pageVisible,
+      isFullscreen,
+      resumeAudioContextIfNeeded,
+      activatePlaybackSession,
+    ]
   );
 
   const playFromHero = useCallback(() => {
