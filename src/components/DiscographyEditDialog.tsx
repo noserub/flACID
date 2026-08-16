@@ -114,7 +114,8 @@ export function DiscographyEditDialog() {
                     label="Album Cover"
                     currentImage={album.coverImage}
                     onUpload={(url) => handleUpdateAlbum(album.id, 'coverImage', url)}
-                    aspectRatio="1:1 (square)"
+                    aspectRatio="any; shown in full (not cropped)"
+                    previewFit="contain"
                     bucket="covers"
                     pathPrefix="albums"
                   />

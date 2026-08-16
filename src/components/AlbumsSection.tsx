@@ -122,13 +122,13 @@ function FeaturedAlbum({ album }: { album: DiscographyAlbum }) {
     >
       <div className="grid gap-8 p-6 lg:grid-cols-[minmax(220px,300px)_1fr] lg:gap-10 lg:p-8 xl:grid-cols-[minmax(240px,320px)_1fr]">
         <div className="mx-auto w-full max-w-xs space-y-5 lg:mx-0 lg:max-w-none lg:sticky lg:top-28 lg:self-start">
-          <div className="relative aspect-square overflow-hidden rounded-xl">
+          <div className="overflow-hidden rounded-xl bg-black">
             <ImageWithFallback
               src={album.coverImage || defaultAlbumImage}
               alt={album.title}
               loading="lazy"
               decoding="async"
-              className="h-full w-full object-cover"
+              className="h-auto w-full"
             />
           </div>
 
@@ -184,13 +184,13 @@ function CatalogAlbumCard({
             shadow.hoverPurple
           )}
         >
-          <div className="relative aspect-square overflow-hidden">
+          <div className="overflow-hidden bg-black">
             <ImageWithFallback
               src={album.coverImage || defaultAlbumImage}
               alt={album.title}
               loading="lazy"
               decoding="async"
-              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+              className="h-auto w-full"
             />
           </div>
 

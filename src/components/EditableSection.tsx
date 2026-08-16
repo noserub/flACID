@@ -164,6 +164,8 @@ interface ImageUploadProps {
   /** Path prefix within bucket (e.g. 'hero', 'albums', 'gallery') - avoids bucket/path duplication */
   /** Resize preset — hero background stores up to 4K WebP */
   preset?: ImageUploadPreset;
+  /** Editor thumbnail fit. Use contain for artwork that should not be cropped. */
+  previewFit?: 'cover' | 'contain';
 }
 
 export function ImageUpload({
@@ -174,6 +176,7 @@ export function ImageUpload({
   bucket = 'covers',
   pathPrefix,
   preset,
+  previewFit = 'cover',
 }: ImageUploadProps) {
   const { uploadImage } = useEditMode();
   const [uploading, setUploading] = useState(false);
@@ -205,11 +208,20 @@ export function ImageUpload({
     <div className="space-y-2">
       <Label>{label}</Label>
       {currentImage && (
-        <div className="relative w-full h-40 bg-muted rounded-lg overflow-hidden">
+        <div
+          className={cn(
+            'relative w-full overflow-hidden rounded-lg bg-muted',
+            previewFit === 'contain' ? 'max-h-64' : 'h-40'
+          )}
+        >
           <img
             src={currentImage}
             alt={label}
-            className="w-full h-full object-cover"
+            className={
+              previewFit === 'contain'
+                ? 'h-auto max-h-64 w-full object-contain'
+                : 'h-full w-full object-cover'
+            }
           />
         </div>
       )}
