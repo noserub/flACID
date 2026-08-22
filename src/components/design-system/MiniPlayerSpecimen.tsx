@@ -4,12 +4,8 @@ import { MiniPlayerChip } from '../MiniPlayerChip';
 import { Slider } from '../ui/slider';
 import { Label } from '../ui/label';
 import { cn } from '../ui/utils';
-import { brandVizSurfaceClass } from '../../lib/brandClasses';
 import { label } from '../../lib/typography';
 
-/**
- * Design system specimen: MiniPlayer is the primary transport UI (hero viz + header chrome).
- */
 export function MiniPlayerSpecimen() {
   const [panelOpen, setPanelOpen] = useState(false);
   const [playing, setPlaying] = useState(true);
@@ -17,38 +13,7 @@ export function MiniPlayerSpecimen() {
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       <div className="space-y-2">
-        <p className={cn(label, 'mb-0')}>Hero dock</p>
-        <p className="text-[11px] text-muted-foreground mb-3">
-          Primary control on the visualization surface. Same width as chrome dock (280-400px).
-        </p>
-        <div
-          className={cn(
-            'relative overflow-hidden rounded-xl p-4 min-h-[7rem] flex items-end',
-            brandVizSurfaceClass
-          )}
-        >
-          <MiniPlayerChip
-            dock="hero"
-            title="Neon Tunnel"
-            subtitle="Chronicles Vol. I"
-            isPlaying={playing}
-            panelOpen={false}
-            canPlay
-            canSkipBack
-            canSkipForward
-            onPlayPause={() => setPlaying((p) => !p)}
-            onSkipBack={() => {}}
-            onSkipForward={() => {}}
-            onTogglePanel={() => {}}
-          />
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <p className={cn(label, 'mb-0')}>Chrome dock</p>
-        <p className="text-[11px] text-muted-foreground mb-3">
-          Header (desktop) or fixed bottom bar (mobile) when scrolled past hero.
-        </p>
+        <p className={cn(label, 'mb-3')}>Chrome dock</p>
         <div className="rounded-xl border border-signal-purple/20 bg-void p-4 flex justify-center">
           <MiniPlayerChip
             dock="chrome"
@@ -68,12 +33,9 @@ export function MiniPlayerSpecimen() {
         </div>
       </div>
 
-      <div className="space-y-2 lg:col-span-2">
-        <p className={cn(label, 'mb-0')}>Now playing panel</p>
-        <p className="text-[11px] text-muted-foreground mb-3">
-          Expands from chip: progress, viz sensitivity, track list.
-        </p>
-        <div className="max-w-sm overflow-hidden rounded-xl border border-signal-purple/25 bg-background shadow-xl shadow-black/30">
+      <div className="space-y-2">
+        <p className={cn(label, 'mb-3')}>Now playing</p>
+        <div className="max-w-sm overflow-hidden rounded-xl border border-signal-purple/25 bg-background">
           <div className="border-b border-signal-purple/10 px-4 pt-3 pb-3 space-y-2">
             <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
               <ListMusic className="size-3.5" aria-hidden />

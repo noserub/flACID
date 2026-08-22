@@ -116,56 +116,46 @@ export const EXPERIENCE_MODES = [
   {
     id: 'browse',
     name: 'Browse',
-    summary: 'Default scroll through sections: hero viz, editorial content, tour, gallery.',
-    chrome: 'Site header, section nav rail (lg+) or bottom bar (mobile), header mini player when past hero (never simultaneous with hero dock).',
-    tokens: 'Section washes, card surfaces, purple→green interactive rest.',
+    summary: 'Scroll the site: hero viz, About, tour, gallery.',
+    chrome: 'Header, section nav, mini player in the header once you leave the hero.',
   },
   {
     id: 'hero-stage',
     name: 'Hero stage',
-    summary: 'Primary fan playback: visualizer fills the hero, mini player dock animates to the bottom of the stage.',
-    chrome: 'Hero logo hidden; hero dock only (no header mini player). Discography track rows send playback here.',
-    tokens: 'brandPrimaryButtonClass on transport, onDark mini player copy, void scrims on viz.',
+    summary: 'Playback on the visualizer. The dock sits on the viz, not in the header.',
+    chrome: 'Logo hides. Track rows in Discography play here.',
   },
   {
     id: 'descent',
     name: 'Descent',
-    summary: 'Desktop-only psychedelic layer synced to music intensity.',
-    chrome: 'Section nav and most chrome lift or hide; toggle uses nav-active language (green).',
-    tokens: 'brandToggleActiveClass, z-index stack above sections, reduced motion respected globally.',
+    summary: 'Desktop psychedelic layer, synced to the music.',
+    chrome: 'Most chrome hides. Toggle uses green (nav active), not the CTA fill.',
   },
   {
     id: 'stage',
     name: 'Stage',
-    summary: '/stage: mic/line-in driven visuals for venue projection.',
-    chrome: 'Separate control + projection surfaces; brandStagePanelClass, onDark copy on viz.',
-    tokens: 'brandStagePanelClass, brandStageOutlineButtonClass, live audio path.',
+    summary: 'Venue projection from mic or line-in, at /stage.',
+    chrome: 'Separate control surface and projection surface.',
   },
 ] as const;
 
 export const RESPONSIVE_BEHAVIOR = [
   {
     pattern: 'Section navigation',
-    mobile: 'SectionNavMobile: labeled bottom bar, green active label.',
-    desktop: 'SectionNavRail: right-edge dots; labels mirror section headings from CMS, scroll-spy.',
-    hidden: 'Descent on, hero stage viewport.',
+    mobile: 'Labeled bar at the bottom.',
+    desktop: 'Dots on the right edge, labels from the CMS.',
+    hidden: 'Descent, or while the hero is in view.',
   },
   {
     pattern: 'Mini player',
-    mobile: 'Full-width strip above section nav: 44px transport, skip, progress sliver.',
-    desktop: 'Header chip when past hero; hero dock on viz surface (idle: below logo, stage: bottom of viz).',
-    hidden: 'Hero dock and header chip never shown together.',
+    mobile: 'Full-width strip above the section bar.',
+    desktop: 'Chip in the header after the hero; dock on the viz in hero stage.',
+    hidden: 'Header chip and hero dock never together.',
   },
   {
-    pattern: 'Descend toggle',
-    mobile: 'Hidden on touch-primary devices (descentSupported false).',
-    desktop: 'Overflow menu + header when supported.',
-    hidden: 'N/A',
-  },
-  {
-    pattern: 'Typography',
-    mobile: 'Fluid clamp scale: same tokens, smaller computed sizes.',
-    desktop: 'display-section and player titles expand via clamp().',
+    pattern: 'Descend',
+    mobile: 'Hidden on phones.',
+    desktop: 'Overflow menu, and in the header when supported.',
     hidden: 'N/A',
   },
 ] as const;
@@ -194,15 +184,13 @@ export const ACCESSIBILITY_NOTES = [
 ] as const;
 
 export const MOTION_POLICY = {
-  summary:
-    'Motion tokens in layoutTokens.ts (150 / 300 / 500ms). Brand interactions default to 300ms. Hero logo stutter and Descent effects are decorative; disabled under prefers-reduced-motion.',
+  summary: 'Hovers and tabs use 300ms. Logo stutter and Descent are decorative.',
   tokens: [
-    { name: 'motion.fast', use: 'Micro feedback, small UI state changes' },
-    { name: 'motion.base', use: 'Hover, tab switch, button transitions (brand default)' },
-    { name: 'motion.slow', use: 'Section entrances, larger layout shifts' },
+    { name: 'motion.fast', use: 'Small state changes' },
+    { name: 'motion.base', use: 'Hover, tabs, buttons' },
+    { name: 'motion.slow', use: 'Section entrances' },
   ],
-  reducedMotion:
-    'Site-wide: animation-duration and transition-duration forced to 0.01ms; scroll-behavior auto. Do not bypass with inline !important.',
+  reducedMotion: 'Decorative motion turns off when the OS asks for reduced motion.',
 } as const;
 
 /** When to use which interactive language */
@@ -210,190 +198,110 @@ export const INTERACTION_RULES = [
   {
     rule: 'Primary CTA fill',
     token: 'primary / default button',
-    use: 'Play, tickets, newsletter submit, one main action per view',
-    avoid: 'Tab active, slider fill, nav selection, toggle on',
+    use: 'Play, tickets, newsletter. One per view.',
+    avoid: 'Tabs, sliders, nav, Descend on',
   },
   {
     rule: 'Nav active',
     token: 'neon-green + purple wash',
-    use: 'Tabs, section nav dots and mobile bar, descend toggle on, viz index',
+    use: 'Tabs, section nav, Descend on',
     avoid: 'Solid primary fill',
   },
   {
     rule: 'Control rest',
     token: 'signal-purple-bright',
-    use: 'Ghost buttons, menu rows, links, icon buttons',
-    avoid: 'Muted gray as default interactive color',
+    use: 'Ghost buttons, menus, links',
+    avoid: 'Gray as the default interactive color',
   },
 ] as const;
 
-/** Primary nav — foundations first, then interaction, then one components section */
 export const PRODUCTION_NAV = [
-  { id: 'start', label: 'Overview' },
-  { id: 'experience-modes', label: 'Experience' },
   { id: 'color', label: 'Color' },
   { id: 'type-ramp', label: 'Typography' },
   { id: 'interaction', label: 'Interaction' },
-  { id: 'motion-layout', label: 'Motion & layout' },
-  { id: 'components', label: 'Components' },
-] as const;
-
-/** In-page anchors inside the unified Components section */
-export const COMPONENT_SUBNAV = [
-  { id: 'components-in-context', label: 'In context' },
-  { id: 'components-building-blocks', label: 'Building blocks' },
-  { id: 'components-controls', label: 'Controls' },
-  { id: 'components-sections', label: 'Sections' },
-  { id: 'components-buttons', label: 'Buttons & forms' },
-  { id: 'components-tabs', label: 'Tabs' },
-  { id: 'components-overlays', label: 'Overlays' },
+  { id: 'experience-modes', label: 'Experience' },
+  { id: 'motion-layout', label: 'Motion' },
+  { id: 'playback', label: 'Playback' },
+  { id: 'navigation', label: 'Navigation' },
+  { id: 'editorial', label: 'Editorial' },
+  { id: 'tour', label: 'Tour' },
+  { id: 'gallery', label: 'Gallery' },
+  { id: 'overlays', label: 'Overlays' },
 ] as const;
 
 export const FOUNDATION_NAV = [
-  { id: 'foundation-cms', label: 'CMS & admin' },
-  { id: 'foundation-color', label: 'All colors' },
-  { id: 'foundation-type', label: 'Niche type' },
-  { id: 'foundation-tokens', label: 'Token API' },
-  { id: 'provenance', label: 'Provenance' },
+  { id: 'foundation-cms', label: 'CMS' },
+  { id: 'foundation-color', label: 'Colors' },
+  { id: 'foundation-type', label: 'Type' },
+  { id: 'foundation-tokens', label: 'Tokens' },
+  { id: 'foundation-classes', label: 'Classes' },
+  { id: 'source', label: 'Source' },
 ] as const;
 
-/** Ordered hierarchy: familiar H-level labels mapped to semantic tokens */
+/** Hierarchy a reviewer needs. Niche tokens live in Foundation. */
 export const TYPE_RAMP_HIERARCHY = [
   {
-    level: 'Display',
-    html: 'n/a',
-    token: 'gradientText',
-    classes: typography.gradientText,
-    sample: 'Gradient layer',
-    where: 'Applied with display tokens: titles, wordmark',
-  },
-  {
     level: 'Wordmark',
-    html: 'h3',
     token: 'displayWordmark',
     classes: typography.displayWordmark,
     sample: 'flACID',
-    where: 'Footer band name',
-  },
-  {
-    level: 'H1 accent',
-    html: 'h2',
-    token: 'titleSectionAccent',
-    classes: typography.titleSectionAccent,
-    sample: 'Discography',
-    where: 'Default section titles (pink)',
-  },
-  {
-    level: 'H1 gradient',
-    html: 'h2',
-    token: 'titleSectionGradient',
-    classes: typography.titleSectionGradient,
-    sample: 'Gallery',
-    where: 'Visuals / gallery section only',
+    where: 'Footer',
   },
   {
     level: 'H1',
-    html: 'h2',
-    token: 'titleSection',
-    classes: typography.titleSection,
-    sample: 'Gallery',
-    where: 'Base display size (pair with accent or gradient)',
-  },
-  {
-    level: 'H1 editorial',
-    html: 'h2',
-    token: 'titleEditorialAccent',
-    classes: typography.titleEditorialAccent,
-    sample: 'flACID',
-    where: 'About section title (left-aligned, pink)',
+    token: 'titleSectionAccent',
+    classes: typography.titleSectionAccent,
+    sample: 'Discography',
+    where: 'Section titles. Gallery uses the gradient instead.',
   },
   {
     level: 'H2',
-    html: 'h3',
     token: 'heading',
     classes: typography.heading,
     sample: 'Neon Tunnel',
-    where: 'Viz modal, tour venue name',
+    where: 'Modals, venue names',
   },
   {
     level: 'H3',
-    html: 'h3',
     token: 'cardTitle',
     classes: typography.cardTitle,
     sample: 'Chronicles Vol. I',
-    where: 'Album cards (hover → purple)',
+    where: 'Album cards',
   },
   {
     level: 'H4',
-    html: 'h4',
     token: 'subheading',
     classes: typography.subheading,
     sample: 'Connect',
-    where: 'Footer column headings',
+    where: 'Footer columns',
   },
   {
     level: 'Label',
-    html: 'span',
     token: 'label',
     classes: typography.label,
     sample: 'GALLERY',
-    where: 'Section eyebrows, viz index',
-  },
-  {
-    level: 'Date',
-    html: 'span',
-    token: 'dateDay',
-    classes: typography.dateDay,
-    sample: '14',
-    where: 'Tour ticket stub: day numeral',
+    where: 'Eyebrows',
   },
   {
     level: 'Lead',
-    html: 'p',
     token: 'lead',
     classes: typography.lead,
     sample: 'Sound from the void.',
-    where: 'About opening paragraph',
+    where: 'About intro',
   },
   {
     level: 'Body',
-    html: 'p',
     token: 'body',
     classes: typography.body,
-    sample: 'Editorial body copy for the band story.',
-    where: 'About prose',
-  },
-  {
-    level: 'Body small',
-    html: 'p',
-    token: 'bodySecondary',
-    classes: typography.bodySecondary,
-    sample: 'Subtitle under a section title.',
-    where: 'SectionHeader subtitle',
+    sample: 'Editorial body for the band story.',
+    where: 'About',
   },
   {
     level: 'Caption',
-    html: 'p',
     token: 'caption',
     classes: typography.caption,
     sample: 'Mar 2026 · Portland',
-    where: 'Tour city, album year, meta',
-  },
-  {
-    level: 'UI label',
-    html: 'span',
-    token: 'vizCardName',
-    classes: typography.vizCardName,
-    sample: 'Lite Brite Magic',
-    where: 'Visuals grid card title',
-  },
-  {
-    level: 'Mini player',
-    html: 'span',
-    token: 'miniPlayerTitle',
-    classes: typography.miniPlayerTitle,
-    sample: 'Neon Tunnel',
-    where: 'Mini player chip: track title',
+    where: 'Dates, album year',
   },
 ] as const;
 
@@ -409,14 +317,16 @@ export const PRODUCTION_BRAND_COLORS = [
 ] as const;
 
 export const COLOR_ROLE_NOTES = [
-  { role: 'Labels & nav active', token: 'neon-green', where: 'Eyebrows, section nav, gallery tabs, descend toggle on, viz numbers' },
+  { role: 'Labels & nav active', token: 'neon-green', where: 'Eyebrows, section nav, tabs, Descend on' },
   { role: 'Interactive rest', token: 'signal-purple-bright', where: 'Header, player chrome, links' },
-  { role: 'Interactive hover', token: 'neon-green', where: 'Buttons, menu rows, card hovers' },
-  { role: 'CTAs', token: 'primary', where: 'Play, tickets, newsletter submit' },
-  { role: 'Titles (accent)', token: 'hot-pink-bright', where: 'Discography, Tour, About section h2' },
-  { role: 'Titles (gradient)', token: 'gradient', where: 'Gallery h2, footer wordmark only' },
-  { role: 'Meta', token: 'muted-foreground', where: 'Dates, captions, tour city' },
+  { role: 'Interactive hover', token: 'neon-green', where: 'Buttons, menus, cards' },
+  { role: 'CTAs', token: 'primary', where: 'Play, tickets, newsletter' },
+  { role: 'Titles', token: 'hot-pink-bright', where: 'Section titles. Gallery uses the gradient.' },
+  { role: 'Meta', token: 'muted-foreground', where: 'Dates, captions' },
 ] as const;
+
+export const CTA_CONTRAST_NOTE =
+  'Primary CTA is darkened fuchsia so white type meets contrast.';
 
 export const FOUNDATION_COLOR_GROUPS = [
   {
@@ -443,31 +353,31 @@ export const FOUNDATION_COLOR_GROUPS = [
 type TypographyKey = keyof typeof typography;
 
 const TYPOGRAPHY_META: Record<TypographyKey, { sample: string; role: string; production?: boolean }> = {
-  gradientText: { sample: 'n/a', role: 'Brand gradient layer', production: true },
+  gradientText: { sample: 'n/a', role: 'Brand gradient layer', production: false },
   displayWordmark: { sample: 'flACID', role: 'Footer wordmark', production: true },
   titleSection: { sample: 'Gallery', role: 'Section H1 base size', production: false },
   titleSectionAccent: { sample: 'Discography', role: 'Section H1, centered (default)', production: true },
-  titleSectionGradient: { sample: 'Gallery', role: 'Section H1, Visuals tab only', production: true },
+  titleSectionGradient: { sample: 'Gallery', role: 'Gallery title only', production: false },
   titleEditorial: { sample: 'The Journey', role: 'Section H1 base, About', production: false },
-  titleEditorialAccent: { sample: 'flACID', role: 'About title (default)', production: true },
+  titleEditorialAccent: { sample: 'flACID', role: 'About title', production: false },
   titleEditorialGradient: { sample: 'The Journey', role: 'About title, gradient (rare)', production: false },
   heading: { sample: 'Neon Tunnel', role: 'H2, modals and tour venue', production: true },
   cardTitle: { sample: 'Album title', role: 'H3, discography cards', production: true },
   subheading: { sample: 'Connect', role: 'H4, footer columns', production: true },
   label: { sample: 'ABOUT', role: 'Eyebrows, viz index', production: true },
   dateWeekday: { sample: 'FRI', role: 'Ticket stub weekday', production: false },
-  dateDay: { sample: '14', role: 'Ticket stub day', production: true },
+  dateDay: { sample: '14', role: 'Ticket stub day', production: false },
   dateMonth: { sample: 'MAR', role: 'Ticket stub month', production: false },
   lead: { sample: 'Sound from the void.', role: 'About intro', production: true },
   body: { sample: 'Body copy for editorial sections.', role: 'About prose', production: true },
-  bodySecondary: { sample: 'Subtitle under section titles.', role: 'Section subtitles', production: true },
+  bodySecondary: { sample: 'Subtitle under section titles.', role: 'Section subtitles', production: false },
   inlineSecondary: { sample: 'vocals', role: 'Member tag role', production: false },
   caption: { sample: 'Mar 2026 · Portland', role: 'Tour meta, album year', production: true },
-  vizCardName: { sample: 'Lite Brite Magic', role: 'Visuals grid', production: true },
+  vizCardName: { sample: 'Lite Brite Magic', role: 'Visuals grid', production: false },
   vizCardHint: { sample: 'Preview', role: 'Viz card hover', production: false },
-  miniPlayerTitle: { sample: 'Neon Tunnel', role: 'Mini player track title', production: true },
+  miniPlayerTitle: { sample: 'Neon Tunnel', role: 'Mini player track title', production: false },
   miniPlayerTitleOnDark: { sample: 'Neon Tunnel', role: 'Mini player title on viz', production: false },
-  miniPlayerMeta: { sample: 'Chronicles Vol. I', role: 'Mini player subtitle', production: true },
+  miniPlayerMeta: { sample: 'Chronicles Vol. I', role: 'Mini player subtitle', production: false },
   miniPlayerMetaOnDark: { sample: 'Chronicles Vol. I', role: 'Mini player meta on viz', production: false },
   playerTrackTitle: { sample: 'Track title', role: 'Legacy player overlay, compact', production: false },
   playerTrackTitleLarge: { sample: 'Track title', role: 'Player overlay, fullscreen', production: false },
