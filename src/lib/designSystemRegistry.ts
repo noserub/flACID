@@ -53,15 +53,15 @@ export const DESIGN_SYSTEM_SOURCE_FILES = [
 
 export const DESIGN_INTENT = {
   product:
-    'Music-first band site: fullscreen viz, editorial About, tour tickets, and gallery.',
+    'A band site you listen to. Viz up front. About, tickets, and the gallery below.',
   themeName: 'Cosmic Signal',
   themeDefinition:
-    'Cosmic Signal is flACID’s visual language: void depth, purple signal, neon green life, and gradient voice on a music-driven canvas.',
+    'Void, purple, neon green, and a little pink. That’s the language.',
   principles: [
-    'Void base: depth without flat gray',
-    'Syne (display) + Instrument Sans (body). See TYPE_FONTS: fluid clamp scale in globals.css',
-    'Purple at rest → green on hover: one interactive language',
-    'Gradient reserved for Gallery title + footer wordmark; other section titles use pink accent',
+    'Void, not flat gray',
+    'Syne for titles. Instrument Sans for the rest.',
+    'Purple at rest, green when you mean it',
+    'Gradient only on Gallery and the wordmark',
   ],
 } as const;
 
@@ -156,7 +156,7 @@ export const RESPONSIVE_BEHAVIOR = [
     pattern: 'Descend',
     mobile: 'Hidden on phones.',
     desktop: 'Overflow menu, and in the header when supported.',
-    hidden: 'N/A',
+    hidden: 'Doesn’t hide on desktop.',
   },
 ] as const;
 
@@ -184,58 +184,53 @@ export const ACCESSIBILITY_NOTES = [
 ] as const;
 
 export const MOTION_POLICY = {
-  summary: 'Hovers and tabs use 300ms. Logo stutter and Descent are decorative.',
+  summary: 'Hovers and tabs take 300ms. The logo stutter and Descent are just for show.',
   tokens: [
-    { name: 'motion.fast', use: 'Small state changes' },
+    { name: 'motion.fast', use: 'Tiny state changes' },
     { name: 'motion.base', use: 'Hover, tabs, buttons' },
-    { name: 'motion.slow', use: 'Section entrances' },
+    { name: 'motion.slow', use: 'Sections arriving' },
   ],
-  reducedMotion: 'Decorative motion turns off when the OS asks for reduced motion.',
+  reducedMotion: 'If the OS wants less motion, the decorative stuff stops.',
 } as const;
 
 /** When to use which interactive language */
 export const INTERACTION_RULES = [
   {
-    rule: 'Primary CTA fill',
+    rule: 'The fill',
     token: 'primary / default button',
-    use: 'Play, tickets, newsletter. One per view.',
-    avoid: 'Tabs, sliders, nav, Descend on',
+    use: 'Play, tickets, newsletter. One on a screen.',
+    avoid: 'Tabs, sliders, nav, Descend',
   },
   {
-    rule: 'Nav active',
+    rule: 'Where you are',
     token: 'neon-green + purple wash',
-    use: 'Tabs, section nav, Descend on',
-    avoid: 'Solid primary fill',
+    use: 'Tabs, the dots, Descend on',
+    avoid: 'The Play color',
   },
   {
-    rule: 'Control rest',
+    rule: 'Everything else',
     token: 'signal-purple-bright',
-    use: 'Ghost buttons, menus, links',
-    avoid: 'Gray as the default interactive color',
+    use: 'Skip, menus, links',
+    avoid: 'Gray. It dies on this background.',
   },
 ] as const;
 
 export const PRODUCTION_NAV = [
-  { id: 'color', label: 'Color' },
-  { id: 'type-ramp', label: 'Typography' },
-  { id: 'interaction', label: 'Interaction' },
-  { id: 'experience-modes', label: 'Experience' },
-  { id: 'motion-layout', label: 'Motion' },
-  { id: 'playback', label: 'Playback' },
-  { id: 'navigation', label: 'Navigation' },
-  { id: 'editorial', label: 'Editorial' },
-  { id: 'tour', label: 'Tour' },
-  { id: 'gallery', label: 'Gallery' },
-  { id: 'overlays', label: 'Overlays' },
+  { id: 'laws', label: 'Rules' },
+  { id: 'interaction', label: 'The fill' },
+  { id: 'modes', label: 'Same chrome' },
 ] as const;
 
 export const FOUNDATION_NAV = [
-  { id: 'foundation-cms', label: 'CMS' },
+  { id: 'foundation-buttons', label: 'Buttons' },
   { id: 'foundation-color', label: 'Colors' },
   { id: 'foundation-type', label: 'Type' },
+  { id: 'foundation-motion', label: 'Motion' },
+  { id: 'foundation-surfaces', label: 'The site' },
+  { id: 'foundation-cms', label: 'Edit mode' },
   { id: 'foundation-tokens', label: 'Tokens' },
   { id: 'foundation-classes', label: 'Classes' },
-  { id: 'source', label: 'Source' },
+  { id: 'source', label: 'Files' },
 ] as const;
 
 /** Hierarchy a reviewer needs. Niche tokens live in Foundation. */
@@ -252,7 +247,7 @@ export const TYPE_RAMP_HIERARCHY = [
     token: 'titleSectionAccent',
     classes: typography.titleSectionAccent,
     sample: 'Discography',
-    where: 'Section titles. Gallery uses the gradient instead.',
+    where: 'Section titles. Gallery gets the gradient.',
   },
   {
     level: 'H2',
@@ -293,7 +288,7 @@ export const TYPE_RAMP_HIERARCHY = [
     level: 'Body',
     token: 'body',
     classes: typography.body,
-    sample: 'Editorial body for the band story.',
+    sample: 'The band story.',
     where: 'About',
   },
   {
@@ -317,20 +312,20 @@ export const PRODUCTION_BRAND_COLORS = [
 ] as const;
 
 export const COLOR_ROLE_NOTES = [
-  { role: 'Labels & nav active', token: 'neon-green', where: 'Eyebrows, section nav, tabs, Descend on' },
-  { role: 'Interactive rest', token: 'signal-purple-bright', where: 'Header, player chrome, links' },
-  { role: 'Interactive hover', token: 'neon-green', where: 'Buttons, menus, cards' },
-  { role: 'CTAs', token: 'primary', where: 'Play, tickets, newsletter' },
-  { role: 'Titles', token: 'hot-pink-bright', where: 'Section titles. Gallery uses the gradient.' },
-  { role: 'Meta', token: 'muted-foreground', where: 'Dates, captions' },
+  { role: 'Where you are', token: 'neon-green', where: 'Eyebrows, nav, tabs, Descend on' },
+  { role: 'At rest', token: 'signal-purple-bright', where: 'Header, player, links' },
+  { role: 'Hover', token: 'neon-green', where: 'Buttons, menus, cards' },
+  { role: 'The fill', token: 'primary', where: 'Play, tickets, newsletter' },
+  { role: 'Titles', token: 'hot-pink-bright', where: 'Section titles. Gallery gets the gradient.' },
+  { role: 'Fine print', token: 'muted-foreground', where: 'Dates, captions' },
 ] as const;
 
 export const CTA_CONTRAST_NOTE =
-  'Primary CTA is darkened fuchsia so white type meets contrast.';
+  'Play is a darker fuchsia so the white type holds up.';
 
 export const FOUNDATION_COLOR_GROUPS = [
   {
-    group: 'Derived fills',
+    group: 'Washes',
     vars: [
       'signal-purple-subtle',
       'signal-purple-muted',
@@ -341,11 +336,11 @@ export const FOUNDATION_COLOR_GROUPS = [
     ],
   },
   {
-    group: 'Glow sources',
+    group: 'Glows',
     vars: ['signal-purple-glow', 'neon-green-glow', 'hot-pink-glow'],
   },
   {
-    group: 'Extended brand',
+    group: 'The rest',
     vars: ['neon-green-dim', 'hot-pink-bright', 'card', 'muted', 'destructive', 'success'],
   },
 ] as const;

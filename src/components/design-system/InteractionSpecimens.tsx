@@ -4,7 +4,7 @@ import { Button } from '../ui/button';
 import { Slider } from '../ui/slider';
 import { Tabs, TabsList, TabsTrigger } from '../ui/tabs';
 import { cn } from '../ui/utils';
-import { INTERACTION_RULES, PRODUCTION_BUTTON_VARIANTS } from '../../lib/designSystemRegistry';
+import { INTERACTION_RULES } from '../../lib/designSystemRegistry';
 
 function CompareCard({
   verdict,
@@ -31,7 +31,7 @@ function CompareCard({
             : 'border-destructive/25 text-destructive bg-destructive/10'
         )}
       >
-        {isUse ? 'Use' : 'Avoid'}
+        {isUse ? 'This' : 'Not this'}
       </div>
       <div className="p-4 space-y-3">
         <p className="text-sm font-medium text-foreground">{title}</p>
@@ -47,7 +47,7 @@ export function InteractionSpecimens() {
       <div className="space-y-4">
         <p className="text-sm font-medium text-neon-green">{INTERACTION_RULES[0].rule}</p>
         <div className="grid gap-4 lg:grid-cols-2">
-          <CompareCard verdict="use" title="Play, tickets, newsletter">
+          <CompareCard verdict="use" title="Play, tickets, the email signup">
             <div className="flex flex-wrap gap-2">
               <Button size="sm">
                 <Play className="size-4" />
@@ -59,7 +59,7 @@ export function InteractionSpecimens() {
               </Button>
             </div>
           </CompareCard>
-          <CompareCard verdict="avoid" title="Selection is not a CTA">
+          <CompareCard verdict="avoid" title="A selected tab">
             <div className="flex gap-1 max-w-xs">
               <span className="flex-1 rounded-md px-3 py-2 text-sm text-center text-primary-foreground bg-primary opacity-60 line-through">
                 Visuals
@@ -74,7 +74,7 @@ export function InteractionSpecimens() {
 
       <div className="space-y-4">
         <p className="text-sm font-medium text-neon-green">{INTERACTION_RULES[1].rule}</p>
-        <CompareCard verdict="use" title="Tabs, section nav, Descend on">
+        <CompareCard verdict="use" title="Tabs, the dots, Descend on">
           <Tabs defaultValue="1">
             <TabsList className="grid grid-cols-2 w-full max-w-xs">
               <TabsTrigger value="0">Photos</TabsTrigger>
@@ -87,7 +87,7 @@ export function InteractionSpecimens() {
       <div className="space-y-4">
         <p className="text-sm font-medium text-neon-green">{INTERACTION_RULES[2].rule}</p>
         <div className="grid gap-4 lg:grid-cols-2">
-          <CompareCard verdict="use" title="Ghost and outline">
+          <CompareCard verdict="use" title="Skip, volume, links">
             <div className="flex flex-wrap gap-2">
               <Button variant="ghost" size="sm">
                 Skip
@@ -97,30 +97,13 @@ export function InteractionSpecimens() {
               </Button>
             </div>
           </CompareCard>
-          <CompareCard verdict="avoid" title="Primary on a slider">
+          <CompareCard verdict="avoid" title="Filling a slider">
             <div className="flex flex-wrap items-center gap-4">
               <Slider value={[55]} max={100} className="max-w-xs" aria-label="Volume" />
               <div className="w-32 h-2 rounded-full bg-primary/80 opacity-70" aria-hidden />
             </div>
           </CompareCard>
         </div>
-      </div>
-
-      <div className="space-y-3">
-        {PRODUCTION_BUTTON_VARIANTS.map((variant) => (
-          <div key={variant} className="flex flex-wrap items-center gap-2">
-            <span className="w-16 text-[11px] uppercase tracking-wide text-muted-foreground">
-              {variant}
-            </span>
-            <Button variant={variant} size="sm">
-              Small
-            </Button>
-            <Button variant={variant}>Default</Button>
-            <Button variant={variant} disabled>
-              Disabled
-            </Button>
-          </div>
-        ))}
       </div>
     </div>
   );

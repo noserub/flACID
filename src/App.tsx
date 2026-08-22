@@ -16,7 +16,6 @@ import { SectionNavMobile } from './components/SectionNavMobile';
 import { StagePage } from './pages/StagePage';
 import { VizCapturePage } from './pages/VizCapturePage';
 import { DesignSystemPage } from './pages/DesignSystemPage';
-import { CaseStudyPage } from './pages/CaseStudyPage';
 import { Toaster } from './components/ui/sonner';
 
 // Lazy load below-the-fold sections
@@ -141,8 +140,6 @@ export default function App() {
         <VizCapturePage />
       ) : pathname === '/design-system' ? (
         <DesignSystemPage />
-      ) : pathname === '/case-study' ? (
-        <CaseStudyPage />
       ) : (
         <>
           <EditModeProvider>

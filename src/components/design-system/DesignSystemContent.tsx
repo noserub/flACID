@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo } from 'react';
 import {
   Accordion,
   AccordionContent,
@@ -19,16 +19,16 @@ import {
   TourSpecimens,
 } from './PatternSpecimens';
 import { InteractionSpecimens } from './InteractionSpecimens';
-import { ExperienceModesSpecimen } from './ExperienceModesSpecimen';
 import { MotionLayoutSpecimen } from './MotionLayoutSpecimen';
 import { PlaybackSpecimens } from './ContextCompositesSpecimen';
 import { BrandPatternsSpecimen } from './BrandPatternsSpecimen';
+import { LawsSpecimen } from './LawsSpecimen';
+import { PressureSequence } from './PressureSequence';
 import { getCssVar } from '../../hooks/useCssVar';
-import { gradientText, displayWordmark, pageTitle, titleSectionAccent, titleSectionGradient } from '../../lib/typography';
+import { gradientText, displayWordmark, pageTitle } from '../../lib/typography';
 import {
   ADMIN_BUTTON_VARIANTS,
   COLOR_ROLE_NOTES,
-  CTA_CONTRAST_NOTE,
   DESIGN_INTENT,
   DESIGN_SYSTEM_SOURCE_FILES,
   EDITOR_PATTERNS,
@@ -37,14 +37,12 @@ import {
   FOUNDATION_TYPE_SCALE,
   LAYOUT_TOKENS,
   PRODUCTION_BRAND_COLORS,
-  PRODUCTION_GRADIENTS,
+  PRODUCTION_BUTTON_VARIANTS,
   PRODUCTION_NAV,
   RADIUS_TOKENS,
   SEMANTIC_COLOR_MAPS,
   TYPE_RAMP_HIERARCHY,
 } from '../../lib/designSystemRegistry';
-
-type ViewMode = 'production' | 'foundation';
 
 function typeSampleClasses(token: string, classes: string) {
   if (token === 'displayWordmark') return cn(displayWordmark, gradientText);
@@ -92,13 +90,25 @@ function SemanticMapTable({
   );
 }
 
+function viewHref(foundation: boolean, embed: boolean) {
+  const params = new URLSearchParams();
+  if (embed) params.set('embed', '1');
+  if (foundation) params.set('foundation', '1');
+  const query = params.toString();
+  return query ? `/design-system?${query}` : '/design-system';
+}
+
 interface DesignSystemContentProps {
   embed?: boolean;
 }
 
 export function DesignSystemContent({ embed = false }: DesignSystemContentProps) {
-  const [view, setView] = useState<ViewMode>('production');
-  const nav = view === 'production' ? PRODUCTION_NAV : FOUNDATION_NAV;
+  const foundation = useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    return new URLSearchParams(window.location.search).get('foundation') === '1';
+  }, []);
+
+  const nav = foundation ? FOUNDATION_NAV : PRODUCTION_NAV;
 
   return (
     <div
@@ -111,52 +121,43 @@ export function DesignSystemContent({ embed = false }: DesignSystemContentProps)
         <TextLabel>Design system</TextLabel>
         <h1 className={cn(pageTitle, gradientText)}>flACID</h1>
         <p className="text-sm font-hero text-signal-purple-bright/90">{DESIGN_INTENT.themeName}</p>
-        <p className="text-sm text-foreground/75 max-w-xl">
-          {DESIGN_INTENT.product}{' '}
-          <a
-            href="/case-study"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-neon-green hover:underline"
-          >
-            Case study
-          </a>
-        </p>
+        <p className="text-sm text-foreground/75 max-w-xl">{DESIGN_INTENT.product}</p>
+        <div className="pt-2 flex flex-wrap gap-2" role="tablist" aria-label="Design system view">
+            <a
+              href={viewHref(false, embed)}
+              role="tab"
+              aria-selected={!foundation}
+              className={cn(
+                'rounded-full px-4 py-1.5 text-xs font-medium uppercase tracking-wide border transition-colors',
+                !foundation
+                  ? 'bg-neon-green/15 text-neon-green border-neon-green/40'
+                  : 'text-signal-purple-bright border-signal-purple/30 hover:text-foreground'
+              )}
+            >
+              How it works
+            </a>
+            <a
+              href={viewHref(true, embed)}
+              role="tab"
+              aria-selected={foundation}
+              className={cn(
+                'rounded-full px-4 py-1.5 text-xs font-medium uppercase tracking-wide border transition-colors',
+                foundation
+                  ? 'bg-signal-purple/20 text-signal-purple-bright border-signal-purple/40'
+                  : 'text-muted-foreground border-border/50 hover:text-foreground'
+              )}
+            >
+              The UI
+            </a>
+        </div>
       </header>
 
       <div
         className={cn(
-          'sticky z-20 -mx-4 mb-8 space-y-3 border-b border-signal-purple/20 bg-void/92 px-4 py-3 backdrop-blur-md sm:-mx-6 sm:px-6',
+          'sticky z-20 -mx-4 mb-8 border-b border-signal-purple/20 bg-void/92 px-4 py-3 backdrop-blur-md sm:-mx-6 sm:px-6',
           embed ? 'top-0' : 'top-[53px]'
         )}
       >
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setView('production')}
-            className={cn(
-              'rounded-full px-4 py-1.5 text-xs font-medium uppercase tracking-wide transition-colors',
-              view === 'production'
-                ? 'bg-neon-green/15 text-neon-green border border-neon-green/40'
-                : 'text-signal-purple-bright border border-signal-purple/30 hover:text-foreground'
-            )}
-          >
-            On the site
-          </button>
-          <button
-            type="button"
-            onClick={() => setView('foundation')}
-            className={cn(
-              'rounded-full px-4 py-1.5 text-xs font-medium uppercase tracking-wide transition-colors',
-              view === 'foundation'
-                ? 'bg-signal-purple/20 text-signal-purple-bright border border-signal-purple/40'
-                : 'text-muted-foreground border border-border/50 hover:text-foreground'
-            )}
-          >
-            Foundation
-          </button>
-        </div>
-
         <nav aria-label="Sections" className="flex flex-wrap gap-1.5">
           {nav.map(({ id, label: navLabel }) => (
             <a
@@ -170,60 +171,55 @@ export function DesignSystemContent({ embed = false }: DesignSystemContentProps)
         </nav>
       </div>
 
-      {view === 'production' ? (
+      {foundation ? (
         <div className="space-y-8">
-          <SpecimenCard id="color" title="Color">
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <SpecimenCard id="foundation-buttons" title="Buttons">
+            <div className="space-y-3">
+              {PRODUCTION_BUTTON_VARIANTS.map((variant) => (
+                <div key={variant} className="flex flex-wrap items-center gap-2">
+                  <span className="w-16 text-[11px] uppercase tracking-wide text-muted-foreground">
+                    {variant}
+                  </span>
+                  <Button variant={variant} size="sm">
+                    Small
+                  </Button>
+                  <Button variant={variant}>Default</Button>
+                  <Button variant={variant} disabled>
+                    Disabled
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </SpecimenCard>
+
+          <SpecimenCard id="foundation-color" title="Colors">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 mb-6">
               {PRODUCTION_BRAND_COLORS.map(({ var: v, label: l }) => (
                 <CompactSwatch key={v} cssVar={v} label={l} />
               ))}
             </div>
-            <div className="mt-6 grid gap-2 sm:grid-cols-2">
+            <div className="grid gap-2 sm:grid-cols-2 mb-6">
               {COLOR_ROLE_NOTES.map((row) => (
-                <div
-                  key={row.role}
-                  className="rounded-lg border border-border/40 bg-muted/20 px-3 py-2.5"
-                >
+                <div key={row.role} className="rounded-lg border border-border/40 bg-muted/20 px-3 py-2.5">
                   <p className="text-sm font-medium text-foreground">{row.role}</p>
                   <p className="text-[11px] text-muted-foreground mt-0.5">{row.where}</p>
                 </div>
               ))}
             </div>
-            <div className="mt-6 grid gap-3 sm:grid-cols-3">
-              <div>
-                <p className="text-[11px] text-muted-foreground mb-1.5">Section title</p>
-                <p className={titleSectionAccent}>Discography</p>
-              </div>
-              <div>
-                <p className="text-[11px] text-muted-foreground mb-1.5">Gallery title</p>
-                <p className={titleSectionGradient}>Gallery</p>
-              </div>
-              {PRODUCTION_GRADIENTS.filter((g) => g.key !== 'brandText').map(({ key, label: l, classes }) => (
-                <div key={key}>
-                  <p className="text-[11px] text-muted-foreground mb-1.5">{l}</p>
-                  <div className={cn('h-14 rounded-lg border border-border/40', classes)} />
+            {FOUNDATION_COLOR_GROUPS.map((group) => (
+              <div key={group.group} className="mb-6 last:mb-0">
+                <h3 className="text-sm font-medium text-foreground mb-3">{group.group}</h3>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {group.vars.map((v) => (
+                    <CompactSwatch key={v} cssVar={v} label={v} />
+                  ))}
                 </div>
-              ))}
-            </div>
-            <p className="mt-6 text-xs text-muted-foreground">{CTA_CONTRAST_NOTE}</p>
+              </div>
+            ))}
           </SpecimenCard>
 
-          <SpecimenCard id="type-ramp" title="Typography">
-            <div className="mb-6 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-lg border border-border/40 bg-muted/15 px-4 py-3">
-                <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-2">Syne</p>
-                <p className={cn('font-hero type-display-section tracking-tight text-hot-pink-bright')}>
-                  Discography
-                </p>
-              </div>
-              <div className="rounded-lg border border-border/40 bg-muted/15 px-4 py-3">
-                <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-2">
-                  Instrument Sans
-                </p>
-                <p className="font-body type-body text-foreground">Sound from the void.</p>
-              </div>
-            </div>
-            <div className="overflow-x-auto rounded-lg border border-border/40">
+          <SpecimenCard id="foundation-type" title="Type">
+            <div className="overflow-x-auto rounded-lg border border-border/40 mb-6">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border/50 bg-muted/30 text-left text-[11px] uppercase tracking-wide text-muted-foreground">
@@ -247,47 +243,51 @@ export function DesignSystemContent({ embed = false }: DesignSystemContentProps)
                 </tbody>
               </table>
             </div>
+            <div className="space-y-4">
+              {FOUNDATION_TYPE_SCALE.map(({ key, classes, sample, role }) => (
+                <div key={key} className="flex flex-col gap-1 border-b border-border/30 pb-3 last:border-0">
+                  <TokenName name={key} />
+                  <p className={classes}>{sample}</p>
+                  <p className="text-[11px] text-muted-foreground">{role}</p>
+                </div>
+              ))}
+            </div>
           </SpecimenCard>
 
-          <SpecimenCard id="interaction" title="When to use what">
-            <InteractionSpecimens />
-          </SpecimenCard>
-
-          <SpecimenCard id="experience-modes" title="Experience modes">
-            <ExperienceModesSpecimen />
-          </SpecimenCard>
-
-          <SpecimenCard id="motion-layout" title="Motion">
+          <SpecimenCard id="foundation-motion" title="Motion">
             <MotionLayoutSpecimen />
           </SpecimenCard>
 
-          <SpecimenCard id="playback" title="Playback">
-            <PlaybackSpecimens />
+          <SpecimenCard id="foundation-surfaces" title="The site">
+            <div className="space-y-10">
+              <div>
+                <h3 className="text-sm font-medium text-foreground mb-4">Playback</h3>
+                <PlaybackSpecimens />
+              </div>
+              <div>
+                <h3 className="text-sm font-medium text-foreground mb-4">Navigation</h3>
+                <NavigationSpecimens />
+              </div>
+              <div>
+                <h3 className="text-sm font-medium text-foreground mb-4">Editorial</h3>
+                <EditorialSpecimens />
+              </div>
+              <div>
+                <h3 className="text-sm font-medium text-foreground mb-4">Tour</h3>
+                <TourSpecimens />
+              </div>
+              <div>
+                <h3 className="text-sm font-medium text-foreground mb-4">Gallery</h3>
+                <GallerySpecimens />
+              </div>
+              <div>
+                <h3 className="text-sm font-medium text-foreground mb-4">Overlays</h3>
+                <OverlaySpecimens />
+              </div>
+            </div>
           </SpecimenCard>
 
-          <SpecimenCard id="navigation" title="Navigation">
-            <NavigationSpecimens />
-          </SpecimenCard>
-
-          <SpecimenCard id="editorial" title="Editorial">
-            <EditorialSpecimens />
-          </SpecimenCard>
-
-          <SpecimenCard id="tour" title="Tour">
-            <TourSpecimens />
-          </SpecimenCard>
-
-          <SpecimenCard id="gallery" title="Gallery">
-            <GallerySpecimens />
-          </SpecimenCard>
-
-          <SpecimenCard id="overlays" title="Overlays">
-            <OverlaySpecimens />
-          </SpecimenCard>
-        </div>
-      ) : (
-        <div className="space-y-8">
-          <SpecimenCard id="foundation-cms" title="CMS">
+          <SpecimenCard id="foundation-cms" title="Edit mode">
             <CmsSpecimens />
             <div className="mt-6 space-y-4 border-t border-border/40 pt-6">
               <div className="flex flex-wrap gap-2">
@@ -308,31 +308,6 @@ export function DesignSystemContent({ embed = false }: DesignSystemContentProps)
                   </Button>
                 ))}
               </div>
-            </div>
-          </SpecimenCard>
-
-          <SpecimenCard id="foundation-color" title="Colors">
-            {FOUNDATION_COLOR_GROUPS.map((group) => (
-              <div key={group.group} className="mb-6 last:mb-0">
-                <h3 className="text-sm font-medium text-foreground mb-3">{group.group}</h3>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                  {group.vars.map((v) => (
-                    <CompactSwatch key={v} cssVar={v} label={v} />
-                  ))}
-                </div>
-              </div>
-            ))}
-          </SpecimenCard>
-
-          <SpecimenCard id="foundation-type" title="Type">
-            <div className="space-y-4">
-              {FOUNDATION_TYPE_SCALE.map(({ key, classes, sample, role }) => (
-                <div key={key} className="flex flex-col gap-1 border-b border-border/30 pb-3 last:border-0">
-                  <TokenName name={key} />
-                  <p className={classes}>{sample}</p>
-                  <p className="text-[11px] text-muted-foreground">{role}</p>
-                </div>
-              ))}
             </div>
           </SpecimenCard>
 
@@ -373,7 +348,7 @@ export function DesignSystemContent({ embed = false }: DesignSystemContentProps)
             <BrandPatternsSpecimen />
           </SpecimenCard>
 
-          <SpecimenCard id="source" title="Source">
+          <SpecimenCard id="source" title="Files">
             <ul className="space-y-1.5 font-mono text-xs text-foreground/75">
               {DESIGN_SYSTEM_SOURCE_FILES.map((file) => (
                 <li key={file} className="flex gap-2">
@@ -382,6 +357,20 @@ export function DesignSystemContent({ embed = false }: DesignSystemContentProps)
                 </li>
               ))}
             </ul>
+          </SpecimenCard>
+        </div>
+      ) : (
+        <div className="space-y-8">
+          <SpecimenCard id="laws" title="Rules">
+            <LawsSpecimen />
+          </SpecimenCard>
+
+          <SpecimenCard id="interaction" title="The fill">
+            <InteractionSpecimens />
+          </SpecimenCard>
+
+          <SpecimenCard id="modes" title="Same chrome">
+            <PressureSequence />
           </SpecimenCard>
         </div>
       )}

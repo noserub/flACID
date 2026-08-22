@@ -5,7 +5,7 @@
  */
 
 import { useMemo } from 'react';
-import { ArrowLeft, ExternalLink } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { DesignSystemContent } from '../components/design-system/DesignSystemContent';
 import { Button } from '../components/ui/button';
 
@@ -25,17 +25,11 @@ export function DesignSystemPage() {
       <div className="pointer-events-none fixed inset-0 section-cosmic-grain opacity-20" aria-hidden />
       {!embed && (
         <header className="sticky top-0 z-30 border-b border-signal-purple/20 bg-void/90 backdrop-blur-md">
-          <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
+          <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3 sm:px-6">
             <Button variant="ghost" size="sm" asChild>
               <a href="/">
                 <ArrowLeft className="size-4" />
                 Back to site
-              </a>
-            </Button>
-            <Button variant="outline" size="sm" asChild>
-              <a href="/case-study" target="_blank" rel="noopener noreferrer">
-                Case study
-                <ExternalLink className="size-3.5 opacity-70" />
               </a>
             </Button>
           </div>
