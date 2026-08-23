@@ -121,7 +121,6 @@ export function DesignSystemContent({ embed = false }: DesignSystemContentProps)
         <TextLabel>Design system</TextLabel>
         <h1 className={cn(pageTitle, gradientText)}>flACID</h1>
         <p className="text-sm font-hero text-signal-purple-bright/90">{DESIGN_INTENT.themeName}</p>
-        <p className="text-sm text-foreground/75 max-w-xl">{DESIGN_INTENT.product}</p>
         <div className="pt-2 flex flex-wrap gap-2" role="tablist" aria-label="Design system view">
             <a
               href={viewHref(false, embed)}

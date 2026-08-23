@@ -52,8 +52,6 @@ export const DESIGN_SYSTEM_SOURCE_FILES = [
 ] as const;
 
 export const DESIGN_INTENT = {
-  product:
-    'A band site you listen to. Viz up front. About, tickets, and the gallery below.',
   themeName: 'Cosmic Signal',
   themeDefinition:
     'Void, purple, neon green, and a little pink. That’s the language.',
