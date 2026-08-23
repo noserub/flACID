@@ -323,9 +323,8 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
 
   const syncAnalysisElement = useCallback(
     (opts?: { play?: boolean }) => {
-      const playEl = playbackAudioRef.current;
       const analysis = analysisAudioRef.current;
-      if (!playEl || !analysis || !isAnalysisAudioActive) return;
+      if (!analysis || !isAnalysisAudioActive) return;
 
       const url = currentTrackUrl;
       if (!url) {
@@ -334,15 +333,17 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      const playEl = playbackAudioRef.current;
+      const playSrc = playEl?.currentSrc || playEl?.src || url;
       const analysisSrc = analysis.currentSrc || analysis.getAttribute('src') || '';
-      if (!analysisSrc || analysisSrc !== (playEl.currentSrc || playEl.src) ) {
-        analysis.crossOrigin = 'anonymous';
+      if (analysis.crossOrigin !== 'anonymous') analysis.crossOrigin = 'anonymous';
+      if (!analysisSrc || analysisSrc !== playSrc) {
         analysis.src = url;
         analysis.load();
       }
 
       try {
-        if (Number.isFinite(playEl.currentTime)) {
+        if (playEl && Number.isFinite(playEl.currentTime)) {
           if (Math.abs(analysis.currentTime - playEl.currentTime) > 0.3) {
             analysis.currentTime = playEl.currentTime;
           }
@@ -360,9 +361,8 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     [currentTrackUrl, isAnalysisAudioActive]
   );
 
-  // After analysis remount, re-bind src and follow audible transport.
   useEffect(() => {
-    if (analysisEpoch === 0 || !isAnalysisAudioActive) return;
+    if (!isAnalysisAudioActive) return;
     syncAnalysisElement({ play: isPlayingRef.current });
   }, [analysisEpoch, isAnalysisAudioActive, syncAnalysisElement]);
 
@@ -905,7 +905,12 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const resumeAudioContextIfNeeded = useCallback(() => {
-    // Must run in the user-gesture stack on iOS/Android or Web Audio stays suspended (silent).
+    // Create + resume in the same gesture as Play. If we wait for useEffect,
+    // Chrome leaves the analysis context suspended and FFT bins stay at 0.
+    const analysisCtx = getOrCreatePlaybackAudioContext();
+    if (analysisCtx && analysisCtx.state !== 'running') {
+      void analysisCtx.resume().catch(() => {});
+    }
     void resumeAudioContext();
   }, []);
 
@@ -1262,6 +1267,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
 
       const el = playbackAudioRef.current ?? getPlaybackElement();
       playbackAudioRef.current = el;
+      syncAnalysisElement({ play: true });
 
       const switching = currentTrack !== targetIndex;
       if (switching) {
@@ -1347,6 +1353,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       isFullscreen,
       resumeAudioContextIfNeeded,
       activatePlaybackSession,
+      syncAnalysisElement,
     ]
   );
 
@@ -1552,6 +1559,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
         <audio
           key={analysisEpoch}
           ref={analysisAudioRef}
+          crossOrigin="anonymous"
           preload={currentTrackUrl && isAnalysisAudioActive ? 'auto' : 'none'}
           playsInline
           disableRemotePlayback

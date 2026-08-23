@@ -45,7 +45,8 @@ export function PlaybackAnalyserBridge() {
 
     const audio = analysisAudioRef?.current;
     const url = currentTrackData?.url?.trim();
-    if (!audio || !url || !isAudioReady) {
+    const hasSrc = Boolean(audio?.currentSrc || audio?.getAttribute('src'));
+    if (!audio || !url || !hasSrc || !isAudioReady) {
       setAnalyserForViz(null);
       setAnalyser(null);
       return;

@@ -203,27 +203,36 @@ export function PsychedelicVisualizer({
 
       if (analyser && isPlaying) {
         analyser.getByteFrequencyData(dataArray);
-        const subBassRange = Math.floor(bufferLength * 0.03);
-        const bassRange = Math.floor(bufferLength * 0.1);
-        const lowMidRange = Math.floor(bufferLength * 0.15);
-        const midRange = Math.floor(bufferLength * 0.4);
-        const highMidRange = Math.floor(bufferLength * 0.6);
-        const highRange = Math.floor(bufferLength * 0.8);
-        const getAverage = (start: number, end: number) => {
-          let sum = 0;
-          for (let i = start; i < end; i++) sum += dataArray[i];
-          return sum / (end - start);
-        };
-        eq = {
-          subBass: getAverage(0, subBassRange),
-          bass: getAverage(subBassRange, bassRange),
-          lowMid: getAverage(bassRange, lowMidRange),
-          mid: getAverage(lowMidRange, midRange),
-          highMid: getAverage(midRange, highMidRange),
-          high: getAverage(highMidRange, highRange),
-          presence: getAverage(highRange, bufferLength),
-          energy: getAverage(0, bufferLength),
-        };
+        let fftPeak = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+          if (dataArray[i] > fftPeak) fftPeak = dataArray[i];
+        }
+        if (fftPeak < 1) {
+          eq = generateEQData(dataArray, currentTrack, musicTimeRef.current, time);
+          musicTimeRef.current += 100;
+        } else {
+          const subBassRange = Math.floor(bufferLength * 0.03);
+          const bassRange = Math.floor(bufferLength * 0.1);
+          const lowMidRange = Math.floor(bufferLength * 0.15);
+          const midRange = Math.floor(bufferLength * 0.4);
+          const highMidRange = Math.floor(bufferLength * 0.6);
+          const highRange = Math.floor(bufferLength * 0.8);
+          const getAverage = (start: number, end: number) => {
+            let sum = 0;
+            for (let i = start; i < end; i++) sum += dataArray[i];
+            return sum / (end - start);
+          };
+          eq = {
+            subBass: getAverage(0, subBassRange),
+            bass: getAverage(subBassRange, bassRange),
+            lowMid: getAverage(bassRange, lowMidRange),
+            mid: getAverage(lowMidRange, midRange),
+            highMid: getAverage(midRange, highMidRange),
+            high: getAverage(highMidRange, highRange),
+            presence: getAverage(highRange, bufferLength),
+            energy: getAverage(0, bufferLength),
+          };
+        }
       } else if (isPlaying) {
         eq = generateEQData(dataArray, currentTrack, musicTimeRef.current, time);
         musicTimeRef.current += 100;
